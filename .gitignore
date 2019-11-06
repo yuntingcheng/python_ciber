@@ -1,0 +1,8 @@
+*.png
+*.gif
+*.txt
+*.csv
+*pyc
+**.ipynb_checkpoints
+**__pycache__
+**.DS_Store
