@@ -1,3 +1,4 @@
+from ciber_info import *
 import numpy as np
 
 mypaths = {'alldat':'/Users/ytcheng/ciber/doc/20170325_alldat/'}

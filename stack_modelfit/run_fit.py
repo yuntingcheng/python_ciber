@@ -1,3 +1,4 @@
+from ciber_info import *
 from utils import * 
 from scipy import interpolate
 from scipy.signal import fftconvolve
@@ -62,6 +63,7 @@ class fit_stacking_mcmc:
         self.profpsf_arr = profpsf_arr
         self.psfwin_map = psfwin_map
         self.r_weight = np.array(data['r_weight'])
+        self.dof_data = len(profd_arr)
         
     def get_profexcess_model(self, **kwargs):
         dx = 1200
@@ -94,13 +96,10 @@ class fit_stacking_mcmc:
         chi2 = D@Covi@D.T
         return chi2[0,0]
     
-    def _log_likelihood(self, theta, d, Covi):
+    def _log_likelihood(self, theta):
         xe2, Aclus = theta
-        profex_arr = self.get_profexcess_model(xe2 = xe2)
-        D = profex_arr + Aclus*self.profclus_arr - d
-        D = D[np.newaxis,...]
-        chi2 = D@Covi@D.T
-        return -chi2/2
+        chi2 = self.get_chi2(xe2=xe2, Aclus=Aclus)
+        return np.array([[-chi2/2]])
 
     def _log_prior(self, theta):
         xe2, Aclus = theta
@@ -108,11 +107,11 @@ class fit_stacking_mcmc:
             return 0.
         return -np.inf
 
-    def _log_prob(self, theta, d, Covi):
+    def _log_prob(self, theta):
         lp = self._log_prior(theta)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self._log_likelihood(theta, d, Covi)
+        return lp + self._log_likelihood(theta)
 
     def run_mcmc(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
                 save_chain=True, savedir = None, savename=None):
@@ -121,8 +120,7 @@ class fit_stacking_mcmc:
         p02 = np.random.uniform(0.0, 100, nwalkers)
         p0 = np.stack((p01, p02), axis=1)
         with Pool() as pool:
-            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob, 
-                                            args=(self.profd_arr, self.Covi), pool=pool)
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob, pool=pool)
             sampler.run_mcmc(p0, steps, progress=True)
         
         if save_chain:
@@ -146,6 +144,89 @@ def run_mcmc_fit(inst, ifield, im, **kwargs):
     
     print('MCMC fit 2 params for TM%d %s %d < m < %d'\
           %(param_fit.inst, param_fit.field, param_fit.m_min, param_fit.m_max))
+    
+    param_fit.run_mcmc(**kwargs)
+    return param_fit
+
+
+
+class joint_fit_mcmc:
+    '''
+    joint fit the params 
+    '''
+    def __init__(self, inst, im, ifield_list = [4,5,6,7,8]):
+        self.inst = inst
+        self.ifield_list = ifield_list
+        self.Nfields = len(ifield_list)
+        self.field_list = [fieldnamedict[i] for i in ifield_list]
+        self.im = im
+        self.m_min = im + 16
+        self.m_max = im + 17
+        self.param_fits = [fit_stacking_mcmc(inst, i, im) for i in ifield_list]
+        
+        self.dof_data = 0
+        for i in range(self.Nfields):
+            self.dof_data += self.param_fits[i].dof_data
+
+    def get_chi2_fields(self, **kwargs):
+        chi2_fields = []
+        for i in range(self.Nfields):
+            chi2_fields.append(self.param_fits[i].get_chi2(**kwargs))
+        return chi2_fields
+        
+    def get_chi2(self, **kwargs):
+        chi2tot = 0
+        for i in range(len(self.ifield_list)):
+            chi2tot += self.param_fits[i].get_chi2(**kwargs)
+        return chi2tot
+        
+    def _log_likelihood(self, theta):
+        xe2, Aclus = theta
+        chi2 = self.get_chi2(xe2=xe2, Aclus=Aclus)
+        return np.array([[-chi2/2]])
+
+    def _log_prior(self, theta):
+        xe2, Aclus = theta
+        if 0.0001 < xe2 < 1 and 0.0 < Aclus < 100:
+            return 0.
+        return -np.inf
+
+    def _log_prob(self, theta):
+        lp = self._log_prior(theta)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self._log_likelihood(theta)
+
+    def run_mcmc(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
+                save_chain=True, savedir = None, savename=None):
+        ndim = 2
+        p01 = np.random.uniform(0.0001, 1, nwalkers)
+        p02 = np.random.uniform(0.0, 100, nwalkers)
+        p0 = np.stack((p01, p02), axis=1)
+        with Pool() as pool:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob, pool=pool)
+            sampler.run_mcmc(p0, steps, progress=True)
+        
+        if save_chain:
+            if savedir is None:
+                savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+            if savename is None:
+                savename = 'mcmc_2par_joint' + \
+                '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
+                
+            np.save(savedir + savename, sampler.get_chain(), sampler)
+            self.mcmc_savename = savedir + savename
+        
+        if return_chain:
+            return sampler.get_chain()
+        else:
+            return
+
+def run_mcmc_fit_joint(inst, im, **kwargs):
+    param_fit = joint_fit_mcmc(inst, im)
+    
+    print('MCMC fit 2 params for TM%d %d < m < %d'\
+          %(param_fit.inst, param_fit.m_min, param_fit.m_max))
     
     param_fit.run_mcmc(**kwargs)
     return param_fit
