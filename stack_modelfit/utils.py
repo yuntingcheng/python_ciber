@@ -1,13 +1,6 @@
 from ciber_info import *
 import numpy as np
 
-mypaths = {'alldat':'/Users/ytcheng/ciber/doc/20170325_alldat/'}
-fieldnamedict = {4:'elat10',
-                 5:'elat30',
-                 6:'BootesB',
-                 7:'BootesA',
-                 8:'SWIRE'}
-
 def make_radius_map(mapin, cenx, ceny):
     '''
     return radmap of size mapin.shape. 
