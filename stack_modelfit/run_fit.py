@@ -44,16 +44,17 @@ class fit_stacking_mcmc:
 
         # PSF
         radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
-        tck = interpolate.splrep(np.array(data['rfull_arr'])[:18], 
-                                       np.array(data['profpsf'])[:18])
-        psfwin_map = interpolate.splev(radmap,tck)
-        psfwin_map[radmap > data['rfull_arr'][18]] = 0
+        tck = interpolate.splrep(np.log(np.array(data['rfull_arr'])[:16]),
+                                 np.log(np.array(data['profpsf'])[:16]), k=1)
+        radmap[dx,dx] = radmap[dx,dx+1]
+        psfwin_map = np.exp(interpolate.splev(np.log(radmap),tck))
         psfwin_map[psfwin_map < 0] = 0
         profpsf = radial_prof(psfwin_map, dx, dx)
         profpsf_arr = np.array(profpsf['prof'])
         profpsf_arr /= profpsf_arr[0]
         
         self.r_arr = r_arr
+        self.rfull_arr = np.array(data['rfull_arr'])
         self.profstackg_arr = np.array(data['profg'])
         self.profd_arr = profd_arr
         self.Cov = Cov
@@ -76,7 +77,7 @@ class fit_stacking_mcmc:
         modconv_map = fftconvolve(self.psfwin_map, modeldat['I_arr'], 'same')
         profmodconv = radial_prof(modconv_map, dx, dx)
         profmod_arr = profmodconv['prof']/profmodconv['prof'][0]
-        
+        profmod_arr[profmod_arr<0] = 0
         # excess profile
         profexfull_arr = self.profstackg_arr[0]*(profmod_arr - self.profpsf_arr)
         profex_arr = profile_radial_binning(profexfull_arr, self.r_weight)

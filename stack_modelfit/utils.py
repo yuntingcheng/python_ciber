@@ -78,6 +78,14 @@ def profile_radial_binning(prof, w):
     prof15[-1] = np.sum(w[-6:]*prof25[-6:])/np.sum(w[-6:])
     return prof15 
 
+def profile_rbinedges(r_arr):
+    rbinedges = np.zeros(len(r_arr)+1)
+    rbinedges[2:-2] = np.sqrt(r_arr[1:-2]*r_arr[2:-1])
+    rbinedges[-2] = rbinedges[-3]**2/rbinedges[-4]
+    rbinedges[1] = rbinedges[2]**2/rbinedges[3]
+    rbinedges[-1] = rbinedges[-2]*(rbinedges[3]/rbinedges[2])**6
+    return rbinedges
+
 class gal_profile_model:
     from astropy import units as u
 
