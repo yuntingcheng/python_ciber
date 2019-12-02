@@ -1,4 +1,5 @@
 from ciber_info import *
+from utils_plotting import *
 import numpy as np
 
 def make_radius_map(mapin, cenx, ceny):
@@ -154,6 +155,11 @@ class gal_profile_model:
                 params['sersic2'][1] = value
             elif key == 'xe2':
                 params['sersic2'][2] = value
+            elif key == 'Re1':
+                params['sersic1'][2] = value / params['R200']
+            elif key == 'Re2':
+                params['sersic2'][2] = value / params['R200']
+                
             
             if not extendedness:
                 if key == 'Ie3':
@@ -162,6 +168,8 @@ class gal_profile_model:
                     params['sersic3'][1] = value
                 elif key == 'xe3':
                     params['sersic3'][2] = value
+                elif key == 'Re3':
+                    params['sersic3'][2] = value / params['R200']
         
         I1_arr = self.sersic(r_arr/params['R200'], params['sersic1'][0],params['sersic1'][1],
                              params['sersic1'][2])

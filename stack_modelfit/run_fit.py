@@ -82,6 +82,11 @@ class fit_stacking_mcmc:
         profexfull_arr = self.profstackg_arr[0]*(profmod_arr - self.profpsf_arr)
         profex_arr = profile_radial_binning(profexfull_arr, self.r_weight)
         
+        if 'return_full' in kwargs:
+            galfull = self.profstackg_arr[0]*profmod_arr
+            psffull = self.profstackg_arr[0]*self.profpsf_arr
+            return galfull, psffull, profexfull_arr
+
         return profex_arr
         
     
@@ -231,3 +236,31 @@ def run_mcmc_fit_joint(inst, im, **kwargs):
     
     param_fit.run_mcmc(**kwargs)
     return param_fit
+
+
+def get_mcmc_fit_params(inst, im, ifield=None):
+
+    R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
+    
+    if ifield in [4,5,6,7,8]:
+        param_fit = fit_stacking_mcmc(inst, ifield, im)
+        savename = 'mcmc_2par_' + param_fit.field + \
+        '_m' + str(param_fit.m_min) + '_' + str(param_fit.m_max) + '.npy'
+    elif ifield is None:
+        param_fit = fit_stacking_mcmc(inst, 4, im)
+        savename = 'mcmc_2par_joint'+ \
+        '_m' + str(param_fit.m_min) + '_' + str(param_fit.m_max) + '.npy'
+    
+    savedir = mypaths['alldat'] + 'TM' + str(param_fit.inst) + '/'
+    samples = np.load(savedir + savename)
+    flatsamps = samples.copy()
+    flatsamps[:,:,0] = flatsamps[:,:,0]
+    flatsamps = flatsamps[100:,:,:].reshape((-1,2))
+    xe2, Aclus = np.median(flatsamps, axis=0)
+    xe2_low, Aclus_low = np.percentile(flatsamps, 16, axis=0)
+    xe2_high, Aclus_high = np.percentile(flatsamps, 84, axis=0)
+    
+    fitparamdat = {'R200': R200, 'xe2': xe2, 'xe2_low': xe2_low, 'xe2_high': xe2_high,
+                  'Re2': xe2*R200, 'Re2_low': xe2_low*R200, 'Re2_high': xe2_high*R200,
+                  'Aclus': Aclus, 'Aclus_low': Aclus_low, 'Aclus_high': Aclus_high}
+    return fitparamdat
