@@ -1,6 +1,11 @@
+import numpy as np
+import matplotlib.pyplot as plt
 from ciber_info import *
 from utils_plotting import *
-import numpy as np
+from astropy import units as u
+from astropy import cosmology
+cosmo = cosmology.Planck15
+
 
 def make_radius_map(mapin, cenx, ceny):
     '''
@@ -86,6 +91,29 @@ def profile_rbinedges(r_arr):
     rbinedges[1] = rbinedges[2]**2/rbinedges[3]
     rbinedges[-1] = rbinedges[-2]*(rbinedges[3]/rbinedges[2])**6
     return rbinedges
+
+def get_virial_radius(z_arr, Mh_arr, units='arcsec'):
+    '''
+    Given a list of halo at redshift z_arr and halo mass Mh_arr,
+    calculate their virial radius
+    
+    Inputs:
+    =======
+    z_arr: z of the halos
+    Mh_arr: halo mass of the halos [M_sun]
+    units: 'arcsec' or 'Mpc'
+    
+    Outputs:
+    ========
+    rvir_arr: virial radius of the desired units
+    '''
+    rhoc_arr = np.array(cosmo.critical_density(z_arr).to(u.M_sun / u.Mpc**3))
+    rvir_arr = ((3 * Mh_arr) / (4 * np.pi * 200 * rhoc_arr))**(1./3)
+    if units is 'Mpc':
+        return rvir_arr
+    DA_arr = np.array(cosmo.comoving_distance(z_arr))
+    rvir_arr = (rvir_arr / DA_arr) * u.rad.to(u.arcsec)
+    return rvir_arr
 
 class gal_profile_model:
     from astropy import units as u
@@ -190,3 +218,19 @@ class gal_profile_model:
         
         return profdat
         
+def gal_num_counts(mag, band):
+    
+    if band == 'Helgason125':
+        helgfname = '/Users/ytcheng/ciber/doc/20170904_External/helgason/Helgason125.txt'
+        data_helgason = np.loadtxt(helgfname, delimiter=',')
+        dN_dm_ddeg2 = 10**(np.interp(mag,data_helgason[:,0], np.log10(data_helgason[:,1])))
+    elif band == 'Helgason163':
+        helgfname = '/Users/ytcheng/ciber/doc/20170904_External/helgason/Helgason163.txt'
+        data_helgason = np.loadtxt(helgfname, delimiter=',')
+        dN_dm_ddeg2 = 10**(np.interp(mag,data_helgason[:,0], np.log10(data_helgason[:,1])))
+    elif band == 'Y':
+        mags = np.array([16.5, 17.5, 18.5, 19.5])
+        counts = np.array([96, 300, 960, 2300])
+        dN_dm_ddeg2 = 10**(np.interp(mag,mags, np.log10(counts)))
+        
+    return dN_dm_ddeg2

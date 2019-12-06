@@ -1,5 +1,7 @@
 import numpy as np
 from utils import *
+from power_spec import *
+
 
 def MZ14_mask(inst, xs, ys, ms, verbose=True):    
     
@@ -26,4 +28,60 @@ def MZ14_mask(inst, xs, ys, ms, verbose=True):
         radmap = make_radius_map(mask, x, y)
         mask[radmap < r/7.] = 0
     return mask
+
+class mask_Mkk:
+    def __init__(self, mask, **kwargs):
+        
+        self.mask = mask
+        
+        lbins, Cl, Clerr, Nmodes, lbinedges, l2d, ps2d \
+        = get_power_spec(mask, return_full=True, **kwargs)
+        
+        self.lbins = lbins
+        self.lbinedges = lbinedges
+        
+        if 'pixsize' in kwargs:
+            self.pixsize = kwargs['pixsize']
+        else:
+            self.pixsize = 7
+        
+    def get_Mkk_sim(self, Nsims=100, verbose=True):
+        
+        mask = self.mask
+        lbins = self.lbins
+        lbinedges = self.lbinedges
+        pixsize = self.pixsize
+        
+        Nbins = len(lbins)
+        Mkk = np.zeros([Nbins, Nbins])
+
+        for ibin in range(Nbins):
+
+            if verbose:
+                print('run Mkk sim for %d/%d ell bin'%(ibin, Nbins))
+            Clin = np.zeros(Nbins)
+            Clin[ibin] = 1
+
+            Clouts = 0
+            for isim in range(Nsims):
+                mapi = map_from_Cl(lbins, lbinedges, Clin, pixsize=pixsize)
+                _, Clout, _ = get_power_spec(mapi)
+                
+                mapi /= np.sqrt(Clout[ibin])
+                _, Clout, _ = get_power_spec(mapi, mask=mask, pixsize=pixsize)
+                Clouts += Clout
+                
+            Clouts /= Nsims
+            Mkk[:,ibin] = Clouts
+
+        invMkk = np.linalg.inv(Mkk)        
+        
+        self.Mkk = Mkk
+        self.invMkk = invMkk
+        self.NsimsMkk = Nsims
     
+    def Mkk_correction(self, Cl, Clerr=None):
+        if Clerr is None:
+            return self.invMkk@Cl
+        else:
+            return self.invMkk@Cl, self.invMkk@Clerr

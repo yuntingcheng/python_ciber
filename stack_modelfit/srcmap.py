@@ -3,8 +3,8 @@ from skimage import restoration
 import pandas as pd
 
 class make_srcmap:
-    def __init__(self, inst, m_min=None, m_max=None, srctype='g',
-                  catname = 'PanSTARRS', ifield = 8, psf_ifield=None, Re2=2):
+    def __init__(self, inst, m_min=None, m_max=None, srctype='g', catname = 'PanSTARRS',
+                   ifield = 8, psf_ifield=None, Re2=2, normalize_model=True):
         self.inst = inst
         self.m_min = -5 if m_min is None else m_min
         self.m_max = 40 if m_max is None else m_max
@@ -48,6 +48,10 @@ class make_srcmap:
         self.xls, self.yls, self.ms, self.Is, self.xss, self.yss, self.ms_inband = self._load_catalog()
         self._get_model()
         
+        self.normalize_model = True
+        if normalize_model:
+            self._normalize_modmap()
+            
     def _get_psf(self):
         pix_map = self._pix_func_substack()
         
@@ -162,7 +166,24 @@ class make_srcmap:
         modconv_map = fftconvolve(self.psf_map, modeldat['I_arr'], 'same')
         modconv_map /= np.sum(modconv_map)
         self.modconv_map = modconv_map
+        
+        modconvwin_map = fftconvolve(self.psfwin_map, modeldat['I_arr'], 'same')
+        modconvwin_map /= np.sum(modconvwin_map)
+        self.modconvwin_map = modconvwin_map
     
+    def _normalize_modmap(self):
+        '''
+        normalize the modmap -- match the first point of 
+        model profile to PSF profile. This is meant to be 
+        consistent with the excess definition
+        '''
+        dx = self.modconvwin_map.shape[0]//2
+        profmod = radial_prof(self.modconvwin_map, dx, dx)
+        profpsf = radial_prof(self.psfwin_map, dx, dx)
+        norm = profpsf['prof'][0]/profmod['prof'][0]
+        self.modconv_map = self.modconv_map * norm
+        self.modconvwin_map = self.modconvwin_map * norm
+        
     def run_srcmap(self, ptsrc=False, verbose=True):
         dx = self.dx
         Npix_cb = self.Npix_cb
@@ -172,9 +193,12 @@ class make_srcmap:
         subpix_srcmap = self.psf_map if ptsrc else self.modconv_map
         
         for i,(xs,ys,I) in enumerate(zip(self.xss,self.yss,self.Is)):
-            if verbose and i%(len(self.Is)//20)==0 and len(self.Is)>20:
-                print('run srcmap %d / %d (%.1f %%)'\
-                      %(i, len(self.Is), i/len(self.Is)*100))
+            
+            if len(self.Is)>20:
+                if verbose and i%(len(self.Is)//20)==0:
+                    print('run srcmap %d / %d (%.1f %%)'\
+                          %(i, len(self.Is), i/len(self.Is)*100))
+                    
             srcmap_large[xs-dx : xs+dx+1, ys-dx : ys+dx+1] += (subpix_srcmap*I)
         
         srcmap = self._rebin_map_coarse(srcmap_large, Nsub)*Nsub**2
