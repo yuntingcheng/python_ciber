@@ -14,13 +14,19 @@ def imageclip(image, iters=3, vmin=None, vmax=None, ax=None, cbar=True,
             if len(b) > 5e4:
                 b = b[np.random.choice(len(b),int(5e4),replace=False)]
             for i in range(iters):
+                if np.std(b) == 0:
+                    continue
                 clipmin = np.nanmedian(b) - 5*np.std(b)
                 clipmax = np.nanmedian(b) + 5*np.std(b)
                 b = b[(b<clipmax) & (b>clipmin)]
-
-            clipmin = np.nanmedian(b) - 3*np.std(b)
-            clipmax = np.nanmedian(b) + 3*np.std(b)
-            b = b[(b<clipmax) & (b>clipmin)]
+                
+            if np.std(b) == 0:
+                pass
+            else:
+                clipmin = np.nanmedian(b) - 3*np.std(b)
+                clipmax = np.nanmedian(b) + 3*np.std(b)
+                b = b[(b<clipmax) & (b>clipmin)]
+                
             vmin, vmax = np.min(b), np.max(b)
         
     

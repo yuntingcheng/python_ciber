@@ -189,6 +189,11 @@ class make_srcmap:
         Npix_cb = self.Npix_cb
         Nsub = self.Nsub
         
+        # make sure this is updated
+        self.xss = np.round(self.xls * Nsub + (Nsub/2 - 0.5) + 2 * dx).astype(np.int32)
+        self.yss = np.round(self.yls * Nsub + (Nsub/2 - 0.5) + 2 * dx).astype(np.int32)
+        self.Is = self._ABmag2Iciber(self.ms_inband)
+        
         srcmap_large = np.zeros([Npix_cb * Nsub + 4 * dx, Npix_cb * Nsub + 4 * dx])
         subpix_srcmap = self.psf_map if ptsrc else self.modconv_map
         

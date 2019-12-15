@@ -3,7 +3,7 @@ from utils import *
 from power_spec import *
 
 
-def MZ14_mask(inst, xs, ys, ms, verbose=True):    
+def MZ14_mask(inst, xs, ys, ms, return_radius=False, verbose=True):    
     
     if inst==1:
         ms_vega = np.array(ms) + 2.5*np.log10(1594./3631.)
@@ -20,14 +20,20 @@ def MZ14_mask(inst, xs, ys, ms, verbose=True):
     ys = ys[sp]
     rs = rs[sp]
     
+    if return_radius:
+        return rs
+    
     mask = np.ones([1024,1024])
+    num = np.zeros([1024,1024])
     for i,(x,y,r) in enumerate(zip(xs, ys, rs)):
-        if verbose and i%(len(xs)//20)==0 and len(xs)>20:
-            print('run MZ14_mask %d / %d (%.1f %%)'\
-              %(i, len(xs), i/len(xs)*100))
+        if len(xs)>20:
+            if verbose and i%(len(xs)//20)==0:
+                print('run MZ14_mask %d / %d (%.1f %%)'\
+                  %(i, len(xs), i/len(xs)*100))
         radmap = make_radius_map(mask, x, y)
         mask[radmap < r/7.] = 0
-    return mask
+        num[radmap < r/7.] += 1
+    return mask, num
 
 class mask_Mkk:
     def __init__(self, mask, **kwargs):
