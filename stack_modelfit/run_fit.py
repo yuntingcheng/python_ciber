@@ -42,12 +42,12 @@ class fit_stacking_mcmc:
         profd_err_diag = np.sqrt(np.diag(Cov))
 
         # clustering
-        theta_arr = np.logspace(-1,3.2,100)
-        w_arr = wgI_zm_approx(self.z, theta_arr)
-        radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
-        tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
-        radmap[dx,dx] = radmap[dx,dx+1]
-        w_map = interpolate.splev(np.log(radmap),tck)
+        #theta_arr = np.logspace(-1,3.2,100)
+        #w_arr = wgI_zm_approx(self.z, theta_arr)
+        #radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
+        #tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
+        #radmap[dx,dx] = radmap[dx,dx+1]
+        #w_map = interpolate.splev(np.log(radmap),tck)
         self.w_arr = wgI_zm_approx(self.z, data['rfull_arr'])
         
         # profclus_arr = np.array(data['profclus'])
@@ -74,7 +74,7 @@ class fit_stacking_mcmc:
         #self.profclus_arr = profclus_arr
         self.profpsf_arr = profpsf_arr
         self.psfwin_map = psfwin_map
-        self.w_map = w_map
+        #self.w_map = w_map
         self.r_weight = np.array(data['r_weight'])
         self.dof_data = len(profd_arr)
         self.dx = 1200
@@ -94,7 +94,7 @@ class fit_stacking_mcmc:
         profgal_arr = profmodconv['prof']/profmodconv['prof'][0]
         profgal_arr[profgal_arr<0] = 0
         
-        self.modconv_map = modconv_map
+        #self.modconv_map = modconv_map
         return profgal_arr
     
     def get_profclus_model_exact(self, **kwargs):
