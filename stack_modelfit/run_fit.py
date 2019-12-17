@@ -16,9 +16,8 @@ class fit_stacking_mcmc:
         self.im = im
         self.m_min = im + 16
         self.m_max = im + 17
-        
-        zm_dict = {0:0.13, 1:0.20, 2:0.28, 3:0.42}
-        self.z = zm_dict[im]
+        self.zm_dict = {0:0.13, 1:0.20, 2:0.28, 3:0.42}
+        self.z = self.zm_dict[im]
         
         self._fit_data_preprocess()
 
@@ -49,6 +48,7 @@ class fit_stacking_mcmc:
         tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
         radmap[dx,dx] = radmap[dx,dx+1]
         w_map = interpolate.splev(np.log(radmap),tck)
+        self.w_arr = wgI_zm_approx(self.z, data['rfull_arr'])
         
         # profclus_arr = np.array(data['profclus'])
         # profclus_arr[r_arr<clus_rcut] = 0
@@ -77,11 +77,11 @@ class fit_stacking_mcmc:
         self.w_map = w_map
         self.r_weight = np.array(data['r_weight'])
         self.dof_data = len(profd_arr)
-    
-    def get_profgal_model(self, **kwargs):
-        dx = 1200
-        self.dx = dx
+        self.dx = 1200
         
+    def get_profgal_model(self, **kwargs):
+        
+        dx = self.dx
         # model
         radmap = make_radius_map(np.zeros([201,201]), 100, 100)*0.7
         modeldat = gal_profile_model().Wang19_profile(radmap, self.im, **kwargs)
@@ -97,7 +97,7 @@ class fit_stacking_mcmc:
         self.modconv_map = modconv_map
         return profgal_arr
     
-    def get_profclus_model(self, **kwargs):
+    def get_profclus_model_exact(self, **kwargs):
         
         dx = self.dx
         clusconv_map = fftconvolve(self.modconv_map, self.w_map, 'same')
@@ -107,7 +107,9 @@ class fit_stacking_mcmc:
         
     def get_profexcess_model(self, **kwargs):
         profgal_arr = self.get_profgal_model(**kwargs)
-        profclus_arr = self.get_profclus_model(**kwargs)
+        # profclus_arr = self.get_profclus_model(**kwargs)
+        profclus_arr = self.w_arr
+        
         if 'Aclus' in kwargs.keys(): 
             Aclus = kwargs['Aclus']
         else:
@@ -145,7 +147,7 @@ class fit_stacking_mcmc:
 
     def _log_prior(self, theta):
         xe2, Aclus = theta
-        if 0.0001 < xe2 < 1 and 0.0 < Aclus < 100:
+        if 0.0001 < xe2 < 1 and 0.0 < Aclus < 200:
             return 0.
         return -np.inf
 
@@ -159,7 +161,7 @@ class fit_stacking_mcmc:
                 save_chain=True, savedir = None, savename=None):
         ndim = 2
         p01 = np.random.uniform(0.0001, 1, nwalkers)
-        p02 = np.random.uniform(0.0, 100, nwalkers)
+        p02 = np.random.uniform(0.0, 200, nwalkers)
         p0 = np.stack((p01, p02), axis=1)
         with Pool() as pool:
             sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob, pool=pool)
@@ -229,7 +231,7 @@ class joint_fit_mcmc:
 
     def _log_prior(self, theta):
         xe2, Aclus = theta
-        if 0.0001 < xe2 < 1 and 0.0 < Aclus < 100:
+        if 0.0001 < xe2 < 1 and 0.0 < Aclus < 200:
             return 0.
         return -np.inf
 
@@ -243,7 +245,7 @@ class joint_fit_mcmc:
                 save_chain=True, savedir = None, savename=None):
         ndim = 2
         p01 = np.random.uniform(0.0001, 1, nwalkers)
-        p02 = np.random.uniform(0.0, 100, nwalkers)
+        p02 = np.random.uniform(0.0, 200, nwalkers)
         p0 = np.stack((p01, p02), axis=1)
         with Pool() as pool:
             sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob, pool=pool)
