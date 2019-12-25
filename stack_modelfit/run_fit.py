@@ -279,21 +279,18 @@ def run_mcmc_fit_joint(inst, im, **kwargs):
     param_fit.run_mcmc(**kwargs)
     return param_fit
 
-
 def get_mcmc_fit_params(inst, im, ifield=None):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
     
     if ifield in [4,5,6,7,8]:
-        param_fit = fit_stacking_mcmc(inst, ifield, im)
-        savename = 'mcmc_2par_' + param_fit.field + \
-        '_m' + str(param_fit.m_min) + '_' + str(param_fit.m_max) + '.npy'
+        savename = 'mcmc_2par_' + fieldnamedict[ifield] + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
     elif ifield is None:
-        param_fit = fit_stacking_mcmc(inst, 4, im)
-        savename = 'mcmc_2par_joint'+ \
-        '_m' + str(param_fit.m_min) + '_' + str(param_fit.m_max) + '.npy'
-    
-    savedir = mypaths['alldat'] + 'TM' + str(param_fit.inst) + '/'
+        savename = 'mcmc_2par_joint' + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+
+    savedir = mypaths['alldat'] + 'TM' + str(inst) + '/'
     samples = np.load(savedir + savename)
     flatsamps = samples.copy()
     flatsamps[:,:,0] = flatsamps[:,:,0]
