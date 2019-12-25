@@ -4,6 +4,7 @@ from scipy import interpolate
 from scipy.signal import fftconvolve
 import emcee
 from multiprocessing import Pool
+from ciber_info import *
 from clustering import *
 
 class fit_stacking_mcmc:
@@ -14,10 +15,9 @@ class fit_stacking_mcmc:
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
         self.im = im
-        self.m_min = im + 16
-        self.m_max = im + 17
-        self.zm_dict = {0:0.13, 1:0.20, 2:0.28, 3:0.42}
-        self.z = self.zm_dict[im]
+        self.m_min = magbindict['m_min'][im]
+        self.m_max = magbindict['m_max'][im]
+        self.z = magbindict['zmean'][im]
         
         self._fit_data_preprocess()
 
@@ -43,12 +43,16 @@ class fit_stacking_mcmc:
 
         # clustering
         theta_arr = np.logspace(-1,3.2,100)
-        w_arr = wgI_zm_approx(self.z, theta_arr)
+        # w_arr = wgI_zm_approx(self.z, theta_arr)
+        cat_data = get_catalog(self.inst, self.ifield, self.im)
+        w_arr = wgI(cat_data['z'], theta_arr)
+
         radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
         tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
         radmap[dx,dx] = radmap[dx,dx+1]
         w_map = interpolate.splev(np.log(radmap),tck)
-        self.w_arr = wgI_zm_approx(self.z, data['rfull_arr'])
+        # self.w_arr = wgI_zm_approx(self.z, data['rfull_arr'])
+        self.w_arr = w_arr = wgI(cat_data['z'], data['rfull_arr'])
         
         profclus_arr = np.array(data['profclus'])
         profclus_arr[r_arr<clus_rcut] = 0
@@ -204,8 +208,8 @@ class joint_fit_mcmc:
         self.Nfields = len(ifield_list)
         self.field_list = [fieldnamedict[i] for i in ifield_list]
         self.im = im
-        self.m_min = im + 16
-        self.m_max = im + 17
+        self.m_min = magbindict['m_min'][im]
+        self.m_max = magbindict['m_max'][im]
         self.param_fits = [fit_stacking_mcmc(inst, i, im) for i in ifield_list]
         
         self.dof_data = 0

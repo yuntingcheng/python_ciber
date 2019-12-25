@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from ciber_info import *
 from utils_plotting import *
 from astropy import units as u
@@ -234,3 +235,37 @@ def gal_num_counts(mag, band):
         dN_dm_ddeg2 = 10**(np.interp(mag,mags, np.log10(counts)))
         
     return dN_dm_ddeg2
+
+def get_catalog(inst, ifield, im, src_type='g', return_cols=None):
+    
+    catcoorddir = mypaths['PScatdat']
+    field = fieldnamedict[ifield]
+    fname=catcoorddir+ field + '.csv'
+    df = pd.read_csv(fname)
+
+    m_min = magbindict['m_min'][im]
+    m_max = magbindict['m_max'][im]
+
+    dfi = df.loc[(df['sdssClass']==3) \
+                & (df['x'+str(inst)]>-0.5) & (df['x'+str(inst)]<1023.5)\
+                & (df['y'+str(inst)]>-0.5) & (df['y'+str(inst)]<1023.5)\
+                & (df['x'+str(inst)]>-0.5) & (df['x'+str(inst)]<1023.5)\
+                & (df['I_comb']>=m_min) & (df['I_comb']<m_max)]
+    Nall = len(dfi)
+    dfi = dfi.loc[dfi['Photz']>0]
+    f = len(dfi)/Nall
+    z = np.array(dfi['Photz'])
+    ra = np.array(dfi['ra'])
+    dec = np.array(dfi['dec'])
+    x = np.array(dfi['x1'])
+    y = np.array(dfi['y1'])
+    
+    cat_data = {'f' : f,
+               'z' : z,
+               'ra' : ra,
+               'dec' : dec,
+               'x' : x,
+               'y' : y
+               }
+    
+    return cat_data
