@@ -1,7 +1,30 @@
-import numpy as np
+from scipy.io import loadmat
 from utils import *
 from power_spec import *
 
+def get_mask_radius_th(ifield, m_arr, inst=1, Ith=0.5):
+    '''
+    r_arr: arcsec
+    '''
+    m_arr = np.array(m_arr)
+    fitpsfdat=loadmat(mypaths['ciberdir'] + 'doc/20170617_Stacking/psf_analytic/TM'\
+              + str(inst) + '/fitpsfdat.mat')['fitpsfdat'][0][ifield-1][7][0][0]
+    beta, rc, norm  = float(fitpsfdat[0]), float(fitpsfdat[1]), float(fitpsfdat[4])
+    
+    Nlarge = 100
+    radmap = make_radius_map(np.zeros([2*Nlarge+1, 2*Nlarge+1]), Nlarge, Nlarge)*0.7
+    Imap_large = norm * (1 + (radmap/rc)**2)**(-3*beta/2)
+    
+    lambdaeff = band_info(inst).wl
+    sr = ((7./3600.0)*(np.pi/180.0))**2
+    I_arr=3631*10**(-m_arr/2.5)*(3/lambdaeff)*1e6/(sr*1e9)
+    r_arr = np.zeros_like(m_arr, dtype=float)
+    for i, I in enumerate(I_arr):
+        sp = np.where(Imap_large*I > (Ith/100))
+        if len(sp[0])>0:
+            r_arr[i] = np.max(radmap[sp])
+    
+    return r_arr
 
 def MZ14_mask(inst, xs, ys, ms, return_radius=False, verbose=True):    
     

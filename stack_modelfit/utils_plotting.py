@@ -6,6 +6,8 @@ def imageclip(image, iters=3, vmin=None, vmax=None, ax=None, cbar=True,
     
     if (not vmin is None) and (not vmax is None):
         pass
+    elif np.all(image==0):
+        vmin, vmax = 0 ,1
     else:
         b = image[image!=0]
         if np.min(b) == np.max(b):

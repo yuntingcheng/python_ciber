@@ -1,4 +1,5 @@
 stack_modelfit/ciber_info.py
+stack_modelfit/stack_data/*
 *.png
 *.gif
 *.txt
