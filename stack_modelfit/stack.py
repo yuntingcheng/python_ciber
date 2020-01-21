@@ -150,17 +150,19 @@ class stacking:
         
         if load_from_file:
             stackdat = np.load(savename + '.npy' ,allow_pickle='TRUE').item()
+            self.stackdat = stackdat
+            # self.stack_BG(Nbg=50)
+
         else:
             stackdat = self.stack_PS()
             self.stackdat = stackdat
+            self.stack_BG(Nbg=50)
             np.save(savename, stackdat)
-            
-#             self._get_jackknife_profile()
-#             self._get_covariance()
-#             self.stack_BG(Nbg=10)####
-        
-        self.stackdat = stackdat
-        
+
+        self._get_jackknife_profile()
+        self._get_covariance()
+        self._get_BG_covariance()
+
 
     def stack_PS(self, srctype='g', dx=1200, unmask=True, verbose=True):
 
@@ -547,12 +549,12 @@ class stacking:
         Nbins = len(self.stackdat['rbins'])
         Nsubbins = len(self.stackdat['rsubbins'])
         data_cb, data_ps = np.zeros([Nsub, Nbins]), np.zeros([Nsub, Nbins])
-        data_cbsub, data_pssub = np.zeros([Nsub, Nbsubins]), np.zeros([Nsub, Nubbins])
+        data_cbsub, data_pssub = np.zeros([Nsub, Nsubbins]), np.zeros([Nsub, Nsubbins])
         data_cb100, data_ps100 = np.zeros(Nsub), np.zeros(Nsub)
 
         for isub in range(Nsub):
             data_cb[isub,:] = self.stackdat['jack'][isub]['profcb']
-            data_ps[isub,:] = self.stackdat['jack'][isub]['profcb']
+            data_ps[isub,:] = self.stackdat['jack'][isub]['profps']
             data_cbsub[isub,:] = self.stackdat['jack'][isub]['profcbsub']
             data_pssub[isub,:] = self.stackdat['jack'][isub]['profpssub']
             data_cb100[isub] = self.stackdat['jack'][isub]['profcb100']
@@ -603,8 +605,9 @@ class stacking:
                                            (inst,ifield,'strmask'), 
                                            (inst,ifield,'mask_inst')])
         Nsrc = self.stackdat['Nsrc']
-        self.stackdat['bg'] = {}
-
+        self.stackdat['BG'] = {}
+        self.stackdat['BG']['Nbg'] = Nbg
+        
         # start stacking
         Nbins = len(self.stackdat['rbins'])
         Nsubbins = len(self.stackdat['rsubbins'])
@@ -617,10 +620,11 @@ class stacking:
         cbmapi = cbmap*strmask*mask_inst
         psmapi = psmap*strmask*mask_inst
         maski = strmask*mask_inst
-
+        
+        cbmapstack, psmapstack, maskstack = 0., 0., 0
         start_time = time.time()
         for isub in range(Nbg):
-            stackdat['BG'][isub] = {}
+            self.stackdat['BG'][isub] = {}
             print('stacking %s %d < m < %d, #%d BG, %d sources, t = %.2f min'\
               %(fieldnamedict[ifield], m_min, m_max,isub, Nsrc, (time.time()-start_time)/60))
 
@@ -681,7 +685,7 @@ class stacking:
             profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
             profps_norm[spbin] = profps_arr[spbin]/hit_arr[spbin]
             profcb_norm = np.interp(rsubbins, rsubbins[spbin], profcb_norm[spbin])
-            profps_norm = np.interp(rsubbins, rsubbins[spbin], profcb_norm[spbin])
+            profps_norm = np.interp(rsubbins, rsubbins[spbin], profps_norm[spbin])
             self.stackdat['BG'][isub]['profcbsub'] = profcb_norm
             self.stackdat['BG'][isub]['profpssub'] = profps_norm
             self.stackdat['BG'][isub]['profhitsub'] = hit_arr
@@ -701,11 +705,82 @@ class stacking:
         self.stackdat['cbmapstackBG'] = cbmapstack_norm
         self.stackdat['psmapstackBG'] = psmapstack_norm
         self.stackdat['maskstackBG'] = maskstack
+        
+        self._get_BG_avg()
+        return
 
-        return stackdat
+    def _get_BG_avg(self):
+        Nsub = self.stackdat['BG']['Nbg']
+        Nbins = len(self.stackdat['rbins'])
+        Nsubbins = len(self.stackdat['rsubbins'])
+        data_cb, data_ps = np.zeros([Nsub, Nbins]), np.zeros([Nsub, Nbins])
+        data_cbsub, data_pssub = np.zeros([Nsub, Nsubbins]), np.zeros([Nsub, Nsubbins])
+        data_cb100, data_ps100 = np.zeros(Nsub), np.zeros(Nsub)
 
+        for isub in range(Nsub):
+            data_cb[isub,:] = self.stackdat['BG'][isub]['profcb']
+            data_ps[isub,:] = self.stackdat['BG'][isub]['profcb']
+            data_cbsub[isub,:] = self.stackdat['BG'][isub]['profcbsub']
+            data_pssub[isub,:] = self.stackdat['BG'][isub]['profpssub']
+            data_cb100[isub] = self.stackdat['BG'][isub]['profcb100']
+            data_ps100[isub] = self.stackdat['BG'][isub]['profps100']
+            
+        self.stackdat['BG']['profcb'] = np.mean(data_cb, axis=0)
+        self.stackdat['BG']['profps'] = np.mean(data_ps, axis=0)
+        self.stackdat['BG']['profcbsub'] = np.mean(data_cbsub, axis=0)
+        self.stackdat['BG']['profpssub'] = np.mean(data_pssub, axis=0)
+        self.stackdat['BG']['profcb100'] = np.mean(data_cb100, axis=0)
+        self.stackdat['BG']['profps100'] = np.mean(data_ps100, axis=0)
 
+    def _get_BG_covariance(self):
+        self.stackdat['BGcov'] = {}
+        Nsub = self.stackdat['BG']['Nbg']
+        Nbins = len(self.stackdat['rbins'])
+        Nsubbins = len(self.stackdat['rsubbins'])
+        data_cb, data_ps = np.zeros([Nsub, Nbins]), np.zeros([Nsub, Nbins])
+        data_cbsub, data_pssub = np.zeros([Nsub, Nsubbins]), np.zeros([Nsub, Nsubbins])
+        data_cb100, data_ps100 = np.zeros(Nsub), np.zeros(Nsub)
 
+        for isub in range(Nsub):
+            data_cb[isub,:] = self.stackdat['BG'][isub]['profcb']
+            data_ps[isub,:] = self.stackdat['BG'][isub]['profps']
+            data_cbsub[isub,:] = self.stackdat['BG'][isub]['profcbsub']
+            data_pssub[isub,:] = self.stackdat['BG'][isub]['profpssub']
+            data_cb100[isub] = self.stackdat['BG'][isub]['profcb100']
+            data_ps100[isub] = self.stackdat['BG'][isub]['profps100']
+
+            covcb = np.zeros([Nbins, Nbins])
+            covps = np.zeros([Nbins, Nbins])
+            for i in range(Nbins):
+                for j in range(Nbins):
+                    datai, dataj = data_cb[:,i], data_cb[:,j]
+                    covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+                    datai, dataj = data_ps[:,i], data_ps[:,j]
+                    covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+            self.stackdat['BGcov']['profcb'] = covcb
+            self.stackdat['BGcov']['profps'] = covps
+            self.stackdat['BGcov']['profcb_rho'] = self._normalize_cov(covcb)
+            self.stackdat['BGcov']['profps_rho'] = self._normalize_cov(covps)
+
+            covcb = np.zeros([Nsubbins, Nsubbins])
+            covps = np.zeros([Nsubbins, Nsubbins])
+            for i in range(Nsubbins):
+                for j in range(Nsubbins):
+                    datai, dataj = data_cbsub[:,i], data_cbsub[:,j]
+                    covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+                    datai, dataj = data_pssub[:,i], data_pssub[:,j]
+                    covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+            self.stackdat['BGcov']['profcbsub'] = covcb
+            self.stackdat['BGcov']['profpssub'] = covps
+            self.stackdat['BGcov']['profcbsub_rho'] = self._normalize_cov(covcb)
+            self.stackdat['BGcov']['profpssub_rho'] = self._normalize_cov(covps)
+
+            covcb = np.mean(data_cb100**2) - np.mean(data_cb100)**2
+            covps = np.mean(data_ps100**2) - np.mean(data_ps100)**2
+            self.stackdat['BGcov']['profcb100'] = covcb
+            self.stackdat['BGcov']['profps100'] = covps
+
+        return
 
 
 class stacking_mock:
