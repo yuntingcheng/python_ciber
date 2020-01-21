@@ -135,6 +135,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
     
     return srcdat
 
+
 class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', savename=None, load_from_file=False):
         self.inst = inst
@@ -150,8 +151,13 @@ class stacking:
         if load_from_file:
             stackdat = np.load(savename + '.npy' ,allow_pickle='TRUE').item()
         else:
-            stackdat = self.stack_PS()        
+            stackdat = self.stack_PS()
+            self.stackdat = stackdat
             np.save(savename, stackdat)
+            
+#             self._get_jackknife_profile()
+#             self._get_covariance()
+#             self.stack_BG(Nbg=10)####
         
         self.stackdat = stackdat
         
@@ -181,6 +187,8 @@ class stacking:
         stackdat = {}
         stackdat['rbins'] = cliplim['rbins']
         stackdat['rbinedges'] = cliplim['rbinedges']
+        stackdat['rsubbins'],stackdat['rsubbinedges'] =\
+        self._radial_binning(cliplim['rbins'], cliplim['rbinedges'])
         stackdat['inst']= inst
         stackdat['ifield'] = ifield
         stackdat['field'] = fieldnamedict[ifield]
@@ -190,10 +198,12 @@ class stacking:
         stackdat['sub'] = {}
 
         # start stacking
-        Nbins = len(cliplim['rbins'])
+        Nbins = len(stackdat['rbins'])
+        Nsubbins = len(stackdat['rsubbins'])
         radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx) # subpix unit
         rbinedges = stackdat['rbinedges']/0.7 # subpix unit
-
+        rsubbinedges = stackdat['rsubbinedges']/0.7 # subpix unit
+        
         cbmapstack, psmapstack, maskstack = 0., 0., 0
         start_time = time.time()
         for isub in range(srcdat['Nsub']):
@@ -283,28 +293,52 @@ class stacking:
                 cbmapstacki += cbmapstamp
                 psmapstacki += psmapstamp
                 maskstacki += maskstamp
-
-            profcb_arr, profps_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins), np.zeros(Nbins)
+            
+            ### end source for loop ###
+            
+            cbmapstack += cbmapstacki
+            psmapstack += psmapstacki
+            maskstack += maskstacki
+                
+            profcb_arr, profps_arr, hit_arr \
+            = np.zeros(Nbins), np.zeros(Nbins), np.zeros(Nbins)
             for ibin in range(Nbins):
                 spi = np.where((radmapstamp>=rbinedges[ibin]) &\
                                (radmapstamp<rbinedges[ibin+1]))
                 profcb_arr[ibin] += np.sum(cbmapstacki[spi])
                 profps_arr[ibin] += np.sum(psmapstacki[spi])
                 hit_arr[ibin] += np.sum(maskstacki[spi])
-
-            cbmapstack += cbmapstacki
-            psmapstack += psmapstacki
-            maskstack += maskstacki
-
             spbin = np.where(hit_arr!=0)[0]
             profcb_norm, profps_norm = np.zeros_like(profcb_arr), np.zeros_like(profps_arr)
             profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
             profps_norm[spbin] = profps_arr[spbin]/hit_arr[spbin]
-
             stackdat['sub'][isub]['profcb'] = profcb_norm
             stackdat['sub'][isub]['profps'] = profps_norm
             stackdat['sub'][isub]['profhit'] = hit_arr
+        
+            profcb_arr, profps_arr, hit_arr \
+            = np.zeros(Nsubbins), np.zeros(Nsubbins), np.zeros(Nsubbins)
+            for ibin in range(Nsubbins):
+                spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                               (radmapstamp<rsubbinedges[ibin+1]))
+                profcb_arr[ibin] += np.sum(cbmapstacki[spi])
+                profps_arr[ibin] += np.sum(psmapstacki[spi])
+                hit_arr[ibin] += np.sum(maskstacki[spi])
+            spbin = np.where(hit_arr!=0)[0]
+            profcb_norm, profps_norm = np.zeros_like(profcb_arr), np.zeros_like(profps_arr)
+            profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
+            profps_norm[spbin] = profps_arr[spbin]/hit_arr[spbin]
+            stackdat['sub'][isub]['profcbsub'] = profcb_norm
+            stackdat['sub'][isub]['profpssub'] = profps_norm
+            stackdat['sub'][isub]['profhitsub'] = hit_arr
 
+            spi = np.where(radmapstamp>=100/0.7)
+            stackdat['sub'][isub]['profcb100'] = np.sum(cbmapstacki[spi]) / np.sum(maskstacki[spi])
+            stackdat['sub'][isub]['profps100'] = np.sum(psmapstacki[spi]) / np.sum(maskstacki[spi])
+            stackdat['sub'][isub]['profhit100'] = np.sum(maskstacki[spi])
+
+        ### end isub for loop ###
+        
         spmap = np.where(maskstack!=0)
         cbmapstack_norm = np.zeros_like(cbmapstack)
         psmapstack_norm = np.zeros_like(psmapstack)
@@ -314,14 +348,14 @@ class stacking:
         stackdat['psmapstack'] = psmapstack_norm
         stackdat['maskstack'] = maskstack
 
-        profcb_arr, profps_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins), np.zeros(Nbins)
+        profcb_arr, profps_arr, hit_arr \
+        = np.zeros(Nbins), np.zeros(Nbins), np.zeros(Nbins)
         for ibin in range(Nbins):
             spi = np.where((radmapstamp>=rbinedges[ibin]) &\
                            (radmapstamp<rbinedges[ibin+1]))
             profcb_arr[ibin] += np.sum(cbmapstack[spi])
             profps_arr[ibin] += np.sum(psmapstack[spi])
             hit_arr[ibin] += np.sum(maskstack[spi])
-
         spbin = np.where(hit_arr!=0)[0]
         profcb_norm, profps_norm = np.zeros_like(profcb_arr), np.zeros_like(profps_arr)
         profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
@@ -329,6 +363,27 @@ class stacking:
         stackdat['profcb'] = profcb_norm
         stackdat['profps'] = profps_norm
         stackdat['profhit'] = hit_arr
+
+        profcb_arr, profps_arr, hit_arr \
+        = np.zeros(Nsubbins), np.zeros(Nsubbins), np.zeros(Nsubbins)
+        for ibin in range(Nsubbins):
+            spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                           (radmapstamp<rsubbinedges[ibin+1]))
+            profcb_arr[ibin] += np.sum(cbmapstack[spi])
+            profps_arr[ibin] += np.sum(psmapstack[spi])
+            hit_arr[ibin] += np.sum(maskstack[spi])
+        spbin = np.where(hit_arr!=0)[0]
+        profcb_norm, profps_norm = np.zeros_like(profcb_arr), np.zeros_like(profps_arr)
+        profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
+        profps_norm[spbin] = profps_arr[spbin]/hit_arr[spbin]
+        stackdat['profcbsub'] = profcb_norm
+        stackdat['profpssub'] = profps_norm
+        stackdat['profhitsub'] = hit_arr
+
+        spi = np.where(radmapstamp>=100/0.7)
+        stackdat['profcb100'] = np.sum(cbmapstack[spi]) / np.sum(maskstack[spi])
+        stackdat['profps100'] = np.sum(psmapstack[spi]) / np.sum(maskstack[spi])
+        stackdat['profhit100'] = np.sum(maskstack[spi])
 
         return stackdat        
         
@@ -429,6 +484,230 @@ class stacking:
                 image_new[i::Nsub, j::Nsub] = image
         return image_new
     
+    def _radial_binning(self,rbins,rbinedges):
+        rsubbinedges = np.concatenate((rbinedges[:1],rbinedges[6:20],rbinedges[-1:]))
+
+        # calculate 
+        rin = (2./3) * (rsubbinedges[1]**3 - rsubbinedges[0]**3)\
+        / (rsubbinedges[1]**2 - rsubbinedges[0]**2)
+
+        rout = (2./3) * (rsubbinedges[-1]**3 - rsubbinedges[-2]**3)\
+        / (rsubbinedges[-1]**2 - rsubbinedges[-2]**2)
+
+        rsubbins = np.concatenate(([rin],rbins[6:19],[rout]))
+
+        return rsubbins, rsubbinedges
+    
+    def _get_jackknife_profile(self):
+        self.stackdat['jack'] = {}
+        for isub in range(self.stackdat['Nsub']):
+            self.stackdat['jack'][isub] = {}
+            profcb = self.stackdat['profcb']*self.stackdat['profhit'] - \
+            self.stackdat['sub'][isub]['profcb']*self.stackdat['sub'][isub]['profhit']
+            profps = self.stackdat['profps']*self.stackdat['profhit'] - \
+            self.stackdat['sub'][isub]['profps']*self.stackdat['sub'][isub]['profhit']
+            profhit = self.stackdat['profhit'] - self.stackdat['sub'][isub]['profhit']
+            self.stackdat['jack'][isub]['profcb'] = profcb/profhit
+            self.stackdat['jack'][isub]['profps'] = profps/profhit
+            self.stackdat['jack'][isub]['profhit'] = profhit
+
+            profcbsub = self.stackdat['profcbsub']*self.stackdat['profhitsub'] - \
+            self.stackdat['sub'][isub]['profcbsub']*self.stackdat['sub'][isub]['profhitsub']
+            profpssub = self.stackdat['profpssub']*self.stackdat['profhitsub'] - \
+            self.stackdat['sub'][isub]['profpssub']*self.stackdat['sub'][isub]['profhitsub']
+            profhitsub = self.stackdat['profhitsub'] - self.stackdat['sub'][isub]['profhitsub']
+            self.stackdat['jack'][isub]['profcbsub'] = profcbsub/profhitsub
+            self.stackdat['jack'][isub]['profpssub'] = profpssub/profhitsub
+            self.stackdat['jack'][isub]['profhitsub'] = profhitsub
+
+            profcb100 = self.stackdat['profcb100']*self.stackdat['profhit100'] - \
+            self.stackdat['sub'][isub]['profcb100']*self.stackdat['sub'][isub]['profhit100']
+            profps100 = self.stackdat['profps100']*self.stackdat['profhit100'] - \
+            self.stackdat['sub'][isub]['profps100']*self.stackdat['sub'][isub]['profhit100']
+            profhit100 = self.stackdat['profhit100'] - self.stackdat['sub'][isub]['profhit100']
+            self.stackdat['jack'][isub]['profcb100'] = profcb100/profhit100
+            self.stackdat['jack'][isub]['profps100'] = profps100/profhit100
+            self.stackdat['jack'][isub]['profhit100'] = profhit100
+            
+        return
+    
+    def _normalize_cov(self, cov):
+        cov_rho = np.zeros_like(cov)
+        for i in range(cov_rho.shape[0]):
+            for j in range(cov_rho.shape[0]):
+                if cov[i,i]==0 or cov[j,j]==0:
+                    cov_rho[i,j] = cov[i,j]
+                else:
+                    cov_rho[i,j] = cov[i,j] / np.sqrt(cov[i,i]*cov[j,j])
+        return cov_rho
+
+    def _get_covariance(self):
+        self.stackdat['cov'] = {}
+        Nsub = self.stackdat['Nsub']
+        Nbins = len(self.stackdat['rbins'])
+        Nsubbins = len(self.stackdat['rsubbins'])
+        data_cb, data_ps = np.zeros([Nsub, Nbins]), np.zeros([Nsub, Nbins])
+        data_cbsub, data_pssub = np.zeros([Nsub, Nbsubins]), np.zeros([Nsub, Nubbins])
+        data_cb100, data_ps100 = np.zeros(Nsub), np.zeros(Nsub)
+
+        for isub in range(Nsub):
+            data_cb[isub,:] = self.stackdat['jack'][isub]['profcb']
+            data_ps[isub,:] = self.stackdat['jack'][isub]['profcb']
+            data_cbsub[isub,:] = self.stackdat['jack'][isub]['profcbsub']
+            data_pssub[isub,:] = self.stackdat['jack'][isub]['profpssub']
+            data_cb100[isub] = self.stackdat['jack'][isub]['profcb100']
+            data_ps100[isub] = self.stackdat['jack'][isub]['profps100']
+
+        covcb = np.zeros([Nbins, Nbins])
+        covps = np.zeros([Nbins, Nbins])
+        for i in range(Nbins):
+            for j in range(Nbins):
+                datai, dataj = data_cb[:,i], data_cb[:,j]
+                covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+                datai, dataj = data_ps[:,i], data_ps[:,j]
+                covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+        self.stackdat['cov']['profcb'] = covcb * (Nsub-1)
+        self.stackdat['cov']['profps'] = covps * (Nsub-1)
+        self.stackdat['cov']['profcb_rho'] = self._normalize_cov(covcb)
+        self.stackdat['cov']['profps_rho'] = self._normalize_cov(covps)
+
+        covcb = np.zeros([Nsubbins, Nsubbins])
+        covps = np.zeros([Nsubbins, Nsubbins])
+        for i in range(Nsubbins):
+            for j in range(Nsubbins):
+                datai, dataj = data_cbsub[:,i], data_cbsub[:,j]
+                covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+                datai, dataj = data_pssub[:,i], data_pssub[:,j]
+                covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+        self.stackdat['cov']['profcbsub'] = covcb * (Nsub-1)
+        self.stackdat['cov']['profpssub'] = covps * (Nsub-1)
+        self.stackdat['cov']['profcbsub_rho'] = self._normalize_cov(covcb)
+        self.stackdat['cov']['profpssub_rho'] = self._normalize_cov(covps)
+
+        covcb = np.mean(data_cb100**2) - np.mean(data_cb100)**2
+        covps = np.mean(data_ps100**2) - np.mean(data_ps100)**2
+        self.stackdat['cov']['profcb100'] = covcb * (Nsub-1)
+        self.stackdat['cov']['profps100'] = covps * (Nsub-1)
+
+        return
+    
+    def stack_BG(self, srctype='g', dx=120, verbose=True, Nbg=50):
+
+        inst = self.inst
+        ifield = self.ifield
+        m_min, m_max = self.m_min, self.m_max
+
+        cbmap, psmap, strmask, mask_inst = \
+        load_processed_images(return_names=[(inst,ifield,'cbmap'), 
+                                            (inst,ifield,'psmap'),
+                                           (inst,ifield,'strmask'), 
+                                           (inst,ifield,'mask_inst')])
+        Nsrc = self.stackdat['Nsrc']
+        self.stackdat['bg'] = {}
+
+        # start stacking
+        Nbins = len(self.stackdat['rbins'])
+        Nsubbins = len(self.stackdat['rsubbins'])
+        radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx) # subpix unit
+        rbins = self.stackdat['rbins']/7 # pix unit
+        rsubbins = self.stackdat['rsubbins']/7 # pix unit        
+        rbinedges = self.stackdat['rbinedges']/7 # pix unit
+        rsubbinedges = self.stackdat['rsubbinedges']/7 # pix unit
+
+        cbmapi = cbmap*strmask*mask_inst
+        psmapi = psmap*strmask*mask_inst
+        maski = strmask*mask_inst
+
+        start_time = time.time()
+        for isub in range(Nbg):
+            stackdat['BG'][isub] = {}
+            print('stacking %s %d < m < %d, #%d BG, %d sources, t = %.2f min'\
+              %(fieldnamedict[ifield], m_min, m_max,isub, Nsrc, (time.time()-start_time)/60))
+
+            cbmapstacki, psmapstacki, maskstacki = 0., 0., 0
+            for i in range(Nsrc):
+                xi, yi = np.random.randint(0,1024,2)
+                radmap = make_radius_map(cbmap, xi, yi) # large pix units
+
+                # zero padding
+                mcb = np.pad(cbmapi, ((dx,dx),(dx,dx)), 'constant')
+                mps = np.pad(psmapi, ((dx,dx),(dx,dx)), 'constant')
+                k = np.pad(maski, ((dx,dx),(dx,dx)), 'constant')
+                xi += dx
+                yi += dx
+
+                # cut stamp
+                cbmapstamp = mcb[xi - dx: xi + dx + 1, yi - dx: yi + dx + 1]
+                psmapstamp = mps[xi - dx: xi + dx + 1, yi - dx: yi + dx + 1]
+                maskstamp = k[xi - dx: xi + dx + 1, yi - dx: yi + dx + 1]
+
+                cbmapstacki += cbmapstamp
+                psmapstacki += psmapstamp
+                maskstacki += maskstamp
+
+            ### end source for loop ###
+            cbmapstack += cbmapstacki
+            psmapstack += psmapstacki
+            maskstack += maskstacki
+
+            profcb_arr, profps_arr, hit_arr \
+            = np.zeros(Nbins), np.zeros(Nbins), np.zeros(Nbins)
+            for ibin in range(Nbins):
+                spi = np.where((radmapstamp>=rbinedges[ibin]) &\
+                               (radmapstamp<rbinedges[ibin+1]))
+                profcb_arr[ibin] += np.sum(cbmapstacki[spi])
+                profps_arr[ibin] += np.sum(psmapstacki[spi])
+                hit_arr[ibin] += np.sum(maskstacki[spi])
+            spbin = np.where(hit_arr!=0)[0]
+            profcb_norm, profps_norm = np.zeros_like(profcb_arr), np.zeros_like(profps_arr)
+            profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
+            profps_norm[spbin] = profps_arr[spbin]/hit_arr[spbin]
+            profcb_norm = np.interp(rbins, rbins[spbin], profcb_norm[spbin])
+            profps_norm = np.interp(rbins, rbins[spbin], profcb_norm[spbin])
+            self.stackdat['BG'][isub]['profcb'] = profcb_norm
+            self.stackdat['BG'][isub]['profps'] = profps_norm
+            self.stackdat['BG'][isub]['profhit'] = hit_arr
+
+            profcb_arr, profps_arr, hit_arr \
+            = np.zeros(Nsubbins), np.zeros(Nsubbins), np.zeros(Nsubbins)
+            for ibin in range(Nsubbins):
+                spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                               (radmapstamp<rsubbinedges[ibin+1]))
+                profcb_arr[ibin] += np.sum(cbmapstacki[spi])
+                profps_arr[ibin] += np.sum(psmapstacki[spi])
+                hit_arr[ibin] += np.sum(maskstacki[spi])
+            spbin = np.where(hit_arr!=0)[0]
+            profcb_norm, profps_norm = np.zeros_like(profcb_arr), np.zeros_like(profps_arr)
+            profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
+            profps_norm[spbin] = profps_arr[spbin]/hit_arr[spbin]
+            profcb_norm = np.interp(rsubbins, rsubbins[spbin], profcb_norm[spbin])
+            profps_norm = np.interp(rsubbins, rsubbins[spbin], profcb_norm[spbin])
+            self.stackdat['BG'][isub]['profcbsub'] = profcb_norm
+            self.stackdat['BG'][isub]['profpssub'] = profps_norm
+            self.stackdat['BG'][isub]['profhitsub'] = hit_arr
+
+            spi = np.where(radmapstamp>=100/7)
+            self.stackdat['BG'][isub]['profcb100'] = np.sum(cbmapstacki[spi]) / np.sum(maskstacki[spi])
+            self.stackdat['BG'][isub]['profps100'] = np.sum(psmapstacki[spi]) / np.sum(maskstacki[spi])
+            self.stackdat['BG'][isub]['profhit100'] = np.sum(maskstacki[spi])
+
+        ### end isub for loop ###
+
+        spmap = np.where(maskstack!=0)
+        cbmapstack_norm = np.zeros_like(cbmapstack)
+        psmapstack_norm = np.zeros_like(psmapstack)
+        cbmapstack_norm[spmap] = cbmapstack[spmap]/maskstack[spmap]
+        psmapstack_norm[spmap] = psmapstack[spmap]/maskstack[spmap]
+        self.stackdat['cbmapstackBG'] = cbmapstack_norm
+        self.stackdat['psmapstackBG'] = psmapstack_norm
+        self.stackdat['maskstackBG'] = maskstack
+
+        return stackdat
+
+
+
+
+
 class stacking_mock:
     def __init__(self, inst, m_min, m_max, srctype='g', 
                  catname = 'PanSTARRS', ifield = 8, pixsize=7):
