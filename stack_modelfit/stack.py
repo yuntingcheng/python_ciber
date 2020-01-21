@@ -667,7 +667,7 @@ class stacking:
             profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
             profps_norm[spbin] = profps_arr[spbin]/hit_arr[spbin]
             profcb_norm = np.interp(rbins, rbins[spbin], profcb_norm[spbin])
-            profps_norm = np.interp(rbins, rbins[spbin], profcb_norm[spbin])
+            profps_norm = np.interp(rbins, rbins[spbin], profps_norm[spbin])
             self.stackdat['BG'][isub]['profcb'] = profcb_norm
             self.stackdat['BG'][isub]['profps'] = profps_norm
             self.stackdat['BG'][isub]['profhit'] = hit_arr
