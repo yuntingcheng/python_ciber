@@ -53,7 +53,7 @@ def imageclip(image, iters=3, vmin=None, vmax=None, ax=None, cbar=True,
     
     
 def plot_err_log(x, y, yerr, ax=None, xlog=True, xerr=None, xedges=None, plot_xerr=True, 
-                 color='k', capsize=5, markersize=10, figsize=(6,5)):
+                 color='k', capsize=5, markersize=10, figsize=(6,5), alpha=1, label=None):
 
     if ax is None:
         fig, ax = plt.subplots(1,1, figsize=figsize)
@@ -61,19 +61,21 @@ def plot_err_log(x, y, yerr, ax=None, xlog=True, xerr=None, xedges=None, plot_xe
     if plot_xerr and xedges is None:
         if xlog:
             rx = x[1]/x[0]
-            xedges = np.concatenate(([x[0]/rx],np.sqrt(x[1:]*x[:-1]),[x[0]*rx]))
+            xedges = np.concatenate(([x[0]/rx],np.sqrt(x[1:]*x[:-1]),[x[-1]*rx]))
         else:
             rx = x[1]-x[0]
-            xedges = np.concatenate(([x[0]-rx],(x[1:]+x[:-1])/2,[x[0]+rx]))
+            xedges = np.concatenate(([x[0]-rx],(x[1:]+x[:-1])/2,[x[-1]+rx]))
     x_err_low = x - xedges[:-1]
     x_err_high = xedges[1:] - x
     
     spp = np.where(y>=0)[0]
     spn = np.where(y<0)[0]
     ax.errorbar(x[spp], y[spp], yerr[spp], [x_err_low[spp], x_err_high[spp]],
-                fmt ='.', color=color, capsize=capsize, markersize=markersize)
+                fmt ='.', color=color, capsize=capsize, 
+                markersize=markersize, alpha=alpha, label=label)
     ax.errorbar(x[spn], -y[spn], yerr[spn], [x_err_low[spn], x_err_high[spn]],
-                fmt ='.', mfc='white', color=color, capsize=capsize, markersize=markersize)
+                fmt ='.', mfc='white', color=color, 
+                capsize=capsize, markersize=markersize, alpha=alpha)
     
     ax.set_yscale('log')
     if xlog:

@@ -162,7 +162,11 @@ class stacking:
         self._get_jackknife_profile()
         self._get_covariance()
         self._get_BG_covariance()
-
+        self._get_BGsub()
+        self._get_PSF_from_data()
+        self._get_PSF_covariance_from_data()
+        self._get_ex_covariance()
+        self._get_excess()
 
     def stack_PS(self, srctype='g', dx=1200, unmask=True, verbose=True):
 
@@ -719,7 +723,7 @@ class stacking:
 
         for isub in range(Nsub):
             data_cb[isub,:] = self.stackdat['BG'][isub]['profcb']
-            data_ps[isub,:] = self.stackdat['BG'][isub]['profcb']
+            data_ps[isub,:] = self.stackdat['BG'][isub]['profps']
             data_cbsub[isub,:] = self.stackdat['BG'][isub]['profcbsub']
             data_pssub[isub,:] = self.stackdat['BG'][isub]['profpssub']
             data_cb100[isub] = self.stackdat['BG'][isub]['profcb100']
@@ -733,6 +737,7 @@ class stacking:
         self.stackdat['BG']['profps100'] = np.mean(data_ps100, axis=0)
 
     def _get_BG_covariance(self):
+        self._get_BG_avg()
         self.stackdat['BGcov'] = {}
         Nsub = self.stackdat['BG']['Nbg']
         Nbins = len(self.stackdat['rbins'])
@@ -749,38 +754,124 @@ class stacking:
             data_cb100[isub] = self.stackdat['BG'][isub]['profcb100']
             data_ps100[isub] = self.stackdat['BG'][isub]['profps100']
 
-            covcb = np.zeros([Nbins, Nbins])
-            covps = np.zeros([Nbins, Nbins])
-            for i in range(Nbins):
-                for j in range(Nbins):
-                    datai, dataj = data_cb[:,i], data_cb[:,j]
-                    covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
-                    datai, dataj = data_ps[:,i], data_ps[:,j]
-                    covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
-            self.stackdat['BGcov']['profcb'] = covcb
-            self.stackdat['BGcov']['profps'] = covps
-            self.stackdat['BGcov']['profcb_rho'] = self._normalize_cov(covcb)
-            self.stackdat['BGcov']['profps_rho'] = self._normalize_cov(covps)
+        covcb = np.zeros([Nbins, Nbins])
+        covps = np.zeros([Nbins, Nbins])
+        for i in range(Nbins):
+            for j in range(Nbins):
+                datai, dataj = data_cb[:,i], data_cb[:,j]
+                covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+                datai, dataj = data_ps[:,i], data_ps[:,j]
+                covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+        self.stackdat['BGcov']['profcb'] = covcb
+        self.stackdat['BGcov']['profps'] = covps
+        self.stackdat['BGcov']['profcb_rho'] = self._normalize_cov(covcb)
+        self.stackdat['BGcov']['profps_rho'] = self._normalize_cov(covps)
 
-            covcb = np.zeros([Nsubbins, Nsubbins])
-            covps = np.zeros([Nsubbins, Nsubbins])
-            for i in range(Nsubbins):
-                for j in range(Nsubbins):
-                    datai, dataj = data_cbsub[:,i], data_cbsub[:,j]
-                    covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
-                    datai, dataj = data_pssub[:,i], data_pssub[:,j]
-                    covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
-            self.stackdat['BGcov']['profcbsub'] = covcb
-            self.stackdat['BGcov']['profpssub'] = covps
-            self.stackdat['BGcov']['profcbsub_rho'] = self._normalize_cov(covcb)
-            self.stackdat['BGcov']['profpssub_rho'] = self._normalize_cov(covps)
+        covcb = np.zeros([Nsubbins, Nsubbins])
+        covps = np.zeros([Nsubbins, Nsubbins])
+        for i in range(Nsubbins):
+            for j in range(Nsubbins):
+                datai, dataj = data_cbsub[:,i], data_cbsub[:,j]
+                covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+                datai, dataj = data_pssub[:,i], data_pssub[:,j]
+                covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+        self.stackdat['BGcov']['profcbsub'] = covcb
+        self.stackdat['BGcov']['profpssub'] = covps
+        self.stackdat['BGcov']['profcbsub_rho'] = self._normalize_cov(covcb)
+        self.stackdat['BGcov']['profpssub_rho'] = self._normalize_cov(covps)
 
-            covcb = np.mean(data_cb100**2) - np.mean(data_cb100)**2
-            covps = np.mean(data_ps100**2) - np.mean(data_ps100)**2
-            self.stackdat['BGcov']['profcb100'] = covcb
-            self.stackdat['BGcov']['profps100'] = covps
+        covcb = np.mean(data_cb100**2) - np.mean(data_cb100)**2
+        covps = np.mean(data_ps100**2) - np.mean(data_ps100)**2
+        self.stackdat['BGcov']['profcb100'] = covcb
+        self.stackdat['BGcov']['profps100'] = covps
 
-        return
+    def _get_BGsub(self):
+        self.stackdat['BGsub'] = {}
+        self.stackdat['BGsub']['profcb'] = self.stackdat['profcb'] - self.stackdat['BG']['profcb']
+        self.stackdat['BGsub']['profps'] = self.stackdat['profps'] - self.stackdat['BG']['profps']
+        self.stackdat['BGsub']['profcbsub'] = self.stackdat['profcbsub'] - self.stackdat['BG']['profcbsub']
+        self.stackdat['BGsub']['profpssub'] = self.stackdat['profpssub'] - self.stackdat['BG']['profpssub']
+        self.stackdat['BGsub']['profcb100'] = self.stackdat['profcb100'] - self.stackdat['BG']['profcb100']
+        self.stackdat['BGsub']['profps100'] = self.stackdat['profps100'] - self.stackdat['BG']['profps100']
+
+    def _get_PSF_from_data(self):
+        import json
+        loaddir = mypaths['alldat']+'TM' + str(self.inst) + '/'
+        with open(loaddir + self.field + '_datafit.json') as json_file:
+            data_all = json.load(json_file)
+        im = self.stackdat['m_min'] - 16
+        data = data_all[im]
+        
+        scalecb = self.stackdat['BGsub']['profcb'][0]
+        scaleps = self.stackdat['BGsub']['profps'][0]
+        self.stackdat['PSF'] = {}
+        self.stackdat['PSF']['profcb'] = np.array(data['profpsfcbfull'])*scalecb
+        self.stackdat['PSF']['profps'] = np.array(data['profpsfpsfull'])*scaleps
+        self.stackdat['PSF']['profcbsub'] = np.array(data['profpsfcb'])*scalecb
+        self.stackdat['PSF']['profpssub'] = np.array(data['profpsfps'])*scaleps
+        self.stackdat['PSF']['profcb100'] = np.array(data['profpsfcb100'])*scalecb
+        self.stackdat['PSF']['profps100'] = np.array(data['profpsfps100'])*scaleps
+
+
+    def _get_PSF_covariance_from_data(self):
+        import json
+        loaddir = mypaths['alldat']+'TM' + str(self.inst) + '/'
+        with open(loaddir + self.field + '_datafit.json') as json_file:
+            data_all = json.load(json_file)
+        im = self.stackdat['m_min'] - 16
+        data = data_all[im]
+        
+        scalecb = self.stackdat['BGsub']['profcb'][0]
+        scaleps = self.stackdat['BGsub']['profps'][0]
+        self.stackdat['PSFcov'] = {}
+        self.stackdat['PSFcov']['profcb'] = np.array(data['covpsfcbfull'])
+        self.stackdat['PSFcov']['profps'] = np.array(data['covpsfpsfull'])
+        self.stackdat['PSFcov']['profcbsub'] = np.array(data['covpsfcb'])
+        self.stackdat['PSFcov']['profpssub'] = np.array(data['covpsfps'])
+        self.stackdat['PSFcov']['profcb100'] = np.array(data['covpsfcb100'])
+        self.stackdat['PSFcov']['profps100'] = np.array(data['covpsfps100'])
+        self.stackdat['PSFcov']['profcb_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
+        self.stackdat['PSFcov']['profps_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profps'])
+        self.stackdat['PSFcov']['profcbsub_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
+        self.stackdat['PSFcov']['profpssub_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
+
+
+    def _get_ex_covariance(self):
+        self.stackdat['excov'] = {}
+        self.stackdat['excov']['profcb'] = self.stackdat['cov']['profcb'] +\
+            self.stackdat['BGcov']['profcb'] + self.stackdat['PSFcov']['profcb']
+        self.stackdat['excov']['profps'] = self.stackdat['cov']['profps'] +\
+            self.stackdat['BGcov']['profps'] + self.stackdat['PSFcov']['profps']
+        self.stackdat['excov']['profcbsub'] = self.stackdat['cov']['profcbsub'] +\
+            self.stackdat['BGcov']['profcbsub'] + self.stackdat['PSFcov']['profcbsub']
+        self.stackdat['excov']['profpssub'] = self.stackdat['cov']['profpssub'] +\
+            self.stackdat['BGcov']['profpssub'] + self.stackdat['PSFcov']['profpssub']
+        self.stackdat['excov']['profcb100'] = self.stackdat['cov']['profcb100'] +\
+            self.stackdat['BGcov']['profcb100'] + self.stackdat['PSFcov']['profcb100']
+        self.stackdat['excov']['profps100'] = self.stackdat['cov']['profps100'] +\
+            self.stackdat['BGcov']['profps100'] + self.stackdat['PSFcov']['profps100']
+        
+        self.stackdat['excov']['profcb_rho'] = self._normalize_cov(self.stackdat['excov']['profcb'])
+        self.stackdat['excov']['profps_rho'] = self._normalize_cov(self.stackdat['excov']['profps'])
+        self.stackdat['excov']['profcbsub_rho'] = self._normalize_cov(self.stackdat['excov']['profcbsub'])
+        self.stackdat['excov']['profpssub_rho'] = self._normalize_cov(self.stackdat['excov']['profpssub'])
+
+    def _get_excess(self):
+        self.stackdat['ex'] = {}
+        self.stackdat['ex']['profcb'] = self.stackdat['BGsub']['profcb'] \
+                                        - self.stackdat['PSF']['profcb']
+        self.stackdat['ex']['profps'] = self.stackdat['BGsub']['profps'] \
+                                        - self.stackdat['PSF']['profps']
+        self.stackdat['ex']['profcbsub'] = self.stackdat['BGsub']['profcbsub'] \
+                                        - self.stackdat['PSF']['profcbsub']
+        self.stackdat['ex']['profpssub'] = self.stackdat['BGsub']['profpssub'] \
+                                        - self.stackdat['PSF']['profpssub']
+        self.stackdat['ex']['profcb100'] = self.stackdat['BGsub']['profcb100'] \
+                                        - self.stackdat['PSF']['profcb100']
+        self.stackdat['ex']['profps100'] = self.stackdat['BGsub']['profps100'] \
+                                        - self.stackdat['PSF']['profps100']
+        
+
 
 
 class stacking_mock:
