@@ -31,7 +31,7 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
         print('generating %d/%d catalogs from correlated GRF (%.2f min)'%(icat,n_catalog, elapse_time))
         tx, ty = generate_galaxy_clustering([counts_per_sqdeg], size=size, 
                                             ell_min=ell_min/upscale, n_square_deg=n_square_deg, 
-                                            n_catalog=n_catalog, ng_bins=ng_bins)
+                                            n_catalog=1, ng_bins=ng_bins)
 
         ra = (np.array(tx[0]) - (Npix*upscale-1)/2) * deg_pix
         dec = (np.array(ty[0]) - (Npix*upscale-1)/2) * deg_pix
