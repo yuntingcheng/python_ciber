@@ -53,12 +53,8 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
         corrs.append(corr)
         corr_ins.append(corr_in)
         corr_in_onlys.append(corr_in_only)
-   
-        corrs = np.array(corrs)
-        corr_ins = np.array(corr_ins)
-        corr_in_onlys = np.array(corr_in_onlys)
-        
-        data = np.stack((corrs, corr_ins, corr_in_onlys))
+          
+        data = np.stack((np.array(corrs), np.array(corr_ins), np.array(corr_in_onlys)))
         
         np.save('./wfunc_data/wfunc_sim_run_%d'%(run_label),data)
         
