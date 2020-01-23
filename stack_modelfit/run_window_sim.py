@@ -7,8 +7,6 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
     # this is the number of redshift bins you want,
     #if you want to generate several GRFs and superpose them
     ng_bins = 1
-    # counts per square degree
-    number_counts = [counts_per_sqdeg]*n_catalog 
     
     ell_min = 90
     Npix = 1024
@@ -17,15 +15,7 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
     upscale = 4
     size = Npix*upscale # side length of image to place counts in 
     n_square_deg = (2*upscale)**2
-    
-    start_time = time.time()
-    
-    # generate the GRFs and catalogs
-    print('generating %d catalogs from correlated GRF'%n_catalog)
-    tx, ty = generate_galaxy_clustering(number_counts, size=size, 
-                                        ell_min=ell_min/upscale, n_square_deg=n_square_deg, 
-                                        n_catalog=n_catalog, ng_bins=ng_bins)
-    
+
     theta_binedges_arcsec = np.logspace(0.3,3.2,15) # arcsec
     theta_binedges_deg = (theta_binedges_arcsec * u.arcsec).to(u.deg).value # deg
     theta_bins = np.sqrt(theta_binedges_arcsec[1:] * theta_binedges_arcsec[:-1])
@@ -34,11 +24,17 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
     corr_ins = []
     corr_in_onlys = []
 
+    start_time = time.time()
+    
     for icat in range(n_catalog):
         elapse_time = (time.time()-start_time)/60
-        print('calculate correlation function for catalog %d/%d, %.4f min'%(icat, n_catalog, elapse_time))
-        ra = (np.array(tx[icat]) - (Npix*upscale-1)/2) * deg_pix
-        dec = (np.array(ty[icat]) - (Npix*upscale-1)/2) * deg_pix
+        print('generating %d/%d catalogs from correlated GRF (%.2f min)'%(icat,n_catalog, elapse_time))
+        tx, ty = generate_galaxy_clustering([counts_per_sqdeg], size=size, 
+                                            ell_min=ell_min/upscale, n_square_deg=n_square_deg, 
+                                            n_catalog=n_catalog, ng_bins=ng_bins)
+
+        ra = (np.array(tx[0]) - (Npix*upscale-1)/2) * deg_pix
+        dec = (np.array(ty[0]) - (Npix*upscale-1)/2) * deg_pix
 
         ra_R, dec_R = uniform_sphere((min(ra), max(ra)),
                                      (min(dec), max(dec)),
@@ -57,7 +53,7 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
         corrs.append(corr)
         corr_ins.append(corr_in)
         corr_in_onlys.append(corr_in_only)
-    
+   
     corrs = np.array(corrs)
     corr_ins = np.array(corr_ins)
     corr_in_onlys = np.array(corr_in_onlys)
