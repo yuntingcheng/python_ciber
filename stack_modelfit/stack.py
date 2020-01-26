@@ -2,32 +2,6 @@ from mask import *
 import pandas as pd
 import time
 
-def load_processed_images(return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
-    '''
-    get the images processed by stack_preprocess.m
-    
-    Input:
-    =======
-    return_names: list of items (inst, ifield, map name)
-    
-    Ouput:
-    =======
-    return_maps: list of map of the input return_names
-    
-    '''
-    img_names = {'rawmap':0, 'rawmask':1, 'DCsubmap':2, 'FF':3, 'FFunholy':4,
-                'map':5, 'cbmap':6, 'psmap':7, 'mask_inst':8, 'strmask':9, 'strnum':10}
-    data = {}
-    data[1] = loadmat(mypaths['alldat'] + 'TM' + str(1) + '/stackmapdatarr.mat')['data']
-    data[2] = loadmat(mypaths['alldat'] + 'TM' + str(2) + '/stackmapdatarr.mat')['data']
-    
-    return_maps = []
-    for inst,ifield,name in return_names:
-        mapi = data[inst][ifield-4][img_names[name]]
-        return_maps.append(mapi)
-    return return_maps
-
-
 def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
                   Nsub=50, sample_type='jack_random'):
     catdir = mypaths['PScatdat']
@@ -873,6 +847,115 @@ class stacking:
         
 
 
+def stack_bigpix(inst, ifield, m_min, m_max, srctype='g', dx=120, verbose=False):
+
+    stackdat = {}
+    cbmap, psmap, strmask, strnum, mask_inst1, mask_inst2 = \
+    load_processed_images(return_names=[(inst,ifield,'cbmap'), 
+                                        (inst,ifield,'psmap'),
+                                       (inst,ifield,'strmask'), 
+                                       (inst,ifield,'strnum'),
+                                       (1,ifield,'mask_inst'),
+                                       (2,ifield,'mask_inst')])
+
+    srcdat = ps_src_select(inst, ifield, m_min, m_max, [mask_inst1, mask_inst2])
+
+    if inst==1:
+        mask_inst = mask_inst1
+    else:
+        mask_inst = mask_inst2
+
+    dx = 1200
+    profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
+    rbinedges, rbins = profile['rbinedges'], profile['rbins']
+    stackdat['rbins'] = rbins*0.7
+    stackdat['rbinedges'] = rbinedges*0.7
+    rbins /= 10 # bigpix
+    rbinedges /=10 # bigpix
+
+    dx = 120
+    radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
+    cbmapi = cbmap*strmask*mask_inst
+    maski = strmask*mask_inst
+
+    cbmapstack, maskstack = 0., 0
+    start_time = time.time()
+    for isub in range(srcdat['Nsub']):
+
+        if srctype == 'g':
+            Nsrc = srcdat['sub'][isub]['Ng']
+            x_arr, y_arr = srcdat['sub'][isub]['xg_arr'], srcdat['sub'][isub]['yg_arr']
+        elif srctype == 's':
+            Nsrc = srcdat['sub'][isub]['Ns']
+            x_arr, y_arr = srcdat['sub'][isub]['xs_arr'], srcdat['sub'][isub]['ys_arr']
+        elif srctype == 'bg':
+            Nsrc = 100
+            x_arr, y_arr = np.random.randint(0,1024,100), np.random.randint(0,1024,100)
+
+        stackdat[isub] = {}
+        if verbose:
+            print('stacking %s %d < m < %d, #%d, %d src, t = %.2f min'\
+              %(fieldnamedict[ifield], m_min, m_max, isub, 
+                Nsrc, (time.time()-start_time)/60))
+
+        cbmapstacki, maskstacki = 0., 0
+        for i in range(Nsrc):
+            xi, yi = int(x_arr[i]), int(y_arr[i])
+            radmap = make_radius_map(cbmap, xi, yi) # large pix units
+
+            # zero padding
+            mcb = np.pad(cbmapi, ((dx,dx),(dx,dx)), 'constant')
+            k = np.pad(maski, ((dx,dx),(dx,dx)), 'constant')
+            xi += dx
+            yi += dx
+
+            # cut stamp
+            cbmapstamp = mcb[xi - dx: xi + dx + 1, yi - dx: yi + dx + 1]
+            maskstamp = k[xi - dx: xi + dx + 1, yi - dx: yi + dx + 1]
+
+            cbmapstacki += cbmapstamp
+            maskstacki += maskstamp
+
+        ### end source for loop ###
+        cbmapstack += cbmapstacki
+        maskstack += maskstacki
+
+        Nbins = len(rbins)
+        profcb_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
+        for ibin in range(Nbins):
+            spi = np.where((radmapstamp>=rbinedges[ibin]) &\
+                           (radmapstamp<rbinedges[ibin+1]))
+            profcb_arr[ibin] += np.sum(cbmapstacki[spi])
+            hit_arr[ibin] += np.sum(maskstacki[spi])
+        stackdat[isub]['profcb'] = profcb_arr/hit_arr
+        stackdat[isub]['profhit'] = hit_arr
+
+    profcb_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
+    for ibin in range(Nbins):
+        spi = np.where((radmapstamp>=rbinedges[ibin]) &\
+                       (radmapstamp<rbinedges[ibin+1]))
+        profcb_arr[ibin] += np.sum(cbmapstack[spi])
+        hit_arr[ibin] += np.sum(maskstack[spi])
+    spbin = np.where(hit_arr!=0)[0]
+    profcb_norm = np.zeros_like(profcb_arr)
+    profcb_norm[spbin] = profcb_arr[spbin]/hit_arr[spbin]
+    stackdat['profcb'] = profcb_norm
+    stackdat['profhit'] = hit_arr
+
+    data_cb = np.zeros([srcdat['Nsub'], Nbins])
+    stackdat['jack'] = {}
+    for isub in range(srcdat['Nsub']):
+        stackdat['jack'][isub] = {}
+        profcb = stackdat['profcb']*stackdat['profhit'] - \
+        stackdat[isub]['profcb']*stackdat[isub]['profhit']
+        profhit = stackdat['profhit'] - stackdat[isub]['profhit']
+        stackdat['jack'][isub]['profcb'] = profcb/profhit
+        stackdat['jack'][isub]['profhit'] = profhit
+        data_cb[isub,:] = profcb/profhit
+
+    stackdat['profcb_err'] = np.sqrt(np.var(data_cb, axis=0)*srcdat['Nsub'])
+
+    return stackdat
 
 class stacking_mock:
     def __init__(self, inst, m_min, m_max, srctype='g', 

@@ -1,4 +1,3 @@
-from scipy.io import loadmat
 from utils import *
 from power_spec import *
 
@@ -25,6 +24,77 @@ def get_mask_radius_th(ifield, m_arr, inst=1, Ith=0.5):
             r_arr[i] = np.max(radmap[sp])
     
     return r_arr
+
+
+def Ith_mask(inst, ifield, m_min=-np.inf, m_max=20, Ith=0.5, verbose=True):    
+
+    catdir = mypaths['2Mcatdat']
+    df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+    xs, ys = np.array(df['y'+str(inst)]), np.array(df['x'+str(inst)])
+    ms = np.array(df['I'])
+    psmatch_arr = np.array(df['ps_match'])
+
+    sp = np.where((psmatch_arr==0) & (ms<=m_max) & (ms>m_min) \
+                  & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
+    xs, ys, ms = xs[sp], ys[sp], ms[sp]
+    rs = get_mask_radius_th(ifield, ms, inst=1, Ith=Ith)
+
+    tmmask = np.ones([1024,1024], dtype=int)
+    tmnum = np.zeros([1024,1024], dtype=int)
+    print('run Ith_mask 2MASS %d srcs'%(len(xs)))
+    for i,(x,y,r) in enumerate(zip(xs, ys, rs)):
+        radmap = make_radius_map(tmmask, x, y)
+        tmmask[radmap < r/7.] = 0
+        tmnum[radmap < r/7.] += 1
+
+    catdir = mypaths['PScatdat']
+    df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+    xs, ys = np.array(df['y'+str(inst)]), np.array(df['x'+str(inst)])
+    ms = np.array(df['I_comb'])
+
+    sp = np.where((ms<=m_max) & (ms>m_min) \
+                  & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
+    xs, ys, ms = xs[sp], ys[sp], ms[sp]
+    rs = get_mask_radius_th(ifield, ms, inst=1, Ith=Ith)
+    psmask = np.ones([1024,1024], dtype=int)
+    psnum = np.zeros([1024,1024], dtype=int)
+    for i,(x,y,r) in enumerate(zip(xs, ys, rs)):
+        if len(xs)>20:
+            if verbose and i%(len(xs)//20)==0:
+                print('run Ith_mask PanSTARRS %d/%d (%.1f %%)'\
+                  %(i, len(xs), i/len(xs)*100))
+        radmap = make_radius_map(psmask, x, y)
+        psmask[radmap < r/7.] = 0
+        psnum[radmap < r/7.] += 1
+    
+    mask = tmmask * psmask
+    num = tmnum + psnum
+    return mask, num
+
+def run_mask_rad_test(inst, ifield, Ith_arr = [10,3,1,0.3,0.1,0.03,0.01],
+                     savename=None):
+    
+    calfac = cal_factor_dict['apf2nWpm2psr'][inst][ifield]
+    cbmap, mask_inst = \
+    load_processed_images(return_names=[(inst,ifield,'map'),
+                                       (inst,ifield,'mask_inst')])
+    cbmap *= calfac
+
+    meanmap_arr = np.zeros_like(Ith_arr,dtype=float)
+    maskf_arr = np.zeros_like(Ith_arr,dtype=float)
+    for i,Ith in enumerate(Ith_arr):
+        print('=================Ith={}================='.format(Ith))
+        strmask, _ = Ith_mask(inst, ifield, Ith=Ith)
+        sigmask = sigma_clip_mask(cbmap, strmask*mask_inst)
+        meanmap_arr[i] = np.mean(cbmap[sigmask==1])
+        maskf_arr[i] = 1-np.sum(sigmask)/np.size(cbmap)
+    
+    if savename is None:
+        savename = './maskrad_test_data/maskrad_test_TM%d_%s'\
+        %(inst, fieldnamedict[ifield])
+    np.save(savename, np.stack(( Ith_arr, meanmap_arr, maskf_arr)))
+    
+    return
 
 def MZ14_mask(inst, xs, ys, ms, return_radius=False, verbose=True):    
     

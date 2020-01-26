@@ -1,5 +1,5 @@
-stack_modelfit/ciber_info.py
-stack_modelfit/stack_data/*
+stack_modelfit/ciber_paths.py
+stack_modelfit/**/*
 *.png
 *.gif
 *.txt
