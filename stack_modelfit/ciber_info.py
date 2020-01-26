@@ -25,7 +25,6 @@ field_data_dict = {'nfr':{4:25, 5:10, 6:30, 7:29, 8:26},
                    'psmean':{4:2.3439, 5:2.4844, 6:2.4472, 7:2.5742, 8:2.5673}
                   }
 
-
 class band_info:
     def __init__(self, inst):
         name_dict = {1:'I', 2:'H'}
