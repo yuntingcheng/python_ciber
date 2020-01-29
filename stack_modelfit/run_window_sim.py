@@ -1,3 +1,4 @@
+from utils import make_radius_map
 from lognormal_counts_yunting import *
 from clustering import *
 import time
@@ -23,7 +24,7 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
     corrs = []
     corr_ins = []
     corr_in_onlys = []
-
+    f_arrs = []
     start_time = time.time()
     
     for icat in range(n_catalog):
@@ -46,21 +47,22 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
 
         elapse_time = (time.time()-start_time)/60
         print('...calculate frac (%.2f min)'%(elapse_time))
-        f_arr = []
+        Npix_expected_arr = np.zeros(len(theta_bins))
         for ibin in range(len(theta_bins)):
-            print(ibin)
-            Npix_expected = np.pi*(theta_binedges_arcsec[ibin+1]**2 \
+            Npix_expected_arr[ibin] = np.pi*(theta_binedges_arcsec[ibin+1]**2 \
                                    - theta_binedges_arcsec[ibin]**2)/7**2
-            Ntot, Nin = 0, 0
-            for x,y in zip(tx[D_idx]-1536, ty[D_idx]-1536):
-                radmap = make_radius_map(np.zeros([1024,1024]), x, y)*7
+        
+        Ntot_arr, Nin_arr = np.zeros(len(theta_bins)), np.zeros(len(theta_bins))
+        for x,y in zip(tx[D_idx]-1536, ty[D_idx]-1536):
+            radmap = make_radius_map(np.zeros([1024,1024]), x, y)*7        
+            for ibin in range(len(theta_bins)):
                 sp = np.where((radmap>theta_binedges_arcsec[ibin]) & \
                              (radmap<theta_binedges_arcsec[ibin+1]))
-                Ntot += Npix_expected
-                Nin += len(sp[0])
+                Ntot_arr[ibin] += Npix_expected_arr[ibin]
+                Nin_arr[ibin] += len(sp[0])
 
-            f_arr.append(Nin / Ntot)
-        r_arr = np.array(f_arr)
+        f_arr = Nin_arr / Ntot_arr
+        f_arrs.append(f_arr)
 
         elapse_time = (time.time()-start_time)/60
         print('...calculate corr func (%.2f min)'%(elapse_time))
@@ -73,10 +75,9 @@ def run_window_sim(run_label, n_catalog=30, zmin=0.01, zmax=1.0, counts_per_sqde
         corrs.append(corr)
         corr_ins.append(corr_in)
         corr_in_onlys.append(corr_in_only)
-          
-        data = np.stack((np.array(corrs), np.array(corr_ins), 
-                         np.array(corr_in_onlys), np.array(f_arr)))
         
+        data = np.stack((corrs, corr_ins, corr_in_onlys, f_arrs))
+            
         np.save('./wfunc_data/wfunc_sim_run_%d'%(run_label),data)
         
     return data
