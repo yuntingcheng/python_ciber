@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 
 def imageclip(image, iters=3, vmin=None, vmax=None, ax=None, cbar=True,
               return_objects=False, figsize=(6,5), **kwargs):
@@ -82,3 +83,23 @@ def plot_err_log(x, y, yerr, ax=None, xlog=True, xerr=None, xedges=None, plot_xe
         ax.set_xscale('log')
     
     return
+
+class OOMFormatter(matplotlib.ticker.ScalarFormatter):
+    '''
+    Formatting the colorbar tick labels to be in scientific notation.
+    https://stackoverflow.com/questions/43324152/python-matplotlib-colorbar-scientific-notation-base?rq=1
+    
+    cbar = fig.colorbar(plot, format=OOMFormatter(-2, mathText=False))
+
+    '''
+    def __init__(self, order=0, fformat="%1.1f", offset=True, mathText=True):
+        self.oom = order
+        self.fformat = fformat
+        matplotlib.ticker.ScalarFormatter.__init__(self,useOffset=offset,useMathText=mathText)
+    def _set_orderOfMagnitude(self, nothing):
+        self.orderOfMagnitude = self.oom
+    def _set_format(self, vmin, vmax):
+        self.format = self.fformat
+        if self._useMathText:
+            self.format = '$%s$' % matplotlib.ticker._mathdefault(self.format)
+

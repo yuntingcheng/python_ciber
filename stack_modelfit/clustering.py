@@ -14,6 +14,92 @@ def get_angular_2pt_func(ra, dec, bins, nboot=1):
         corr, dcorr, boot = bootstrap_two_point_angular\
         (coords[:,0], coords[:,1], bins, method='landy-szalay', Nbootstraps=nboot)
         return corr, dcorr, boot
+
+class cosmology_power_spectrum:
+    """
+    Get the power spectrum from nbodykit
+    Don't really need this hmf is much better
+    """
+    def __init__(self, z=0, k=None):
+        self.z = z
+        self.zbins_data = np.arange(0.01,1,0.05)
+        self.kbins_data = np.logspace(-3, 3, 100) # h/Mpc
+        self.savename_linear = './linear_power'
+        self.savename_nonlinear = './nonlinear_power'
+        self.update(k)
+        if not os.path.exists(self.savename_linear + '.npy') \
+        and not os.path.exists(self.savename_nonlinear + '.npy'):
+            self._calc_power()
+        
+    def update(self, k, z=None):
+        if k is None:
+            k = self.kbins_data
+        if z is None:
+            z = self.z
+        self.z = z
+        self.k = k
+        self.linear_power = self.interpolate_linear_power(k=k)
+        self.nonlinear_power = self.interpolate_nonlinear_power(k=k)
+    
+    def interpolate_linear_power(self, k):
+        data = np.load(self.savename_linear + '.npy')
+        logdata = np.log10(data)
+        logP = np.zeros(len(self.kbins_data))
+        
+        for i in range(len(self.kbins_data)):            
+            spline_z = interpolate.InterpolatedUnivariateSpline\
+            (self.zbins_data, logdata[:,i])
+            logP[i] = spline_z(self.z)
+        
+        spline_k = interpolate.InterpolatedUnivariateSpline\
+        (np.log10(self.kbins_data), logP)
+        P = 10**spline_k(np.log10(k))
+        
+        return P
+         
+    def interpolate_nonlinear_power(self, k):
+        data = np.load(self.savename_nonlinear + '.npy')
+        logdata = np.log10(data)
+        logP = np.zeros(len(self.kbins_data))
+        
+        for i in range(len(self.kbins_data)):            
+            spline_z = interpolate.InterpolatedUnivariateSpline\
+            (self.zbins_data, logdata[:,i])
+            logP[i] = spline_z(self.z)
+        
+        spline_k = interpolate.InterpolatedUnivariateSpline\
+        (np.log10(self.kbins_data), logP)
+        P = 10**spline_k(np.log10(k))
+
+        return P
+
+    def _calc_power(self):
+        import nbodykit.lab
+        from astropy import units as u
+        from astropy import cosmology
+        from astropy import constants as const
+        cosmo = cosmology.Planck15       
+
+        zbins = self.zbins_data
+        kbins = self.kbins_data
+
+        cosmonbodykit = nbodykit.lab.cosmology.Planck15
+        cosmonbodykit = cosmonbodykit.clone(P_k_max = np.max(kbins), nonlinear=True)
+
+        data_l = np.zeros([len(zbins), len(kbins)])
+        data_nl = np.zeros([len(zbins), len(kbins)])
+        for i, z in enumerate(zbins):
+            print('calculate  P(k) at z=%.3f (%d/%d z bin)'%(z, i, len(zbins)))
+            Plin = nbodykit.lab.cosmology.LinearPower(cosmonbodykit,
+                                              redshift=z, transfer='CLASS')
+            Pm = nbodykit.lab.cosmology.HalofitPower(cosmonbodykit, redshift=z)
+            data_l[i,:] = Plin(kbins)
+            data_nl[i,:] = Pm(kbins)
+        
+        np.save(self.savename_linear, data_l)
+        np.save(self.savename_nonlinear, data_nl)
+
+        return
     
 def wgI_zm_approx(z, theta_arr, bg=1, bI=1, dIdz=1):
     '''
@@ -36,7 +122,6 @@ def wgI_zm_approx(z, theta_arr, bg=1, bI=1, dIdz=1):
     w_arr: correlation function w_{gI} at theta_arr [arcsec]
     '''
     
-    import nbodykit.lab
     from astropy import units as u
     from astropy import cosmology
     from astropy import constants as const
@@ -44,12 +129,12 @@ def wgI_zm_approx(z, theta_arr, bg=1, bI=1, dIdz=1):
     
     theta_arr = (np.array(theta_arr) * u.arcsec).to(u.rad).value
     chi = (cosmo.comoving_distance(z)*cosmo.h).value
-    Plin = nbodykit.lab.cosmology.LinearPower(nbodykit.lab.cosmology.Planck15,
-                                              redshift=z, transfer='CLASS')
+
     kbinedges = np.logspace(-3, 3, 1000) #[h/Mpc]
     kbins = np.sqrt(kbinedges[:-1] * kbinedges[1:])
     dk = kbinedges[1:] - kbinedges[:-1]
-    Plin = Plin(kbins) #[h^-3/Mpc^3]
+    cosmo_power = cosmology_power_spectrum(z=z,k=kbins)
+    Plin = cosmo_power.linear_power #[h^-3/Mpc^3]
     
     w_arr = np.zeros_like(theta_arr)
     for i,th in enumerate(theta_arr):
@@ -59,6 +144,7 @@ def wgI_zm_approx(z, theta_arr, bg=1, bI=1, dIdz=1):
     w_arr *= dzdchi * bg * bI * dIdz
     
     return w_arr
+
 
 def wgg(zin, theta_arr, bg=1, zbinedges=None):
     '''
@@ -80,7 +166,6 @@ def wgg(zin, theta_arr, bg=1, zbinedges=None):
     '''
     zin = np.array(zin)
     
-    import nbodykit.lab
     from astropy import units as u
     from astropy import cosmology
     from astropy import constants as const
@@ -102,9 +187,8 @@ def wgg(zin, theta_arr, bg=1, zbinedges=None):
     dzdchis = (cosmo.H(zbins)/const.c/cosmo.h).to(1/u.Mpc).value # [h/Mpc]
     Plins = []
     for z in zbins:
-        Plin = nbodykit.lab.cosmology.LinearPower(nbodykit.lab.cosmology.Planck15,
-                                                  redshift=z, transfer='CLASS')
-        Plin = Plin(kbins) #[h^-3/Mpc^3]
+        cosmo_power = cosmology_power_spectrum(z=z,k=kbins)
+        Plin = cosmo_power.linear_power #[h^-3/Mpc^3]
         Plins.append(Plin)
     Plins = np.array(Plins)
 
@@ -143,7 +227,6 @@ def wgI(zin, theta_arr, bg=1, bI=1, dIdz=1, zbinedges=None):
     '''
     zin = np.array(zin)
     
-    import nbodykit.lab
     from astropy import units as u
     from astropy import cosmology
     from astropy import constants as const
@@ -165,9 +248,8 @@ def wgI(zin, theta_arr, bg=1, bI=1, dIdz=1, zbinedges=None):
     dzdchis = (cosmo.H(zbins)/const.c/cosmo.h).to(1/u.Mpc).value # [h/Mpc]
     Plins = []
     for z in zbins:
-        Plin = nbodykit.lab.cosmology.LinearPower(nbodykit.lab.cosmology.Planck15,
-                                                  redshift=z, transfer='CLASS')
-        Plin = Plin(kbins) #[h^-3/Mpc^3]
+        cosmo_power = cosmology_power_spectrum(z=z,k=kbins)
+        Plin = cosmo_power.linear_power #[h^-3/Mpc^3]
         Plins.append(Plin)
     Plins = np.array(Plins)
 
@@ -302,80 +384,3 @@ def bootsrap_two_point_angular_window(coords_D, coords_R, bins, D_idx=None, R_id
     corr_err, corr_in_err = np.nanstd(bootstraps, 0, ddof=1)
 
     return corr, corr_in, corr_err, corr_in_err, bootstraps
-
-
-class cosmology_power_spectrum:
-    """
-    Get the power spectrum from nbodykit
-    Don't really need this hmf is much better
-    """
-    def __init__(self, z=0):
-        self.z = z
-        self.zbins_data = np.arange(0.01,1,0.05)
-        self.kbins_data = np.logspace(-3, 3, 100) # h/Mpc
-        self.savename_linear = './linear_power'
-        self.savename_nonlinear = './nonlinear_power'
-        
-        if not os.path.exists(self.savename_linear + '.npy') \
-        and not os.path.exists(self.savename_nonlinear + '.npy'):
-            self._calc_power()
-        
-    def update(self, z=0):
-        from astropy import cosmology
-        cosmo = cosmology.Planck15
-        self.z = z
-        self.k = self.kbins_data * cosmo.h
-        self.linear_power = self.interpolate_linear_power()
-        self.nonlinear_power = self.interpolate_nonlinear_power()
-    
-    def interpolate_linear_power(self):
-        data = np.load(self.savename_linear + '.npy')
-        logdata = np.log10(data)
-        logP = np.zeros(len(self.kbins_data))
-        
-        for i in range(len(self.kbins_data)):            
-            spline_z = interpolate.InterpolatedUnivariateSpline\
-            (self.zbins_data, logdata[:,i])
-            logP[i] = spline_z(self.z)
-        
-        return 10**logP
-         
-    def interpolate_nonlinear_power(self):
-        data = np.load(self.savename_nonlinear + '.npy')
-        logdata = np.log10(data)
-        logP = np.zeros(len(self.kbins_data))
-        
-        for i in range(len(self.kbins_data)):            
-            spline_z = interpolate.InterpolatedUnivariateSpline\
-            (self.zbins_data, logdata[:,i])
-            logP[i] = spline_z(self.z)
-        
-        return 10**logP
-
-    def _calc_power(self):
-        import nbodykit.lab
-        from astropy import units as u
-        from astropy import cosmology
-        from astropy import constants as const
-        cosmo = cosmology.Planck15       
-
-        zbins = self.zbins_data
-        kbins = self.kbins_data
-
-        cosmonbodykit = nbodykit.lab.cosmology.Planck15
-        cosmonbodykit = cosmonbodykit.clone(P_k_max = np.max(kbins), nonlinear=True)
-
-        data_l = np.zeros([len(zbins), len(kbins)])
-        data_nl = np.zeros([len(zbins), len(kbins)])
-        for i, z in enumerate(zbins):
-            print('calculate  P(k) at z=%.3f (%d/%d z bin)'%(z, i, len(zbins)))
-            Plin = nbodykit.lab.cosmology.LinearPower(cosmonbodykit,
-                                              redshift=z, transfer='CLASS')
-            Pm = nbodykit.lab.cosmology.HalofitPower(cosmonbodykit, redshift=z)
-            data_l[i,:] = Plin(kbins)
-            data_nl[i,:] = Pm(kbins)
-        
-        np.save(self.savename_linear, data_l)
-        np.save(self.savename_nonlinear, data_nl)
-
-        return
