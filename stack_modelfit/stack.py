@@ -110,13 +110,15 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
     return srcdat
 
 
-# def run_nonuniform_BG(inst, ifield):
-#     for im in range(4):
-#         m_min, m_max = magbindict['m_min'][im],magbindict['m_max'][im]
-#         stack = stacking(inst, ifield, m_min, m_max, load_from_file=True)
+def run_nonuniform_BG(inst, ifield):
+    for im in range(4):
+        m_min, m_max = magbindict['m_min'][im],magbindict['m_max'][im]
+        stack = stacking(inst, ifield, m_min, m_max, 
+            load_from_file=True,run_nonuniform_BG=True)
         
 class stacking:
-    def __init__(self, inst, ifield, m_min, m_max, srctype='g', savename=None, load_from_file=False):
+    def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
+        savename=None, load_from_file=False, run_nonuniform_BG=False):
         self.inst = inst
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
@@ -130,8 +132,9 @@ class stacking:
         if load_from_file:
             stackdat = np.load(savename + '.npy' ,allow_pickle='TRUE').item()
             self.stackdat = stackdat
-            self.stack_BG(Nbg=64, uniform=False) ###
-            np.save(savename, stackdat) ###
+            if run_nonuniform_BG:
+                self.stack_BG(Nbg=64, uniform=False)
+                np.save(savename, stackdat)
 
         else:
             stackdat = self.stack_PS()
