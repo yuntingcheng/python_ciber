@@ -110,6 +110,11 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
     return srcdat
 
 
+def run_nonuniform_BG(inst, ifield):
+    for im in range(4):
+        m_min, m_max = magbindict['m_min'][im],magbindict['m_max'][im]
+        stack = stacking(inst, ifield, m_min, m_max, load_from_file=True)
+        
 class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', savename=None, load_from_file=False):
         self.inst = inst
@@ -125,14 +130,18 @@ class stacking:
         if load_from_file:
             stackdat = np.load(savename + '.npy' ,allow_pickle='TRUE').item()
             self.stackdat = stackdat
-            # self.stack_BG(Nbg=50)
+            self.stack_BG(Nbg=64, uniform=True) ###
+            np.save(savename, stackdat) ###
 
         else:
             stackdat = self.stack_PS()
             self.stackdat = stackdat
-            self.stack_BG(Nbg=50)
+            self.stack_BG(Nbg=64)
             np.save(savename, stackdat)
-
+        
+        self._post_process()
+    
+    def _post_process(self):
         self._get_jackknife_profile()
         self._get_covariance()
         self._get_BG_covariance()
@@ -141,7 +150,7 @@ class stacking:
         self._get_PSF_covariance_from_data()
         self._get_ex_covariance()
         self._get_excess()
-
+        
     def stack_PS(self, srctype='g', dx=1200, unmask=True, verbose=True):
 
         inst = self.inst
@@ -571,7 +580,7 @@ class stacking:
 
         return
     
-    def stack_BG(self, srctype='g', dx=120, verbose=True, Nbg=50):
+    def stack_BG(self, srctype='g', dx=120, verbose=True, Nbg=64, uniform=True):
 
         inst = self.inst
         ifield = self.ifield
@@ -599,16 +608,30 @@ class stacking:
         psmapi = psmap*strmask*mask_inst
         maski = strmask*mask_inst
         
+        Nsides = int(np.sqrt(Nbg))
+        axlims = np.linspace(-0.5, 1023.5, Nsides+1)
+        ymins, xmins = np.meshgrid(axlims[:-1], axlims[:-1])
+        ymaxs, xmaxs = np.meshgrid(axlims[1:], axlims[1:])
+    
         cbmapstack, psmapstack, maskstack = 0., 0., 0
         start_time = time.time()
         for isub in range(Nbg):
             self.stackdat['BG'][isub] = {}
             print('stacking %s %d < m < %d, #%d BG, %d sources, t = %.2f min'\
               %(fieldnamedict[ifield], m_min, m_max,isub, Nsrc, (time.time()-start_time)/60))
+            
+            if uniform:
+                xs = np.random.randint(-0.5,1023.5,Nsrc)
+                ys = np.random.randint(-0.5,1023.5,Nsrc)
+            else:
+                ymin, xmin = ymins.flatten()[isub], xmins.flatten()[isub]
+                ymax, xmax = ymaxs.flatten()[isub], xmaxs.flatten()[isub]
+                xs = np.random.randint(xmin,xmax,Nsrc)
+                ys = np.random.randint(ymin,ymax,Nsrc)
 
             cbmapstacki, psmapstacki, maskstacki = 0., 0., 0
-            for i in range(Nsrc):
-                xi, yi = np.random.randint(0,1024,2)
+            for i,(xi,yi) in enumerate(zip(xs,ys)):
+                
                 radmap = make_radius_map(cbmap, xi, yi) # large pix units
 
                 # zero padding
@@ -763,10 +786,14 @@ class stacking:
         self.stackdat['BGsub'] = {}
         self.stackdat['BGsub']['profcb'] = self.stackdat['profcb'] - self.stackdat['BG']['profcb']
         self.stackdat['BGsub']['profps'] = self.stackdat['profps'] - self.stackdat['BG']['profps']
-        self.stackdat['BGsub']['profcbsub'] = self.stackdat['profcbsub'] - self.stackdat['BG']['profcbsub']
-        self.stackdat['BGsub']['profpssub'] = self.stackdat['profpssub'] - self.stackdat['BG']['profpssub']
-        self.stackdat['BGsub']['profcb100'] = self.stackdat['profcb100'] - self.stackdat['BG']['profcb100']
-        self.stackdat['BGsub']['profps100'] = self.stackdat['profps100'] - self.stackdat['BG']['profps100']
+        self.stackdat['BGsub']['profcbsub'] = self.stackdat['profcbsub'] \
+        - self.stackdat['BG']['profcbsub']
+        self.stackdat['BGsub']['profpssub'] = self.stackdat['profpssub'] \
+        - self.stackdat['BG']['profpssub']
+        self.stackdat['BGsub']['profcb100'] = self.stackdat['profcb100'] \
+        - self.stackdat['BG']['profcb100']
+        self.stackdat['BGsub']['profps100'] = self.stackdat['profps100'] \
+        - self.stackdat['BG']['profps100']
 
     def _get_PSF_from_data(self):
         import json
@@ -806,8 +833,10 @@ class stacking:
         self.stackdat['PSFcov']['profps100'] = np.array(data['covpsfps100'])
         self.stackdat['PSFcov']['profcb_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
         self.stackdat['PSFcov']['profps_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profps'])
-        self.stackdat['PSFcov']['profcbsub_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
-        self.stackdat['PSFcov']['profpssub_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
+        self.stackdat['PSFcov']['profcbsub_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
+        self.stackdat['PSFcov']['profpssub_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
 
 
     def _get_ex_covariance(self):
@@ -827,8 +856,10 @@ class stacking:
         
         self.stackdat['excov']['profcb_rho'] = self._normalize_cov(self.stackdat['excov']['profcb'])
         self.stackdat['excov']['profps_rho'] = self._normalize_cov(self.stackdat['excov']['profps'])
-        self.stackdat['excov']['profcbsub_rho'] = self._normalize_cov(self.stackdat['excov']['profcbsub'])
-        self.stackdat['excov']['profpssub_rho'] = self._normalize_cov(self.stackdat['excov']['profpssub'])
+        self.stackdat['excov']['profcbsub_rho'] \
+        = self._normalize_cov(self.stackdat['excov']['profcbsub'])
+        self.stackdat['excov']['profpssub_rho'] \
+        = self._normalize_cov(self.stackdat['excov']['profpssub'])
 
     def _get_excess(self):
         self.stackdat['ex'] = {}
@@ -844,7 +875,7 @@ class stacking:
                                         - self.stackdat['PSF']['profcb100']
         self.stackdat['ex']['profps100'] = self.stackdat['BGsub']['profps100'] \
                                         - self.stackdat['PSF']['profps100']
-        
+
 
 
 def stack_bigpix(inst, ifield, m_min, m_max, srctype='g', dx=120, verbose=False):
