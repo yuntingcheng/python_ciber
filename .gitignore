@@ -1,10 +1,11 @@
 stack_modelfit/ciber_paths.py
-stack_modelfit/**/*
+stack_modelfit/*/*
 *.png
 *.gif
 *.txt
 *.csv
-*pyc
+*.pyc
+*.pkl
 **.ipynb_checkpoints
 **__pycache__
 **.DS_Store
