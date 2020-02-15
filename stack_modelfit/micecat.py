@@ -98,3 +98,9 @@ def run_micecat_fliter_test(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
         #    data_dict = pickle.load(f)
     
     return data, rbins, filt_order_arr
+
+def run_micecat_filter_test_batch(inst, ibatch):
+    icat_arr = np.linspace(0,9,10) + ibatch*10
+    for icat in icat_arr:
+        data, rbins, filt_order_arr = run_micecat_fliter_test(inst, icat)
+    return
