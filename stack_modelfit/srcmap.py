@@ -210,3 +210,10 @@ class make_srcmap:
         srcmap = srcmap[2*dx//Nsub : 2*dx//Nsub+Npix_cb,\
                         2*dx//Nsub : 2*dx//Nsub+Npix_cb]
         return srcmap
+
+    def run_srcmap_nopsf(self):
+        self.Is = self._ABmag2Iciber(self.ms_inband)
+        srcmap = np.histogram2d(self.xls,self.yls,
+                                np.arange(self.Npix_cb+1)-0.5,
+                                weights=self.Is)[0]
+        return srcmap

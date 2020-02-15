@@ -149,7 +149,9 @@ class gal_profile_model:
         MNRAS 487, 1580 
         table 3
         '''
-        R200_arr = [98.90,62.83,42.48,29.34]; # [arcsec]
+
+        # from SIDES abundance matching
+        R200_arr = [98.90,62.83,42.48,29.34] #[arcsec]
         W19params = {}
         W19params['m_min'] = im + 16
         W19params['m_max'] = im + 17
@@ -306,3 +308,57 @@ def load_processed_images(return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
         return_maps.append(mapi)
     return return_maps
 
+def image_poly_filter(image, mask=None, degree=2, return_bg=False):
+    '''
+    polynominal filter the image
+    '''
+    if degree is None:
+        return image
+    
+    import warnings
+    from astropy.modeling import models, fitting
+    
+    if mask is None:
+        mask = np.ones(image.shape)
+        mask[image==0] = 0  
+    sp = np.where(mask!=0)
+
+    Nx, Ny = image.shape
+    x,y = np.meshgrid(np.arange(Nx), np.arange(Ny))
+
+    p_init = models.Polynomial2D(degree=degree)
+    fit_p = fitting.LevMarLSQFitter()
+
+    with warnings.catch_warnings():
+        # Ignore model linearity warning from the fitter
+        warnings.simplefilter('ignore')
+        p = fit_p(p_init, x[sp], y[sp], image[sp])
+    
+    bgmap = p(x, y)
+    image_filt = image - bgmap
+    
+    if return_bg:
+        return image_filt, bgmap
+
+    return image_filt
+
+def image_smooth_gauss(image, mask=None, stddev=5):
+    '''
+    Gaussian smooth the image
+    '''
+    
+    if mask is None:
+        mask = np.ones(image.shape)
+        mask[image==0] = 0  
+
+    from astropy.convolution import Gaussian2DKernel
+    from astropy.convolution import convolve
+
+    kernel = Gaussian2DKernel(stddev=5)
+    im = image.copy()
+    im[mask==0] = np.nan
+    
+    im_conv = convolve(im, kernel)
+    im_conv[mask==0] = 0
+    
+    return im_conv

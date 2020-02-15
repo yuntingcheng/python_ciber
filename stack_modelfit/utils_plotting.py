@@ -10,7 +10,7 @@ def imageclip(image, iters=3, vmin=None, vmax=None, ax=None, cbar=True,
     elif np.all(image==0):
         vmin, vmax = 0 ,1
     else:
-        b = image[image!=0]
+        b = image[(image!=0) & (image!=np.inf) & (image!=-np.inf)]
         if np.min(b) == np.max(b):
             vmin, vmax = 0, 1
         else:
@@ -66,18 +66,28 @@ def plot_err_log(x, y, yerr, ax=None, xlog=True, xerr=None, xedges=None, plot_xe
         else:
             rx = x[1]-x[0]
             xedges = np.concatenate(([x[0]-rx],(x[1:]+x[:-1])/2,[x[-1]+rx]))
-    x_err_low = x - xedges[:-1]
-    x_err_high = xedges[1:] - x
+    
+    if plot_xerr:
+        x_err_low = x - xedges[:-1]
+        x_err_high = xedges[1:] - x
     
     spp = np.where(y>=0)[0]
     spn = np.where(y<0)[0]
-    ax.errorbar(x[spp], y[spp], yerr[spp], [x_err_low[spp], x_err_high[spp]],
-                fmt ='.', color=color, capsize=capsize, 
-                markersize=markersize, alpha=alpha, label=label)
-    ax.errorbar(x[spn], -y[spn], yerr[spn], [x_err_low[spn], x_err_high[spn]],
-                fmt ='.', mfc='white', color=color, 
-                capsize=capsize, markersize=markersize, alpha=alpha)
-    
+
+    if plot_xerr:
+        ax.errorbar(x[spp], y[spp], yerr[spp], [x_err_low[spp], x_err_high[spp]],
+                    fmt ='.', color=color, capsize=capsize, 
+                    markersize=markersize, alpha=alpha, label=label)
+        ax.errorbar(x[spn], -y[spn], yerr[spn], [x_err_low[spn], x_err_high[spn]],
+                    fmt ='.', mfc='white', color=color, 
+                    capsize=capsize, markersize=markersize, alpha=alpha)
+    else:
+        ax.errorbar(x[spp], y[spp], yerr[spp],
+                    fmt ='.', color=color, capsize=capsize, 
+                    markersize=markersize, alpha=alpha, label=label)
+        ax.errorbar(x[spn], -y[spn], yerr[spn],
+                    fmt ='.', mfc='white', color=color, 
+                    capsize=capsize, markersize=markersize, alpha=alpha)
     ax.set_yscale('log')
     if xlog:
         ax.set_xscale('log')

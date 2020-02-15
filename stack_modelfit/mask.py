@@ -71,6 +71,27 @@ def Ith_mask(inst, ifield, m_min=-np.inf, m_max=20, Ith=0.5, verbose=True):
     num = tmnum + psnum
     return mask, num
 
+def Ith_mask_mock(xs, ys, ms, ifield=8, 
+    m_min=-np.inf, m_max=20, Ith=0.5, verbose=True):    
+
+    sp = np.where((ms>m_min) & (ms<m_max))[0]
+    xs, ys, ms = xs[sp], ys[sp], ms[sp]
+    rs = get_mask_radius_th(ifield, ms, inst=1, Ith=Ith)
+
+    mask = np.ones([1024,1024], dtype=int)
+    num = np.zeros([1024,1024], dtype=int)
+    
+    for i,(x,y,r) in enumerate(zip(xs, ys, rs)):
+        if len(xs)>20:
+            if verbose and i%(len(xs)//20)==0:
+                print('run Ith_mask_mock %d/%d (%.1f %%)'\
+                  %(i, len(xs), i/len(xs)*100))
+        radmap = make_radius_map(mask, x, y)
+        mask[radmap < r/7.] = 0
+        num[radmap < r/7.] += 1
+
+    return mask, num
+
 def run_mask_rad_test(inst, ifield, Ith_arr = [10,3,1,0.3,0.1,0.03,0.01],
                      savename=None):
     
