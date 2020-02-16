@@ -58,8 +58,8 @@ def radial_prof(mapin, cenx, ceny, log=True, nbins=25, maskin=None,
     Npix = np.zeros(nbins)
     
     for i in range(nbins):
-        sp = [(radmap < rbinedges[i+1]) & (radmap >= rbinedges[i]) & (maskin != 0) & 
-              (~np.isnan(mapin)) & (~np.isnan(weight))]
+        sp = np.where((radmap < rbinedges[i+1]) & (radmap >= rbinedges[i]) &\
+                      (maskin != 0) & (~np.isnan(mapin)) & (~np.isnan(weight)))
         Npixi = np.sum(sp)
         
         if Npixi==0:
