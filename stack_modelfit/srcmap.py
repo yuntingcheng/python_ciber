@@ -4,7 +4,7 @@ import pandas as pd
 
 class make_srcmap:
     def __init__(self, inst, m_min=None, m_max=None, srctype='g', catname = 'PanSTARRS',
-                   ifield = 8, psf_ifield=None, Re2=2, normalize_model=True):
+                   PSmatch=False, ifield = 8, psf_ifield=None, Re2=2, normalize_model=True):
         self.inst = inst
         self.m_min = -5 if m_min is None else m_min
         self.m_max = 40 if m_max is None else m_max
@@ -17,6 +17,17 @@ class make_srcmap:
                 self.field = fieldnamedict[ifield]
             else:
                 raise Exception('ifield invalid (must be int between 4-8)')
+        
+        elif catname=='2MASS':
+            self.catname = catname
+            self.catdir = mypaths['2Mcatdat']
+            if ifield in [4,5,6,7,8]:
+                self.ifield = ifield
+                self.field = fieldnamedict[ifield]
+                self.PSmatch = PSmatch
+            else:
+                raise Exception('ifield invalid (must be int between 4-8)')
+
         elif catname=='HSC':
             self.catname = catname
             self.catdir = mypaths['HSCcatdat']
@@ -55,28 +66,50 @@ class make_srcmap:
     def _get_psf(self):
         pix_map = self._pix_func_substack()
         
+        fitpsfdat = fitpsfdat=loadmat(mypaths['ciberdir'] + \
+                'doc/20170617_Stacking/psf_analytic/TM'\
+              + str(self.inst) + '/fitpsfdat.mat')['fitpsfdat'][0]
         if self.psf_ifield in [4,5,6,7,8]:
             im = 1 # use im = 1 PSF for all
             param_fit = fit_stacking_mcmc(self.inst, self.psf_ifield, im)
             psfwin_map = param_fit.psfwin_map/np.sum(param_fit.psfwin_map)
+            self.dx = psfwin_map.shape[0]//2
+            
+            psfparams = fitpsfdat[self.ifield-1][7][0][0]
+            beta, rc, norm  = float(psfparams[0]), float(psfparams[1]), float(psfparams[4])
+            radmap = make_radius_map(np.zeros([2*self.dx+1, 2*self.dx+1]),
+                                     self.dx, self.dx)*0.7
+            psfbeta_map = norm * (1 + (radmap/rc)**2)**(-3*beta/2)
+
         else:
             im = 1
             psfwin_map = 0
+            psfbeta_map = 0
             for ifield in [4,5,6,7,8]:
                 param_fit = fit_stacking_mcmc(self.inst, ifield, im)
-                psfwin_map = param_fit.psfwin_map/np.sum(param_fit.psfwin_map)
+                psfwin_map += param_fit.psfwin_map/np.sum(param_fit.psfwin_map)
+                self.dx = psfwin_map.shape[0]//2
+                
+                psfparams = fitpsfdat[self.ifield-1][7][0][0]
+                beta, rc, norm  = float(psfparams[0]), float(psfparams[1]), float(psfparams[4])
+                radmap = make_radius_map(np.zeros([2*self.dx+1, 2*self.dx+1]),
+                                         self.dx, self.dx)*0.7
+                psfbeta_map += norm * (1 + (radmap/rc)**2)**(-3*beta/2)
+
             psfwin_map /= 5
+            psfbeta_map /= 5
+            
         psfwin_map /= np.sum(psfwin_map)
+        psfbeta_map /= np.sum(psfbeta_map)
         
         psf_map = restoration.richardson_lucy(psfwin_map, pix_map, 5)
         psf_map /= np.sum(psf_map) 
 
-        dx = psfwin_map.shape[0]//2
         
         self.pix_map = pix_map
         self.psfwin_map = psfwin_map
         self.psf_map = psf_map
-        self.dx = dx
+        self.psfbeta_map = psfbeta_map
         
     def _load_catalog(self):
         dx = self.dx
@@ -98,7 +131,19 @@ class make_srcmap:
             elif self.srctype is None:
                 sp = np.where((ms>=self.m_min) & (ms<self.m_max))[0]            
 
-        else:
+        elif self.catname == '2MASS':
+            xls = df['y'+str(self.inst)].values
+            yls = df['x'+str(self.inst)].values
+            ms = df['I'].values
+            PSmatch = df['ps_match'].values
+            if self.PSmatch is None:
+                sp = np.where((ms>=self.m_min) & (ms<self.m_max))[0]
+            elif self.PSmatch:
+                sp = np.where((ms>=self.m_min) & (ms<self.m_max) & (PSmatch==1))[0]
+            elif not self.PSmatch:
+                sp = np.where((ms>=self.m_min) & (ms<self.m_max) & (PSmatch==0))[0]
+                
+        elif self.catname == 'HSC':
             xls = df['x'].values - 2.5
             yls = df['y'].values - 2.5
             ms = df['Imag'].values
@@ -114,14 +159,16 @@ class make_srcmap:
             
         xls = xls[sp]
         yls = yls[sp]
-        clss = clss[sp]
         ms = ms[sp]
+        
         ms_inband = ms.copy()
         Is = self._ABmag2Iciber(ms)
         if self.inst == 2:
             if self.catname == 'PanSTARRS':
                 ms_inband = df['H_comb'].values[sp]
-            else:
+            elif self.catname == '2MASS':
+                ms_inband = df['H'].values[sp]
+            elif self.catname == 'HSC':
                 ms_inband = df['Hmag'].values[sp]
             Is = self._ABmag2Iciber(ms_inband)
             
@@ -184,7 +231,7 @@ class make_srcmap:
         self.modconv_map = self.modconv_map * norm
         self.modconvwin_map = self.modconvwin_map * norm
         
-    def run_srcmap(self, ptsrc=False, verbose=True):
+    def run_srcmap(self, ptsrc=False, psf_beta_model=False, verbose=True):
         dx = self.dx
         Npix_cb = self.Npix_cb
         Nsub = self.Nsub
@@ -196,13 +243,19 @@ class make_srcmap:
         
         srcmap_large = np.zeros([Npix_cb * Nsub + 4 * dx, Npix_cb * Nsub + 4 * dx])
         subpix_srcmap = self.psf_map if ptsrc else self.modconv_map
+        if ptsrc and psf_beta_model:
+            subpix_srcmap = self.psfbeta_map
         
-        for i,(xs,ys,I) in enumerate(zip(self.xss,self.yss,self.Is)):
+        sp = np.where((self.xss-dx > 0) & (self.xss+dx < srcmap_large.shape[0]) & \
+                     (self.yss-dx > 0) & (self.yss+dx < srcmap_large.shape[0]))[0]
+        xss, yss, Is = self.xss[sp], self.yss[sp],self.Is[sp]
+        
+        for i,(xs,ys,I) in enumerate(zip(xss, yss, Is)):
             
-            if len(self.Is)>20:
-                if verbose and i%(len(self.Is)//20)==0:
+            if len(Is)>20:
+                if verbose and i%(len(Is)//20)==0:
                     print('run srcmap %d / %d (%.1f %%)'\
-                          %(i, len(self.Is), i/len(self.Is)*100))
+                          %(i, len(Is), i/len(Is)*100))
                     
             srcmap_large[xs-dx : xs+dx+1, ys-dx : ys+dx+1] += (subpix_srcmap*I)
         

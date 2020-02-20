@@ -71,6 +71,10 @@ def plot_err_log(x, y, yerr, ax=None, xlog=True, xerr=None, xedges=None, plot_xe
         x_err_low = x - xedges[:-1]
         x_err_high = xedges[1:] - x
     
+    if xerr is not None:
+        x_err_low = xerr
+        x_err_high = xerr
+
     spp = np.where(y>=0)[0]
     spn = np.where(y<0)[0]
 

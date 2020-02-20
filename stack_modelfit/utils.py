@@ -11,6 +11,36 @@ from astropy import cosmology
 cosmo = cosmology.Planck15
 
 
+def ABmag2Fjy(m):
+    '''
+    Convert AB mag to flux in Jy
+    m_AB = -2.5 log(F/3631Jy)
+    '''
+    
+    F = 3631. * 10 ** (-m / 2.5)
+    return F
+
+def ABmag2Iciber(inst, m):
+    '''
+    Convert AB mag to I [nW/m2/sr] on CIBER pixel (7'')
+    '''
+    sr = ((7./3600.0)*(np.pi/180.0))**2
+    wl = band_info(inst).wl
+    I = 3631. * 10**(-m / 2.5) * (3 / wl) * 1e6 / (sr*1e9)
+    return I
+
+def Iciber2FJy(inst, I):
+    '''
+    Convert CIBER vIv [nW/m2/sr] to F[Jy] (assuming point source in CIBER pixel)
+    '''
+    sr = ((7./3600.0)*(np.pi/180.0))**2
+    wl = band_info(inst).wl
+    nu = 3e14/wl
+    
+    F = I * sr / nu #[nW/m^2/Hz]
+    F *= 1e17 #[Jy]
+    return F
+
 def make_radius_map(mapin, cenx, ceny):
     '''
     return radmap of size mapin.shape. 
@@ -31,9 +61,14 @@ def sigma_clip_mask(mapin, maskin, iter_clip=3, sig=5):
     maskout[np.where((mapin>clipmax) | (mapin<clipmin))]=0
     return maskout
 
-def radial_prof(mapin, cenx, ceny, log=True, nbins=25, maskin=None,
+def radial_prof(mapin, cenx=None, ceny=None, log=True, nbins=25, maskin=None,
                 weight=None, rbinedges=None, return_full=True):
     
+    if cenx is None:
+        cenx = mapin.shape[0]//2
+    if ceny is None:
+        ceny = mapin.shape[1]//2
+
     radmap = make_radius_map(mapin,  cenx, ceny)
     
     if weight is None:
@@ -343,7 +378,7 @@ def image_poly_filter(image, mask=None, degree=2, return_bg=False):
 
     return image_filt
 
-def image_smooth_gauss(image, mask=None, stddev=5):
+def image_smooth_gauss(image, mask=None, stddev=5, return_unmasked=False):
     '''
     Gaussian smooth the image
     '''
@@ -355,11 +390,15 @@ def image_smooth_gauss(image, mask=None, stddev=5):
     from astropy.convolution import Gaussian2DKernel
     from astropy.convolution import convolve
 
-    kernel = Gaussian2DKernel(stddev=5)
+    kernel = Gaussian2DKernel(stddev=stddev)
     im = image.copy()
     im[mask==0] = np.nan
     
     im_conv = convolve(im, kernel)
+
+    if return_unmasked:
+        return im_conv
+        
     im_conv[mask==0] = 0
     
     return im_conv

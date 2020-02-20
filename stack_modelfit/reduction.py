@@ -3,6 +3,7 @@ from scipy.io import loadmat
 import numpy as np
 from ciber_info import *
 from mask import *
+from srcmap import *
 
 class get_frame_data():
     
@@ -75,25 +76,26 @@ class get_frame_data():
             timeup = t0 + 705
 
         return timedown, timeup
-        
-        
-class map_reduction:
+    
+class image_reduction:
     def __init__(self, inst):
         self.inst = inst
         self.DCtemplate, self.mask_inst = self.get_DC_mask_inst(self.inst)
         self.ts_process()     
         self.get_strmask(self.inst)
-        ## FF corr
-        ## hand mask
+        self.get_srcmap(self.inst)
+        self.FF_correction(self.inst)
+        self.get_mask_inst(self.inst)
         
     def ts_process(self):
         stackmapdat = {}
         for ifield in [4,5,6,7,8]:
             stackmapdat[ifield] = {}
             tsmask = self.get_tsmask(self.inst, ifield)
-            linmap, negmask, long = self.linearized_map(self.inst, ifield)
+            linmap, negmask, long, Nfr = self.linearized_map(self.inst, ifield)
             mask = self.mask_inst * tsmask * negmask
             
+            stackmapdat[ifield]['Nfr'] = Nfr
             stackmapdat[ifield]['rawmap'] = long
             stackmapdat[ifield]['rawmask'] = mask
             stackmapdat[ifield]['DCsubmap'] = linmap - self.DCtemplate
@@ -120,6 +122,30 @@ class map_reduction:
             strmask, strnum = strmaskdat[0,i,...], strmaskdat[1,i,...]
             self.stackmapdat[ifield]['strmask'] = strmask
             self.stackmapdat[ifield]['strnum'] = strnum
+            
+    def get_srcmap(self, inst):
+
+        fname = mypaths['alldat'] + 'TM'+ str(inst) + '/srcmapdat'
+        try:
+            srcmapdat = np.load(fname + '.npy')
+        except OSError as error:
+            srcmaps = []
+
+            for ifield in [4,5,6,7,8]:
+                print('make srcmap in %s'%fieldnamedict[ifield])
+                make_srcmap_class = make_srcmap(inst, srctype=None, catname='2MASS',
+                                ifield=ifield, psf_ifield=ifield)
+                srcmap2m = make_srcmap_class.run_srcmap(psf_beta_model=True, ptsrc=True)
+                make_srcmap_class = make_srcmap(inst, srctype=None, catname='PanSTARRS',
+                                                ifield=ifield, psf_ifield=ifield)
+                srcmapps = make_srcmap_class.run_srcmap(psf_beta_model=True, ptsrc=True)
+                #srcmap2m, srcmapps = np.ones([1024,1024])*ifield, np.zeros([1024,1024])
+                srcmaps.append(srcmap2m + srcmapps)
+
+            srcmapdat = np.array(srcmaps)
+            np.save(fname,srcmapdat)
+        for i,ifield in enumerate([4,5,6,7,8]):
+            self.stackmapdat[ifield]['srcmap'] = srcmapdat[i,...]
 
     def get_DC_mask_inst(self, inst):
         inst = self.inst
@@ -187,4 +213,112 @@ class map_reduction:
         linmap = long.copy()
         linmap[(frames[-1] - off) < th] = short[(frames[-1] - off) < th]
 
-        return linmap, negmask, long
+        return linmap, negmask, long, Nfr
+    
+    def FF_correction(self, inst):
+        for i in [4,5,6,7,8]:
+            FFpix, stack_mask = np.zeros_like(self.DCtemplate), np.zeros_like(self.DCtemplate)
+
+            for j in [4,5,6,7,8]:
+                if j==i:
+                    continue
+                mapin = -self.stackmapdat[j]['DCsubmap'].copy()
+                strmask = self.stackmapdat[j]['strmask'].copy()
+                mask0 = self.stackmapdat[j]['rawmask'].copy()
+                mask = sigma_clip_mask(mapin, strmask*mask0, iter_clip=3, sig=5)
+                FFpix += mapin * mask / np.sqrt(np.mean(mapin[mask==1]))
+                stack_mask += mask * np.sqrt(np.mean(mapin[mask==1]))
+
+            sp = np.where(stack_mask!=0)
+            FFpix[sp] = FFpix[sp] / stack_mask[sp]
+            stack_mask[stack_mask>0] = 1
+            FFsm = image_smooth_gauss(FFpix, mask=stack_mask, 
+                stddev=3, return_unmasked=True)
+            FFsm[FFsm!=FFsm] = 0
+
+            FF = FFpix.copy()
+            spholes = np.where((self.stackmapdat[i]['rawmask']==1) & (stack_mask==0))
+            FF[spholes] = FFsm[spholes]
+            self.stackmapdat[i]['FFpix'] = FFpix
+            self.stackmapdat[i]['FFsm'] = FFsm
+            self.stackmapdat[i]['FF'] = FF
+
+            FFcorrmap = self.stackmapdat[i]['DCsubmap'].copy()
+            FFcorrmap[FF!=0] = FFcorrmap[FF!=0] / FF[FF!=0]
+            FFcorrmap[self.stackmapdat[i]['rawmask']==0]=0
+            FFcorrmap[FF==0]=0
+            self.stackmapdat[i]['map'] = FFcorrmap
+    
+    def get_mask_inst(self, inst):
+
+        for ifield in [4,5,6,7,8]:
+            mask_inst = self.stackmapdat[ifield]['rawmask'].copy()
+            mask_inst *= self.crmask(inst, ifield)
+            strmask = self.stackmapdat[ifield]['strmask'].copy()
+            mapin = -self.stackmapdat[ifield]['map'].copy()
+
+            # clip image
+            sigmask = strmask * mask_inst
+            Q1 = np.percentile(mapin[(sigmask==1)], 25)
+            Q3 = np.percentile(mapin[(sigmask==1)], 75)
+            clipmin = Q1 - 3 * (Q3 - Q1)
+            clipmax = Q3 + 3 * (Q3 - Q1)
+            sigmask[(mapin > clipmax)] = 0
+            sigmask[(mapin < clipmin)] = 0
+            mask_inst[sigmask!=strmask*mask_inst] = 0
+
+            sigmask0 = sigmask
+            # clip residual point sources
+            mapin_sm = image_smooth_gauss(mapin, mask=sigmask, stddev=1)
+            sigmask = strmask * mask_inst
+            Q1 = np.percentile(mapin_sm[(sigmask==1)], 25)
+            Q3 = np.percentile(mapin_sm[(sigmask==1)], 75)
+            clipmin = Q1 - 3 * (Q3 - Q1)
+            clipmax = Q3 + 3 * (Q3 - Q1)
+            sigmask[(mapin_sm > clipmax)] = 0
+            sigmask[(mapin_sm < clipmin)] = 0
+            mask_inst[sigmask!=strmask*mask_inst] = 0
+
+            self.stackmapdat[ifield]['mask_inst'] = mask_inst   
+
+    
+    def crmask(self, inst, ifield):
+        crmask = np.ones_like(self.DCtemplate)
+        size = crmask.shape
+        if (inst, ifield) == (1, 8):
+            crmask1 = self._circular_mask(39, 441, 40, size)
+            crmask2 = self._circular_mask(341, 741, 10, size)
+            crmask = crmask * crmask1 * crmask2
+        
+        elif (inst, ifield) == (2, 8):
+            crmask1 = self._circular_mask(394, 439, 10, size)
+            crmask2 = self._circular_mask(799, -1, 60, size)
+            crmask = crmask * crmask1 * crmask2
+        
+        elif (inst, ifield) == (2,5):
+            crmask1 = self._elliptical_mask(219, 214, 15, 60, 80, size)
+            crmask2 = self._elliptical_mask(89, 709, 20, 80, 60, size)
+            crmask = crmask * crmask1 * crmask2
+        
+        return crmask
+    
+    def _circular_mask(self, x0, y0, r, size):
+        mask = np.ones(size)
+        radmap = make_radius_map(mask, x0, y0)
+        mask[radmap<r] = 0
+        return mask
+
+    def _elliptical_mask(self, x0, y0, a, b, theta, size):
+        mask = np.ones(size)
+        xx, yy = np.meshgrid(np.arange(size[0]), np.arange(size[1]), indexing='ij')
+        th = theta*np.pi/180
+        xxnew = xx*np.cos(th) - yy*np.sin(th)
+        yynew = xx*np.sin(th) + yy*np.cos(th)
+
+        xnew = x0*np.cos(th) - y0*np.sin(th)
+        ynew = x0*np.sin(th) + y0*np.cos(th)
+
+        radmap = ((xxnew - xnew) / a)**2 + ((yynew - ynew) / b)**2
+        mask[radmap < 1] = 0
+
+        return mask
