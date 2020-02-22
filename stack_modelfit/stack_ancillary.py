@@ -385,14 +385,16 @@ class stacking_mock:
         return image_new
 
     def run_stacking(self, mapin, mask, num, mask_inst=None,
-                     dx=1200, return_profile = True, verbose=True):
+                     dx=1200, return_profile = True, return_all=False,
+                      update_mask=True,verbose=True):
         
         self.dx = dx
         Nsub = self.Nsub
         
         self.xss = np.round(self.xls * Nsub + (Nsub/2 - 0.5)).astype(np.int32)
         self.yss = np.round(self.yls * Nsub + (Nsub/2 - 0.5)).astype(np.int32)
-        self._get_mask_radius()
+        if update_mask:
+            self._get_mask_radius()
         
         mask_inst = np.ones_like(mapin) if mask_inst is None else mask_inst
         
@@ -430,7 +432,7 @@ class stacking_mock:
         stack[sp] = mapstack[sp] / maskstack[sp]
         stack[maskstack==0] = 0
         
-        if not return_profile: 
+        if not return_profile and not return_all: 
             return stack, maskstack, mapstack
         
         profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
@@ -452,7 +454,11 @@ class stacking_mock:
         stackdat['prof'] = prof_norm
         stackdat['profhit'] = hit_arr
 
-        return stackdat
+        if return_profile and not return_all: 
+            return stackdat
+
+        if return_all:
+            return stackdat, stack, maskstack, mapstack
 
     def run_stacking_bigpix(self, mapin, mask, num, mask_inst=None,
                      dx=120, return_profile = True, verbose=True):

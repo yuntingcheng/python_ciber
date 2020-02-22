@@ -23,6 +23,16 @@ def get_micecat_df(icat):
               (df['dec_gal'] <= dec_min) | (df['dec_gal'] > dec_max)].index
     df.drop(index , inplace=True)
 
+    # apply mag correction, c.f. data query page
+    # magnitude_evolved = magnitude_catalog - 0.8 * (atan(1.5 * z_cgal) - 0.1489)
+    df['euclid_nisp_y_true'] = df['euclid_nisp_y_true'].values \
+    - 0.8 * (np.arctan(1.5 * df['z_cgal'].values) - 0.1489)
+    df['euclid_nisp_j_true'] = df['euclid_nisp_j_true'].values \
+    - 0.8 * (np.arctan(1.5 * df['z_cgal'].values) - 0.1489)
+    df['euclid_nisp_h_true'] = df['euclid_nisp_h_true'].values \
+    - 0.8 * (np.arctan(1.5 * df['z_cgal'].values) - 0.1489)
+
+
     df['I'] = df['euclid_nisp_y_true']
     Hmag = 0.5*(10**(-df['euclid_nisp_j_true']/2.5) + 10**(-df['euclid_nisp_h_true']/2.5))
     Hmag = -2.5*np.log10(Hmag)

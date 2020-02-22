@@ -4,6 +4,9 @@ import numpy as np
 from ciber_info import *
 from mask import *
 from srcmap import *
+from stack_ancillary import *
+from psfstack import *
+from skimage import restoration
 
 class get_frame_data():
     
@@ -81,7 +84,8 @@ class image_reduction:
     def __init__(self, inst):
         self.inst = inst
         self.DCtemplate, self.mask_inst = self.get_DC_mask_inst(self.inst)
-        self.ts_process()     
+        self.ts_process() 
+        self.get_psf(self.inst, self.stackmapdat)    
         self.get_strmask(self.inst)
         self.get_srcmap(self.inst)
         self.FF_correction(self.inst)
@@ -102,6 +106,18 @@ class image_reduction:
         
         self.stackmapdat = stackmapdat
     
+    def get_psf(self, inst, stackmapdat):
+        fname = mypaths['alldat'] + 'TM'+ str(inst) + '/psfdata.pkl'
+        if os.path.exists(fname):
+            with open(fname,"rb") as f:
+                psfdata = pickle.load(f)
+        else:
+            stack_psf(inst, self.stackmapdat)
+            with open(fname,"rb") as f:
+                psfdata = pickle.load(f)
+
+        self.psfdata = psfdata
+
     def get_strmask(self, inst):
 
         fname = mypaths['alldat'] + 'TM'+ str(inst) + '/strmaskdat'
@@ -322,3 +338,12 @@ class image_reduction:
         mask[radmap < 1] = 0
 
         return mask
+
+    def _pix_func_substack(self,dx = 50, Nsub = 10):
+        xx,yy = np.meshgrid(np.arange(2 * dx + 1), np.arange(2 * dx + 1))
+        xx, yy = abs(xx - dx), abs(yy - dx)
+        psf_pix = (Nsub - xx)*(Nsub - yy)
+        psf_pix[(xx >= Nsub)] = 0
+        psf_pix[(yy >= Nsub)] = 0
+        psf_pix = psf_pix / np.sum(psf_pix)
+        return psf_pix
