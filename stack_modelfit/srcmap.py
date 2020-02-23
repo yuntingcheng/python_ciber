@@ -1,10 +1,12 @@
-from run_fit import *
+from utils import *
 from skimage import restoration
+from scipy.signal import fftconvolve
 import pandas as pd
 
 class make_srcmap:
-    def __init__(self, inst, m_min=None, m_max=None, srctype='g', catname = 'PanSTARRS',
-                   PSmatch=False, ifield = 8, psf_ifield=None, Re2=2, normalize_model=True):
+    def __init__(self, inst, m_min=None, m_max=None, srctype='g',
+     catname = 'PanSTARRS', PSmatch=False, ifield = 8, psf_ifield=None,
+      Re2=2, normalize_model=True):
         self.inst = inst
         self.m_min = -5 if m_min is None else m_min
         self.m_max = 40 if m_max is None else m_max
@@ -62,55 +64,35 @@ class make_srcmap:
         self.normalize_model = True
         if normalize_model:
             self._normalize_modmap()
-            
+        
     def _get_psf(self):
         pix_map = self._pix_func_substack()
-        
-        fitpsfdat = fitpsfdat=loadmat(mypaths['ciberdir'] + \
-                'doc/20170617_Stacking/psf_analytic/TM'\
-              + str(self.inst) + '/fitpsfdat.mat')['fitpsfdat'][0]
+
         if self.psf_ifield in [4,5,6,7,8]:
-            im = 1 # use im = 1 PSF for all
-            param_fit = fit_stacking_mcmc(self.inst, self.psf_ifield, im)
-            psfwin_map = param_fit.psfwin_map/np.sum(param_fit.psfwin_map)
-            self.dx = psfwin_map.shape[0]//2
-            
-            psfparams = fitpsfdat[self.ifield-1][7][0][0]
-            beta, rc, norm  = float(psfparams[0]), float(psfparams[1]), float(psfparams[4])
+            self.dx = 1200
+            beta, rc, norm = PSF_model_dict[self.inst][self.psf_ifield]
             radmap = make_radius_map(np.zeros([2*self.dx+1, 2*self.dx+1]),
                                      self.dx, self.dx)*0.7
-            psfbeta_map = norm * (1 + (radmap/rc)**2)**(-3*beta/2)
-
+            psf_map = norm * (1 + (radmap/rc)**2)**(-3*beta/2)
+            
         else:
-            im = 1
-            psfwin_map = 0
-            psfbeta_map = 0
+            psf_map = 0
+            self.dx = 1200
             for ifield in [4,5,6,7,8]:
-                param_fit = fit_stacking_mcmc(self.inst, ifield, im)
-                psfwin_map += param_fit.psfwin_map/np.sum(param_fit.psfwin_map)
-                self.dx = psfwin_map.shape[0]//2
-                
-                psfparams = fitpsfdat[self.ifield-1][7][0][0]
-                beta, rc, norm  = float(psfparams[0]), float(psfparams[1]), float(psfparams[4])
+                beta, rc, norm = PSF_model_dict[self.inst][self.psf_ifield]
                 radmap = make_radius_map(np.zeros([2*self.dx+1, 2*self.dx+1]),
                                          self.dx, self.dx)*0.7
-                psfbeta_map += norm * (1 + (radmap/rc)**2)**(-3*beta/2)
+                psf_map += norm * (1 + (radmap/rc)**2)**(-3*beta/2)
 
-            psfwin_map /= 5
-            psfbeta_map /= 5
-            
+        psf_map /= np.sum(psf_map)
+
+        psfwin_map = fftconvolve(psf_map, pix_map, 'same')
         psfwin_map /= np.sum(psfwin_map)
-        psfbeta_map /= np.sum(psfbeta_map)
-        
-        psf_map = restoration.richardson_lucy(psfwin_map, pix_map, 5)
-        psf_map /= np.sum(psf_map) 
-
         
         self.pix_map = pix_map
         self.psfwin_map = psfwin_map
         self.psf_map = psf_map
-        self.psfbeta_map = psfbeta_map
-        
+
     def _load_catalog(self):
         dx = self.dx
         Npix_cb = self.Npix_cb
@@ -231,7 +213,7 @@ class make_srcmap:
         self.modconv_map = self.modconv_map * norm
         self.modconvwin_map = self.modconvwin_map * norm
         
-    def run_srcmap(self, ptsrc=False, psf_beta_model=False, verbose=True):
+    def run_srcmap(self, ptsrc=False, verbose=True):
         dx = self.dx
         Npix_cb = self.Npix_cb
         Nsub = self.Nsub
@@ -243,8 +225,6 @@ class make_srcmap:
         
         srcmap_large = np.zeros([Npix_cb * Nsub + 4 * dx, Npix_cb * Nsub + 4 * dx])
         subpix_srcmap = self.psf_map if ptsrc else self.modconv_map
-        if ptsrc and psf_beta_model:
-            subpix_srcmap = self.psfbeta_map
         
         sp = np.where((self.xss-dx > 0) & (self.xss+dx < srcmap_large.shape[0]) & \
                      (self.yss-dx > 0) & (self.yss+dx < srcmap_large.shape[0]))[0]

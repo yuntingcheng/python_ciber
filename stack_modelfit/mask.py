@@ -1,15 +1,16 @@
 from utils import *
 from power_spec import *
 
-def get_mask_radius_th(ifield, m_arr, inst=1, Ith=0.5):
+def get_mask_radius_th(ifield, m_arr, inst=1, Ith=1):
     '''
     r_arr: arcsec
     '''
     m_arr = np.array(m_arr)
-    fitpsfdat=loadmat(mypaths['ciberdir'] + 'doc/20170617_Stacking/psf_analytic/TM'\
-              + str(inst) + '/fitpsfdat.mat')['fitpsfdat'][0][ifield-1][7][0][0]
-    beta, rc, norm  = float(fitpsfdat[0]), float(fitpsfdat[1]), float(fitpsfdat[4])
-    
+    # fitpsfdat=loadmat(mypaths['ciberdir'] + 'doc/20170617_Stacking/psf_analytic/TM'\
+    #          + str(inst) + '/fitpsfdat.mat')['fitpsfdat'][0][ifield-1][7][0][0]
+    # beta, rc, norm  = float(fitpsfdat[0]), float(fitpsfdat[1]), float(fitpsfdat[4])
+    beta, rc, norm = PSF_model_dict[inst][ifield]
+
     Nlarge = 100
     radmap = make_radius_map(np.zeros([2*Nlarge+1, 2*Nlarge+1]), Nlarge, Nlarge)*0.7
     Imap_large = norm * (1 + (radmap/rc)**2)**(-3*beta/2)
@@ -26,7 +27,7 @@ def get_mask_radius_th(ifield, m_arr, inst=1, Ith=0.5):
     return r_arr
 
 
-def Ith_mask(inst, ifield, m_min=-np.inf, m_max=20, Ith=0.5, verbose=True):    
+def Ith_mask(inst, ifield, m_min=-np.inf, m_max=20, Ith=1, verbose=True):    
 
     catdir = mypaths['2Mcatdat']
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')

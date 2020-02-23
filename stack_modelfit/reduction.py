@@ -7,6 +7,7 @@ from srcmap import *
 from stack_ancillary import *
 from psfstack import *
 from skimage import restoration
+from scipy.optimize import curve_fit
 
 class get_frame_data():
     
@@ -116,7 +117,28 @@ class image_reduction:
             with open(fname,"rb") as f:
                 psfdata = pickle.load(f)
 
-        self.psfdata = psfdata
+        def beta_function(r, beta, rc, norm):
+            return norm * (1 + (r / rc)**2)**(-3.*beta/2)
+
+        pix_map = self._pix_func_substack()
+
+        for ifield in [4,5,6,7,8]:
+            rbins = psfdata[ifield]['rbins']
+            psf_map = restoration.richardson_lucy\
+            (psfdata[ifield]['stackmap']/np.sum(psfdata[ifield]['stackmap']),
+             pix_map, 10)
+            psfprof = radial_prof(psf_map)['prof']
+            
+            (beta, rc, norm), _ = curve_fit(beta_function, rbins[rbins < 30]
+                                ,psfprof[rbins < 30]/psfprof[0],
+                                sigma=psfprof[rbins < 30])
+            
+            dx = 1200
+            radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]),dx, dx)*0.7
+            psf_map_beta = beta_function(radmap, beta, rc, norm)
+            norm = norm / np.sum(psf_map_beta)
+
+            self.stackmapdat[ifield]['PSFparams'] = (beta, rc, norm)
 
     def get_strmask(self, inst):
 
@@ -151,11 +173,11 @@ class image_reduction:
                 print('make srcmap in %s'%fieldnamedict[ifield])
                 make_srcmap_class = make_srcmap(inst, srctype=None, catname='2MASS',
                                 ifield=ifield, psf_ifield=ifield)
-                srcmap2m = make_srcmap_class.run_srcmap(psf_beta_model=True, ptsrc=True)
+                srcmap2m = make_srcmap_class.run_srcmap(ptsrc=True)
                 make_srcmap_class = make_srcmap(inst, srctype=None, catname='PanSTARRS',
                                                 ifield=ifield, psf_ifield=ifield)
-                srcmapps = make_srcmap_class.run_srcmap(psf_beta_model=True, ptsrc=True)
-                #srcmap2m, srcmapps = np.ones([1024,1024])*ifield, np.zeros([1024,1024])
+                srcmapps = make_srcmap_class.run_srcmap(ptsrc=True)
+                
                 srcmaps.append(srcmap2m + srcmapps)
 
             srcmapdat = np.array(srcmaps)
