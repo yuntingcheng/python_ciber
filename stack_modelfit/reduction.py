@@ -108,6 +108,7 @@ class image_reduction:
         self.stackmapdat = stackmapdat
     
     def get_psf(self, inst, stackmapdat):
+        '''
         fname = mypaths['alldat'] + 'TM'+ str(inst) + '/psfdata.pkl'
         if os.path.exists(fname):
             with open(fname,"rb") as f:
@@ -138,6 +139,12 @@ class image_reduction:
             psf_map_beta = beta_function(radmap, beta, rc, norm)
             norm = norm / np.sum(psf_map_beta)
 
+            self.stackmapdat[ifield]['PSFparams'] = (beta, rc, norm)
+        '''
+
+        # the best fit params is written already written here
+        for ifield in [4,5,6,7,8]:
+            beta, rc, norm = PSF_model_dict[self.inst][ifield]
             self.stackmapdat[ifield]['PSFparams'] = (beta, rc, norm)
 
     def get_strmask(self, inst):
@@ -321,6 +328,9 @@ class image_reduction:
 
     
     def crmask(self, inst, ifield):
+        '''
+        Bad region identified by eye. Possibly hitted by cosmic rays
+        '''
         crmask = np.ones_like(self.DCtemplate)
         size = crmask.shape
         if (inst, ifield) == (1, 8):

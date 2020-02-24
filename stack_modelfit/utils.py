@@ -319,29 +319,89 @@ def get_catalog(inst, ifield, im, src_type='g', return_cols=None):
 
     return cat_data
 
+# def load_processed_images(return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
+#     '''
+#     get the images processed by stack_preprocess.m
+    
+#     Input:
+#     =======
+#     return_names: list of items (inst, ifield, map name)
+    
+#     Ouput:
+#     =======
+#     return_maps: list of map of the input return_names
+    
+#     '''
+#     img_names = {'rawmap':0, 'rawmask':1, 'DCsubmap':2, 'FF':3, 'FFunholy':4,
+#                 'map':5, 'cbmap':6, 'psmap':7, 'mask_inst':8, 'strmask':9, 'strnum':10}
+#     data = {}
+#     data[1] = loadmat(mypaths['alldat'] + 'TM' + str(1) + '/stackmapdatarr.mat')['data']
+#     data[2] = loadmat(mypaths['alldat'] + 'TM' + str(2) + '/stackmapdatarr.mat')['data']
+    
+#     return_maps = []
+#     for inst,ifield,name in return_names:
+#         mapi = data[inst][ifield-4][img_names[name]]
+#         return_maps.append(mapi)
+#     return return_maps
+
 def load_processed_images(return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
     '''
-    get the images processed by stack_preprocess.m
+    get the images processed from image_reduction
+    
+    valid map_names:
+    
+    'rawmap': line fit w/o linearization [ADU/fr]
+    'rawmask': DC inst mask * negative pixel mask * ts mask
+    'DCsubmap': linearized map - DC template [ADU/fr]
+    'FFpix': FF from stacking off fields. It takes NaNs values at pix w/o FF info
+    'FFsm': FFpix smoothed with 3pix Gaussian kernel to fill in NaNs
+    'FF': final FF estimator. FFpix with NaNs filled with FFsm 
+    'mask_inst': final instrument mask. rawmask * crmask * sigma clip mask
+    'strmask': source mask (m < 20)
+    'strnum': source num
+    'map': final image after FF corr [ADU/fr]
+    'srcmap': source map from PanSTARRS & 2MASS bright sources [nW/m2/sr]
+    'cbmap': mean sub 'map' with mask_inst * strmask [nW/m2/sr]
+    'psmap': mean sub 'srcmap' with mask_inst * strmask [nW/m2/sr]
     
     Input:
     =======
-    return_names: list of items (inst, ifield, map name)
+    return_names: list of items (inst, ifield, map_name)
     
     Ouput:
     =======
     return_maps: list of map of the input return_names
     
     '''
-    img_names = {'rawmap':0, 'rawmask':1, 'DCsubmap':2, 'FF':3, 'FFunholy':4,
-                'map':5, 'cbmap':6, 'psmap':7, 'mask_inst':8, 'strmask':9, 'strnum':10}
-    data = {}
-    data[1] = loadmat(mypaths['alldat'] + 'TM' + str(1) + '/stackmapdatarr.mat')['data']
-    data[2] = loadmat(mypaths['alldat'] + 'TM' + str(2) + '/stackmapdatarr.mat')['data']
-    
+    try:
+        data_dict
+    except NameError as error:
+        print('load the reduced images in the kernel first, run the following:\n')
+        print('from reduction import *')
+        print('data_maps = {1: image_reduction(1), 2: image_reduction(2)}')
+        return
+
     return_maps = []
     for inst,ifield,name in return_names:
-        mapi = data[inst][ifield-4][img_names[name]]
+        
+        if name == 'cbmap':
+            cf = cal_factor_dict['apf2nWpm2psr'][inst][ifield]
+            mapi = data_maps[inst].stackmapdat[ifield]['map'].copy()
+            mask_inst = data_maps[inst].stackmapdat[ifield]['mask_inst'].copy()
+            strmask = data_maps[inst].stackmapdat[ifield]['strmask'].copy()
+            mapi = cf * (mapi - np.mean(mapi[mask_inst*strmask==1]))
+            
+        elif name == 'psmap':
+            mapi = data_maps[inst].stackmapdat[ifield]['srcmap'].copy()
+            mask_inst = data_maps[inst].stackmapdat[ifield]['mask_inst'].copy()
+            strmask = data_maps[inst].stackmapdat[ifield]['strmask'].copy()
+            mapi = mapi - np.mean(mapi[mask_inst*strmask==1])
+
+        else:
+            mapi = data_maps[inst].stackmapdat[ifield][name].copy() 
+            
         return_maps.append(mapi)
+
     return return_maps
 
 def image_poly_filter(image, mask=None, degree=2, return_bg=False):
