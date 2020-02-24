@@ -374,7 +374,7 @@ def load_processed_images(return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
     
     '''
     try:
-        data_dict
+        data_maps
     except NameError as error:
         print('load the reduced images in the kernel first, run the following:\n')
         print('from reduction import *')
