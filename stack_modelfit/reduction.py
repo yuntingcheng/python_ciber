@@ -379,3 +379,6 @@ class image_reduction:
         psf_pix[(yy >= Nsub)] = 0
         psf_pix = psf_pix / np.sum(psf_pix)
         return psf_pix
+
+
+data_maps = {1: image_reduction(1), 2: image_reduction(2)}

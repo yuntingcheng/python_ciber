@@ -1,4 +1,5 @@
 from mask import *
+from reduction import *
 import pandas as pd
 import time
 
@@ -143,8 +144,9 @@ def stack_bigpix(inst, ifield, m_min, m_max, srctype='g', dx=120,
                  sample_type='jack_random', filt_order=None, verbose=False):
 
     stackdat = {}
+    data_maps = {1: image_reduction(1), 2: image_reduction(2)}
     cbmap, strmask, strnum, mask_inst1, mask_inst2 = \
-    load_processed_images(return_names=[(inst,ifield,'cbmap'), 
+    load_processed_images(data_maps, return_names=[(inst,ifield,'cbmap'), 
                                        (inst,ifield,'strmask'), 
                                        (inst,ifield,'strnum'),
                                        (1,ifield,'mask_inst'),

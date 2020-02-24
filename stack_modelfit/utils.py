@@ -344,7 +344,7 @@ def get_catalog(inst, ifield, im, src_type='g', return_cols=None):
 #         return_maps.append(mapi)
 #     return return_maps
 
-def load_processed_images(return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
+def load_processed_images(data_maps, return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
     '''
     get the images processed from image_reduction
     
@@ -373,13 +373,14 @@ def load_processed_images(return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
     return_maps: list of map of the input return_names
     
     '''
-    try:
-        data_maps
-    except NameError as error:
-        print('load the reduced images in the kernel first, run the following:\n')
-        print('from reduction import *')
-        print('data_maps = {1: image_reduction(1), 2: image_reduction(2)}')
-        return
+    
+    # try:
+    #     data_maps
+    # except NameError as error:
+    #     print('load the reduced images in the kernel first, run the following:\n')
+    #     print('from reduction import *')
+    #     print('data_maps = {1: image_reduction(1), 2: image_reduction(2)}')
+    #     return
 
     return_maps = []
     for inst,ifield,name in return_names:
