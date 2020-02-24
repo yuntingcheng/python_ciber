@@ -295,7 +295,7 @@ class stacking:
             mask_inst = mask_inst1
         else:
             mask_inst = mask_inst2
-            
+
         cbmap = image_poly_filter(cbmap, strmask*mask_inst, degree=self.filt_order)
 
         r_arr = get_mask_radius_th(ifield, m_arr) # arcsec
@@ -487,8 +487,9 @@ class stacking:
         ifield = self.ifield
         m_min, m_max = self.m_min, self.m_max
 
+        data_maps = {1: image_reduction(1), 2: image_reduction(2)}
         cbmap, psmap, strmask, mask_inst = \
-        load_processed_images(return_names=[(inst,ifield,'cbmap'), 
+        load_processed_images(data_maps, return_names=[(inst,ifield,'cbmap'), 
                                             (inst,ifield,'psmap'),
                                            (inst,ifield,'strmask'), 
                                            (inst,ifield,'mask_inst')])
