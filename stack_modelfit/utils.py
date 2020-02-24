@@ -450,7 +450,7 @@ def image_smooth_gauss(image, mask=None, stddev=5, return_unmasked=False):
     from astropy.convolution import Gaussian2DKernel
     from astropy.convolution import convolve
 
-    kernel = Gaussian2DKernel(stddev=stddev)
+    kernel = Gaussian2DKernel(stddev)
     im = image.copy()
     im[mask==0] = np.nan
     
