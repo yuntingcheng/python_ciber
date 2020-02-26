@@ -13,7 +13,8 @@ class stacking:
         self.BGsub = BGsub
         
         if savename is None:
-            savename = './stack_data/stackdat_TM%d_%s_%d_%d'%(inst, self.field, m_min, m_max)
+            savename = './stack_data/stackdat_TM%d_%s_%d_%d'\
+            %(inst, self.field, m_min, m_max)
         self.savename = savename
         
         if load_from_file:
@@ -89,7 +90,8 @@ class stacking:
         rbinedges = stackdat['rbinedges']/0.7 # subpix unit
         rsubbinedges = stackdat['rsubbinedges']/0.7 # subpix unit
         
-        cbmapstack, psmapstack, maskstack = 0., 0., 0
+        cbmapstack, psmapstack, maskstack =\
+         np.zeros([2*dx+1, 2*dx+1]),np.zeros([2*dx+1, 2*dx+1]), np.zeros([2*dx+1, 2*dx+1])
         start_time = time.time()
         for isub in range(srcdat['Nsub']):
             stackdat['sub'][isub] = {}
@@ -102,9 +104,11 @@ class stacking:
             rs = get_mask_radius_th(ifield, ms) # arcsec
 
             print('stacking %s %d < m < %d, #%d subsample, %d sources, t = %.2f min'\
-              %(fieldnamedict[ifield], m_min, m_max,isub, len(xls), (time.time()-start_time)/60))
+              %(fieldnamedict[ifield], m_min, m_max,isub,\
+               len(xls), (time.time()-start_time)/60))
 
-            cbmapstacki, psmapstacki, maskstacki = 0., 0., 0
+            cbmapstacki, psmapstacki, maskstacki = np.zeros([2*dx+1, 2*dx+1]), \
+            np.zeros([2*dx+1, 2*dx+1]), np.zeros([2*dx+1, 2*dx+1])
             for i,(xl,yl,xs,ys,r) in enumerate(zip(xls,yls,xss,yss,rs)):
                 if len(xls)>20:
                     if verbose and i%(len(xls)//20)==0:
@@ -218,10 +222,17 @@ class stacking:
             stackdat['sub'][isub]['profhitsub'] = hit_arr
 
             spi = np.where(radmapstamp>=100/0.7)
-            stackdat['sub'][isub]['profcb100'] = np.sum(cbmapstacki[spi]) / np.sum(maskstacki[spi])
-            stackdat['sub'][isub]['profps100'] = np.sum(psmapstacki[spi]) / np.sum(maskstacki[spi])
-            stackdat['sub'][isub]['profhit100'] = np.sum(maskstacki[spi])
-
+            if np.sum(maskstacki[spi])!=0:
+                stackdat['sub'][isub]['profcb100'] \
+                = np.sum(cbmapstacki[spi]) / np.sum(maskstacki[spi])
+                stackdat['sub'][isub]['profps100'] \
+                = np.sum(psmapstacki[spi]) / np.sum(maskstacki[spi])
+                stackdat['sub'][isub]['profhit100'] = np.sum(maskstacki[spi])
+            else:
+                stackdat['sub'][isub]['profcb100'] = 0
+                stackdat['sub'][isub]['profps100'] = 0
+                stackdat['sub'][isub]['profhit100'] = 0
+                
         ### end isub for loop ###
         
         spmap = np.where(maskstack!=0)
@@ -407,7 +418,8 @@ class stacking:
             self.stackdat['sub'][isub]['profcbsub']*self.stackdat['sub'][isub]['profhitsub']
             profpssub = self.stackdat['profpssub']*self.stackdat['profhitsub'] - \
             self.stackdat['sub'][isub]['profpssub']*self.stackdat['sub'][isub]['profhitsub']
-            profhitsub = self.stackdat['profhitsub'] - self.stackdat['sub'][isub]['profhitsub']
+            profhitsub = self.stackdat['profhitsub'] - \
+            self.stackdat['sub'][isub]['profhitsub']
             self.stackdat['jack'][isub]['profcbsub'] = profcbsub/profhitsub
             self.stackdat['jack'][isub]['profpssub'] = profpssub/profhitsub
             self.stackdat['jack'][isub]['profhitsub'] = profhitsub
@@ -416,7 +428,8 @@ class stacking:
             self.stackdat['sub'][isub]['profcb100']*self.stackdat['sub'][isub]['profhit100']
             profps100 = self.stackdat['profps100']*self.stackdat['profhit100'] - \
             self.stackdat['sub'][isub]['profps100']*self.stackdat['sub'][isub]['profhit100']
-            profhit100 = self.stackdat['profhit100'] - self.stackdat['sub'][isub]['profhit100']
+            profhit100 = self.stackdat['profhit100'] - \
+            self.stackdat['sub'][isub]['profhit100']
             self.stackdat['jack'][isub]['profcb100'] = profcb100/profhit100
             self.stackdat['jack'][isub]['profps100'] = profps100/profhit100
             self.stackdat['jack'][isub]['profhit100'] = profhit100
@@ -524,7 +537,8 @@ class stacking:
         for isub in range(Nbg):
             self.stackdat['BG'][isub] = {}
             print('stacking %s %d < m < %d, #%d BG, %d sources, t = %.2f min'\
-              %(fieldnamedict[ifield], m_min, m_max,isub, Nsrc, (time.time()-start_time)/60))
+              %(fieldnamedict[ifield], m_min, m_max,\
+                isub, Nsrc, (time.time()-start_time)/60))
             
             if uniform:
                 xs = np.random.randint(-0.5,1023.5,Nsrc)
@@ -598,8 +612,10 @@ class stacking:
             self.stackdat['BG'][isub]['profhitsub'] = hit_arr
 
             spi = np.where(radmapstamp>=100/7)
-            self.stackdat['BG'][isub]['profcb100'] = np.sum(cbmapstacki[spi]) / np.sum(maskstacki[spi])
-            self.stackdat['BG'][isub]['profps100'] = np.sum(psmapstacki[spi]) / np.sum(maskstacki[spi])
+            self.stackdat['BG'][isub]['profcb100'] \
+            = np.sum(cbmapstacki[spi]) / np.sum(maskstacki[spi])
+            self.stackdat['BG'][isub]['profps100'] \
+            = np.sum(psmapstacki[spi]) / np.sum(maskstacki[spi])
             self.stackdat['BG'][isub]['profhit100'] = np.sum(maskstacki[spi])
 
         ### end isub for loop ###
@@ -748,8 +764,10 @@ class stacking:
         self.stackdat['PSFcov']['profpssub'] = np.array(data['covpsfps'])
         self.stackdat['PSFcov']['profcb100'] = np.array(data['covpsfcb100'])
         self.stackdat['PSFcov']['profps100'] = np.array(data['covpsfps100'])
-        self.stackdat['PSFcov']['profcb_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
-        self.stackdat['PSFcov']['profps_rho'] = self._normalize_cov(self.stackdat['PSFcov']['profps'])
+        self.stackdat['PSFcov']['profcb_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
+        self.stackdat['PSFcov']['profps_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profps'])
         self.stackdat['PSFcov']['profcbsub_rho'] \
         = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
         self.stackdat['PSFcov']['profpssub_rho'] \
@@ -786,8 +804,10 @@ class stacking:
             self.stackdat['excov']['profps100'] = self.stackdat['cov']['profps100'] +\
                 self.stackdat['PSFcov']['profps100']
 
-        self.stackdat['excov']['profcb_rho'] = self._normalize_cov(self.stackdat['excov']['profcb'])
-        self.stackdat['excov']['profps_rho'] = self._normalize_cov(self.stackdat['excov']['profps'])
+        self.stackdat['excov']['profcb_rho'] \
+        = self._normalize_cov(self.stackdat['excov']['profcb'])
+        self.stackdat['excov']['profps_rho'] \
+        = self._normalize_cov(self.stackdat['excov']['profps'])
         self.stackdat['excov']['profcbsub_rho'] \
         = self._normalize_cov(self.stackdat['excov']['profcbsub'])
         self.stackdat['excov']['profpssub_rho'] \
