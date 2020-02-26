@@ -4,8 +4,6 @@ import numpy as np
 from ciber_info import *
 from mask import *
 from srcmap import *
-from stack_ancillary import *
-from psfstack import *
 from skimage import restoration
 from scipy.optimize import curve_fit
 
@@ -114,6 +112,8 @@ class image_reduction:
             with open(fname,"rb") as f:
                 psfdata = pickle.load(f)
         else:
+            ###import this before running this block
+            ### from psfstack import *
             stack_psf(inst, self.stackmapdat)
             with open(fname,"rb") as f:
                 psfdata = pickle.load(f)
@@ -379,6 +379,3 @@ class image_reduction:
         psf_pix[(yy >= Nsub)] = 0
         psf_pix = psf_pix / np.sum(psf_pix)
         return psf_pix
-
-
-data_maps = {1: image_reduction(1), 2: image_reduction(2)}

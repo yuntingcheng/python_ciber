@@ -368,7 +368,7 @@ class stacking_mock:
 
         return xls, yls, ms, xss, yss, ms_inband
     
-    def _get_mask_radius(self, mask_func = 'Ith_mask', ifield=8, Ith=0.5):
+    def _get_mask_radius(self, mask_func = 'Ith_mask', ifield=8, Ith=1):
         if mask_func == 'MZ14_mask':
             rs =  MZ14_mask(self.inst, self.xls, self.yls, self.ms_inband,
                             return_radius=True)

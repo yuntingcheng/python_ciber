@@ -344,7 +344,9 @@ def get_catalog(inst, ifield, im, src_type='g', return_cols=None):
 #         return_maps.append(mapi)
 #     return return_maps
 
-def load_processed_images(data_maps, return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
+def load_processed_images(data_maps, 
+    return_names=[(1,4,'cbmap'), (1,4,'psmap')],
+    rotate_TM2=False):
     '''
     get the images processed from image_reduction
     
@@ -366,21 +368,19 @@ def load_processed_images(data_maps, return_names=[(1,4,'cbmap'), (1,4,'psmap')]
     
     Input:
     =======
+    data_maps: data dict obtained by --
+        from reduction import *
+        data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+
     return_names: list of items (inst, ifield, map_name)
-    
+    rotate_TM2: if True, rotate TM2 90 deg 
+        s.t. it's aligned with TM1 for visualization
+
     Ouput:
     =======
     return_maps: list of map of the input return_names
     
     '''
-    
-    # try:
-    #     data_maps
-    # except NameError as error:
-    #     print('load the reduced images in the kernel first, run the following:\n')
-    #     print('from reduction import *')
-    #     print('data_maps = {1: image_reduction(1), 2: image_reduction(2)}')
-    #     return
 
     return_maps = []
     for inst,ifield,name in return_names:
@@ -400,6 +400,9 @@ def load_processed_images(data_maps, return_names=[(1,4,'cbmap'), (1,4,'psmap')]
 
         else:
             mapi = data_maps[inst].stackmapdat[ifield][name].copy() 
+        
+        if rotate_TM2 and inst==2:
+            mapi = np.rot90(mapi, k=3)
             
         return_maps.append(mapi)
 

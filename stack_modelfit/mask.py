@@ -73,7 +73,7 @@ def Ith_mask(inst, ifield, m_min=-np.inf, m_max=20, Ith=1, verbose=True):
     return mask, num
 
 def Ith_mask_mock(xs, ys, ms, ifield=8, 
-    m_min=-np.inf, m_max=20, Ith=0.5, verbose=True):    
+    m_min=-np.inf, m_max=20, Ith=1, verbose=True):    
 
     sp = np.where((ms>m_min) & (ms<m_max))[0]
     xs, ys, ms = xs[sp], ys[sp], ms[sp]

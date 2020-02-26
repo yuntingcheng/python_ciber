@@ -78,7 +78,7 @@ class make_srcmap:
             psf_map = 0
             self.dx = 1200
             for ifield in [4,5,6,7,8]:
-                beta, rc, norm = PSF_model_dict[self.inst][self.psf_ifield]
+                beta, rc, norm = PSF_model_dict[self.inst][ifield]
                 radmap = make_radius_map(np.zeros([2*self.dx+1, 2*self.dx+1]),
                                          self.dx, self.dx)*0.7
                 psf_map += norm * (1 + (radmap/rc)**2)**(-3*beta/2)

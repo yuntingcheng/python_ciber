@@ -222,11 +222,114 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
     
     return data, rbins, filt_order_arr
 
-def run_micecat_filter_test_batch(inst, ibatch, run_type='all'):
+def run_micecat_1h(inst, icat, Nstack=500, savedir='./micecat_data/', save_data=True):
+    
+    df = get_micecat_df(icat)
+    df = df.sort_values(by=['unique_halo_id'])
+
+    make_srcmap_class = make_srcmap(inst)
+    stack_class = stacking_mock(inst)
+    
+    df1h = {}
+    for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
+        df1h[im] = {}
+        dfm = df[(df['I']>=m_min) & (df['I']<m_max) \
+                 & (df['x']<1023.5) & (df['x']>-0.5)\
+                & (df['y']<1023.5) & (df['y']>-0.5)]
+        galids = np.array(dfm.index)
+        dfm1h = pd.DataFrame()
+        for i, (haloid, galid) in enumerate(zip(dfm['unique_halo_id'], galids)):
+            dfi = df[df['unique_halo_id']==haloid].copy()
+            dfi['stack_gal_id'] = galid
+            dfi.drop(['unique_halo_id', 'z_cgal', 'nsats', 'lmhalo'], axis=1, inplace=True)
+            dfi.drop(galid, inplace=True)
+            dfm1h = pd.concat([dfm1h, dfi])
+
+        df1h[im] = {'dfm': dfm, 'df1h':dfm1h}
+    
+
+    data = np.zeros([4, 25])
+    for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
+        dfm, dfm1h = df1h[im]['dfm'], df1h[im]['df1h']
+
+        start_time = time.time()
+        mapstack, maskstack = 0., 0.
+        for i, galid in enumerate(dfm.index):
+            if i > Nstack:
+                break
+            dfi = dfm1h.loc[dfm1h['stack_gal_id']==galid]
+            x0, y0, m0 = dfm.loc[galid][['x','y','I']]
+
+            if i%100==0:
+                print('stack 1-halo, icat %d, %d < m < %d, %d / %d, %d sats, t = %.2f min'\
+                      %(icat, m_min, m_max, i, len(dfm), len(dfi), (time.time()-start_time)/60))
+
+            make_srcmap_class.xls = np.array(dfi['x'])
+            make_srcmap_class.yls = np.array(dfi['y'])
+            make_srcmap_class.ms = np.array(dfi['I'])
+
+            if inst == 1:
+                make_srcmap_class.ms_inband = np.array(dfi['I'])
+            else:
+                make_srcmap_class.ms_inband = np.array(dfi['H'])
+
+            srcmapi = make_srcmap_class.run_srcmap(ptsrc=True, verbose=False)
+
+            maski, numi = Ith_mask_mock(np.concatenate((np.array(dfi['x']),np.array([x0]))),
+                                        np.concatenate((np.array(dfi['y']),np.array([y0]))),
+                                        np.concatenate((np.array(dfi['I']),np.array([m0]))),
+                                        verbose=False)      
+
+            stack_class.xls = np.array([x0])
+            stack_class.yls = np.array([y0])
+            stack_class.ms = np.array([m0])
+
+            _, maskstacki, mapstacki = stack_class.run_stacking(srcmapi, maski, numi,
+                                                               verbose=False, return_profile=False)
+
+            mapstack += mapstacki
+            maskstack += maskstacki
+
+        stack = np.zeros_like(mapstack)
+        sp = np.where(maskstack!=0)
+        stack[sp] = mapstack[sp] / maskstack[sp]
+        stack[maskstack==0] = 0
+
+        dx = stack_class.dx
+        profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
+        rbinedges, rbins = profile['rbinedges'], profile['rbins']
+        Nbins = len(rbins)
+        radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
+        prof_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
+        for ibin in range(Nbins):
+            spi = np.where((radmapstamp>=rbinedges[ibin]) &\
+                           (radmapstamp<rbinedges[ibin+1]))
+            prof_arr[ibin] += np.sum(mapstack[spi])
+            hit_arr[ibin] += np.sum(maskstack[spi])
+        prof_norm = np.zeros_like(prof_arr)
+        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+
+        data[im,:] = prof_norm
+    
+    rbins = rbins*0.7
+    rbinedges = rbinedges*0.7 
+    
+    if save_data:
+        data_dict = {'data': data, 'rbins':rbins}
+        fname  = savedir + 'onehalo_TM%d_icat%d.pkl'%(inst, icat)
+
+        with open(fname, "wb") as f:
+            pickle.dump(data_dict , f)
+    
+    return data, rbins
+
+def run_micecat_batch(inst, ibatch, run_type='all'):
     icat_arr = np.linspace(0,9,10) + ibatch*10
     for icat in icat_arr:
         if run_type == 'all':
             data, rbins, filt_order_arr = run_micecat_fliter_test(inst, icat)
         elif run_type == 'cen':
             data, rbins, filt_order_arr = run_micecat_fliter_test_cen(inst, icat)
+        elif run_type == '1h':
+            data, rbins = run_micecat_1h(inst, icat)
     return
