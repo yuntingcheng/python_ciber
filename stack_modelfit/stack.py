@@ -2,13 +2,15 @@ from stack_ancillary import *
 
 class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
-        savename=None, load_from_file=False, filt_order=2, run_nonuniform_BG=False):
+        savename=None, load_from_file=False, filt_order=2,
+         run_nonuniform_BG=False, BGsub=True):
         self.inst = inst
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
         self.m_min = m_min
         self.m_max = m_max
         self.filt_order = filt_order
+        self.BGsub = BGsub
         
         if savename is None:
             savename = './stack_data/stackdat_TM%d_%s_%d_%d'%(inst, self.field, m_min, m_max)
@@ -40,7 +42,7 @@ class stacking:
         self._get_excess()
         
     def stack_PS(self, srctype='g', dx=1200, 
-        sample_type='jack_random', unmask=True, verbose=True):
+        sample_type='jack_region', unmask=True, verbose=True):
 
         inst = self.inst
         ifield = self.ifield
@@ -688,16 +690,27 @@ class stacking:
 
     def _get_BGsub(self):
         self.stackdat['BGsub'] = {}
-        self.stackdat['BGsub']['profcb'] = self.stackdat['profcb'] - self.stackdat['BG']['profcb']
-        self.stackdat['BGsub']['profps'] = self.stackdat['profps'] - self.stackdat['BG']['profps']
-        self.stackdat['BGsub']['profcbsub'] = self.stackdat['profcbsub'] \
-        - self.stackdat['BG']['profcbsub']
-        self.stackdat['BGsub']['profpssub'] = self.stackdat['profpssub'] \
-        - self.stackdat['BG']['profpssub']
-        self.stackdat['BGsub']['profcb100'] = self.stackdat['profcb100'] \
-        - self.stackdat['BG']['profcb100']
-        self.stackdat['BGsub']['profps100'] = self.stackdat['profps100'] \
-        - self.stackdat['BG']['profps100']
+
+        if self.BGsub:
+            self.stackdat['BGsub']['profcb'] = self.stackdat['profcb'] \
+            - self.stackdat['BG']['profcb']
+            self.stackdat['BGsub']['profps'] = self.stackdat['profps'] \
+            - self.stackdat['BG']['profps']
+            self.stackdat['BGsub']['profcbsub'] = self.stackdat['profcbsub'] \
+            - self.stackdat['BG']['profcbsub']
+            self.stackdat['BGsub']['profpssub'] = self.stackdat['profpssub'] \
+            - self.stackdat['BG']['profpssub']
+            self.stackdat['BGsub']['profcb100'] = self.stackdat['profcb100'] \
+            - self.stackdat['BG']['profcb100']
+            self.stackdat['BGsub']['profps100'] = self.stackdat['profps100'] \
+            - self.stackdat['BG']['profps100']
+        else:
+            self.stackdat['BGsub']['profcb'] = self.stackdat['profcb'].copy()
+            self.stackdat['BGsub']['profps'] = self.stackdat['profps'].copy()
+            self.stackdat['BGsub']['profcbsub'] = self.stackdat['profcbsub'].copy()
+            self.stackdat['BGsub']['profpssub'] = self.stackdat['profpssub'].copy()
+            self.stackdat['BGsub']['profcb100'] = self.stackdat['profcb100'].copy()
+            self.stackdat['BGsub']['profps100'] = self.stackdat['profps100'].copy()
 
     def _get_PSF_from_data(self):
         import json
@@ -744,20 +757,35 @@ class stacking:
 
 
     def _get_ex_covariance(self):
-        self.stackdat['excov'] = {}
-        self.stackdat['excov']['profcb'] = self.stackdat['cov']['profcb'] +\
-            self.stackdat['BGcov']['profcb'] + self.stackdat['PSFcov']['profcb']
-        self.stackdat['excov']['profps'] = self.stackdat['cov']['profps'] +\
-            self.stackdat['BGcov']['profps'] + self.stackdat['PSFcov']['profps']
-        self.stackdat['excov']['profcbsub'] = self.stackdat['cov']['profcbsub'] +\
-            self.stackdat['BGcov']['profcbsub'] + self.stackdat['PSFcov']['profcbsub']
-        self.stackdat['excov']['profpssub'] = self.stackdat['cov']['profpssub'] +\
-            self.stackdat['BGcov']['profpssub'] + self.stackdat['PSFcov']['profpssub']
-        self.stackdat['excov']['profcb100'] = self.stackdat['cov']['profcb100'] +\
-            self.stackdat['BGcov']['profcb100'] + self.stackdat['PSFcov']['profcb100']
-        self.stackdat['excov']['profps100'] = self.stackdat['cov']['profps100'] +\
-            self.stackdat['BGcov']['profps100'] + self.stackdat['PSFcov']['profps100']
-        
+        if self.BGsub:
+            self.stackdat['excov'] = {}
+            self.stackdat['excov']['profcb'] = self.stackdat['cov']['profcb'] +\
+                self.stackdat['BGcov']['profcb'] + self.stackdat['PSFcov']['profcb']
+            self.stackdat['excov']['profps'] = self.stackdat['cov']['profps'] +\
+                self.stackdat['BGcov']['profps'] + self.stackdat['PSFcov']['profps']
+            self.stackdat['excov']['profcbsub'] = self.stackdat['cov']['profcbsub'] +\
+                self.stackdat['BGcov']['profcbsub'] + self.stackdat['PSFcov']['profcbsub']
+            self.stackdat['excov']['profpssub'] = self.stackdat['cov']['profpssub'] +\
+                self.stackdat['BGcov']['profpssub'] + self.stackdat['PSFcov']['profpssub']
+            self.stackdat['excov']['profcb100'] = self.stackdat['cov']['profcb100'] +\
+                self.stackdat['BGcov']['profcb100'] + self.stackdat['PSFcov']['profcb100']
+            self.stackdat['excov']['profps100'] = self.stackdat['cov']['profps100'] +\
+                self.stackdat['BGcov']['profps100'] + self.stackdat['PSFcov']['profps100']
+        else:
+            self.stackdat['excov'] = {}
+            self.stackdat['excov']['profcb'] = self.stackdat['cov']['profcb'] +\
+                self.stackdat['PSFcov']['profcb']
+            self.stackdat['excov']['profps'] = self.stackdat['cov']['profps'] +\
+                self.stackdat['PSFcov']['profps']
+            self.stackdat['excov']['profcbsub'] = self.stackdat['cov']['profcbsub'] +\
+                self.stackdat['PSFcov']['profcbsub']
+            self.stackdat['excov']['profpssub'] = self.stackdat['cov']['profpssub'] +\
+                self.stackdat['PSFcov']['profpssub']
+            self.stackdat['excov']['profcb100'] = self.stackdat['cov']['profcb100'] +\
+                self.stackdat['PSFcov']['profcb100']
+            self.stackdat['excov']['profps100'] = self.stackdat['cov']['profps100'] +\
+                self.stackdat['PSFcov']['profps100']
+
         self.stackdat['excov']['profcb_rho'] = self._normalize_cov(self.stackdat['excov']['profcb'])
         self.stackdat['excov']['profps_rho'] = self._normalize_cov(self.stackdat['excov']['profps'])
         self.stackdat['excov']['profcbsub_rho'] \
