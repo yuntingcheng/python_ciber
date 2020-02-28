@@ -439,10 +439,15 @@ class stacking_mock:
         
         profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
         rbinedges, rbins = profile['rbinedges'], profile['rbins']
+        rsubbins, rsubbinedges = self._radial_binning(rbins, rbinedges)
         Nbins = len(rbins)
+        Nsubbins = len(rsubbins)
         stackdat = {}
         stackdat['rbins'] = rbins*0.7
         stackdat['rbinedges'] = rbinedges*0.7     
+        stackdat['rsubbins'] = rsubbins*0.7
+        stackdat['rsubbinedges'] = rsubbinedges*0.7
+
         radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
         prof_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
         for ibin in range(Nbins):
@@ -452,9 +457,19 @@ class stacking_mock:
             hit_arr[ibin] += np.sum(maskstack[spi])
         prof_norm = np.zeros_like(prof_arr)
         prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
-        
         stackdat['prof'] = prof_norm
         stackdat['profhit'] = hit_arr
+
+        prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
+        for ibin in range(Nsubbins):
+            spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                           (radmapstamp<rsubbinedges[ibin+1]))
+            prof_arr[ibin] += np.sum(mapstack[spi])
+            hit_arr[ibin] += np.sum(maskstack[spi])
+        prof_norm = np.zeros_like(prof_arr)
+        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+        stackdat['profsub'] = prof_norm
+        stackdat['profhitsub'] = hit_arr
 
         if return_profile and not return_all: 
             return stackdat
@@ -505,11 +520,15 @@ class stacking_mock:
         
         profile = radial_prof(np.ones([2*dx*10+1,2*dx*10+1]), dx*10, dx*10)
         rbinedges, rbins = profile['rbinedges'], profile['rbins']
+        rsubbins, rsubbinedges = self._radial_binning(rbins, rbinedges)
         Nbins = len(rbins)
+        Nsubbins = len(rsubbins)
         stackdat = {}
         stackdat['rbins'] = rbins*0.7
-        stackdat['rbinedges'] = rbinedges*0.7  
-        
+        stackdat['rbinedges'] = rbinedges*0.7     
+        stackdat['rsubbins'] = rsubbins*0.7
+        stackdat['rsubbinedges'] = rsubbinedges*0.7
+
         rbins /= 10 # bigpix
         rbinedges /=10 # bigpix
         radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
@@ -520,9 +539,35 @@ class stacking_mock:
             prof_arr[ibin] += np.sum(mapstack[spi])
             hit_arr[ibin] += np.sum(maskstack[spi])
         prof_norm = np.zeros_like(prof_arr)
-        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
-        
+        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]       
         stackdat['prof'] = prof_norm
         stackdat['profhit'] = hit_arr
 
+        rsubbins /= 10 # bigpix
+        rsubbinedges /=10 # bigpix
+        prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
+        for ibin in range(Nsubbins):
+            spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                           (radmapstamp<rsubbinedges[ibin+1]))
+            prof_arr[ibin] += np.sum(mapstack[spi])
+            hit_arr[ibin] += np.sum(maskstack[spi])
+        prof_norm = np.zeros_like(prof_arr)
+        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]       
+        stackdat['profsub'] = prof_norm
+        stackdat['profhitsub'] = hit_arr
+
         return stackdat
+
+    def _radial_binning(self,rbins,rbinedges):
+        rsubbinedges = np.concatenate((rbinedges[:1],rbinedges[6:20],rbinedges[-1:]))
+
+        # calculate 
+        rin = (2./3) * (rsubbinedges[1]**3 - rsubbinedges[0]**3)\
+        / (rsubbinedges[1]**2 - rsubbinedges[0]**2)
+
+        rout = (2./3) * (rsubbinedges[-1]**3 - rsubbinedges[-2]**3)\
+        / (rsubbinedges[-1]**2 - rsubbinedges[-2]**2)
+
+        rsubbins = np.concatenate(([rin],rbins[6:19],[rout]))
+
+        return rsubbins, rsubbinedges

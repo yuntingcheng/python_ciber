@@ -46,6 +46,20 @@ def get_micecat_df(icat):
     
     return df
 
+def radial_binning(rbins,rbinedges):
+    rsubbinedges = np.concatenate((rbinedges[:1],rbinedges[6:20],rbinedges[-1:]))
+
+    # calculate 
+    rin = (2./3) * (rsubbinedges[1]**3 - rsubbinedges[0]**3)\
+    / (rsubbinedges[1]**2 - rsubbinedges[0]**2)
+
+    rout = (2./3) * (rsubbinedges[-1]**3 - rsubbinedges[-2]**3)\
+    / (rsubbinedges[-1]**2 - rsubbinedges[-2]**2)
+
+    rsubbins = np.concatenate(([rin],rbins[6:19],[rout]))
+
+    return rsubbins, rsubbinedges
+
 def run_micecat_fliter_test(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
                            savedir = './micecat_data/', save_data = True):
     
@@ -74,6 +88,7 @@ def run_micecat_fliter_test(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
     mask, num = Ith_mask_mock(xs, ys, ms, verbose=False)
     
     data = np.zeros([len(filt_order_arr), 4, 25])
+    datasub = np.zeros([len(filt_order_arr), 4, 15])
     for ifilt, filt_order in enumerate(filt_order_arr):
         print('cat #%d, %d-th order filter'%(icat,filt_order))
         filtmap = image_poly_filter(srcmap, mask, degree=filt_order)
@@ -94,11 +109,18 @@ def run_micecat_fliter_test(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
             #stackdat = stack_class.run_stacking(filtmap, mask, num, verbose=False)
 
             data[ifilt, im, :] = stackdat['prof']
+            datasub[ifilt, im, :] = stackdat['profsub']
     
     rbins = stackdat['rbins']
+    rbinedges = stackdat['rbinedges']
+    rsubbins = stackdat['rsubbins']
+    rsubbinedges = stackdat['rsubbinedges']
+
     if save_data:
-        data_dict = {'data': data, 'rbins':rbins,
-                    'filt_order_arr':filt_order_arr}
+        data_dict = {'data': data, 'datasub': datasub, 
+            'rbins':rbins, 'rbinedges':rbinedges, 
+            'rsubbins':rsubbins, 'rsubbinedges':rsubbinedges,
+            'filt_order_arr':filt_order_arr}
         fname  = savedir + 'filter_test_TM%d_icat%d.pkl'%(inst, icat)
         
         with open(fname, "wb") as f:
@@ -107,7 +129,8 @@ def run_micecat_fliter_test(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
         # with open(fname,"rb") as f:
         #    data_dict = pickle.load(f)
     
-    return data, rbins, filt_order_arr
+    return data_dict
+
 
 def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
                            savedir = './micecat_data/', save_data = True):
@@ -141,6 +164,7 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
     stack_class = stacking_mock(inst)
 
     data = np.zeros([len(filt_order_arr), 4, 25])
+    datasub = np.zeros([len(filt_order_arr), 4, 15])
     for ifilt, filt_order in enumerate(filt_order_arr):
         print('cat #%d, %d-th order filter'%(icat,filt_order))
         filtmap = image_poly_filter(srcmap, mask, degree=filt_order)
@@ -190,10 +214,15 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
             dx = stack_class.dx
             profile = radial_prof(np.ones([2*dx*10+1,2*dx*10+1]), dx*10, dx*10)
             rbinedges, rbins = profile['rbinedges'], profile['rbins']
+            rsubbins, rsubbinedges = self._radial_binning(rbins, rbinedges)
             Nbins = len(rbins)
+            Nsubbins = len(rsubbins)
             stackdat = {}
             stackdat['rbins'] = rbins*0.7
-            stackdat['rbinedges'] = rbinedges*0.7  
+            stackdat['rbinedges'] = rbinedges*0.7 
+            stackdat['rsubbins'] = rsubbins*0.7
+            stackdat['rsubbinedges'] = rsubbinedges*0.7
+ 
             rbins /= 10 # bigpix
             rbinedges /=10 # bigpix
             radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
@@ -211,16 +240,38 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
 
             data[ifilt, im, :] = stackdat['prof']
 
+
+            rsubbins /= 10 # bigpix
+            rsubbinedges /=10 # bigpix
+            prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
+            for ibin in range(Nsubbins):
+                spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                               (radmapstamp<rsubbinedges[ibin+1]))
+                prof_arr[ibin] += np.sum(mapstack[spi])
+                hit_arr[ibin] += np.sum(maskstack[spi])
+            prof_norm = np.zeros_like(prof_arr)
+            prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]       
+            stackdat['profsub'] = prof_norm
+            stackdat['profhitsub'] = hit_arr
+
+            datasub[ifilt, im, :] = stackdat['profsub']
+
     rbins = stackdat['rbins']
+    rbinedges = stackdat['rbinedges']
+    rsubbins = stackdat['rbins']
+    rsubbinedges = stackdat['rbinedges']
+
     if save_data:
-        data_dict = {'data': data, 'rbins':rbins,
-                    'filt_order_arr':filt_order_arr}
+        data_dict = {'data': data, 'datasub': datasub, 
+            'rbins':rbins, 'rbinedges':rbinedges, 
+            'rsubbins':rsubbins, 'rsubbinedges':rsubbinedges,
+            'filt_order_arr':filt_order_arr}
         fname  = savedir + 'filter_test_cen_TM%d_icat%d.pkl'%(inst, icat)
 
         with open(fname, "wb") as f:
             pickle.dump(data_dict , f)
     
-    return data, rbins, filt_order_arr
+    return data_dict
 
 def run_micecat_1h(inst, icat, Nstack=500, savedir='./micecat_data/', save_data=True):
     
@@ -249,6 +300,7 @@ def run_micecat_1h(inst, icat, Nstack=500, savedir='./micecat_data/', save_data=
     
 
     data = np.zeros([4, 25])
+    datasub = np.zeros([4, 15])
     for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
         dfm, dfm1h = df1h[im]['dfm'], df1h[im]['df1h']
 
@@ -298,8 +350,11 @@ def run_micecat_1h(inst, icat, Nstack=500, savedir='./micecat_data/', save_data=
         dx = stack_class.dx
         profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
         rbinedges, rbins = profile['rbinedges'], profile['rbins']
+        rsubbins, rsubbinedges = radial_binning(rbins, rbinedges)
         Nbins = len(rbins)
+        Nsubbins = len(rsubbins)
         radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
+        
         prof_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
         for ibin in range(Nbins):
             spi = np.where((radmapstamp>=rbinedges[ibin]) &\
@@ -308,20 +363,34 @@ def run_micecat_1h(inst, icat, Nstack=500, savedir='./micecat_data/', save_data=
             hit_arr[ibin] += np.sum(maskstack[spi])
         prof_norm = np.zeros_like(prof_arr)
         prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
-
         data[im,:] = prof_norm
     
+        prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
+        for ibin in range(Nsubbins):
+            spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                           (radmapstamp<rsubbinedges[ibin+1]))
+            prof_arr[ibin] += np.sum(mapstack[spi])
+            hit_arr[ibin] += np.sum(maskstack[spi])
+        prof_norm = np.zeros_like(prof_arr)
+        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+        datasub[im,:] = prof_norm
+
     rbins = rbins*0.7
     rbinedges = rbinedges*0.7 
-    
+    rsubbins = rsubbins*0.7
+    rsubbinedges = rsubbinedges*0.7 
+
+    data_dict = {'data': data, 'datasub': datasub, 
+                'rbins':rbins, 'rbinedges':rbinedges, 
+                'rsubbins':rsubbins, 'rsubbinedges':rsubbinedges}
+
     if save_data:
-        data_dict = {'data': data, 'rbins':rbins}
         fname  = savedir + 'onehalo_TM%d_icat%d.pkl'%(inst, icat)
 
         with open(fname, "wb") as f:
             pickle.dump(data_dict , f)
     
-    return data, rbins
+    return data_dict
 
 def run_micecat_batch(inst, ibatch, run_type='all'):
     icat_arr = np.linspace(0,9,10) + ibatch*10
