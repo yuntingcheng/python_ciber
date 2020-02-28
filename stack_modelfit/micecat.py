@@ -131,7 +131,7 @@ def run_micecat_fliter_test(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
     
     return data_dict
 
-def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
+def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,5,6,7,10,13],
                            savedir = './micecat_data/', save_data = True):
     
     df = get_micecat_df(icat)
@@ -397,9 +397,9 @@ def run_micecat_batch(inst, ibatch, run_type='all'):
     icat_arr = np.linspace(0,9,10) + ibatch*10
     for icat in icat_arr:
         if run_type == 'all':
-            data, rbins, filt_order_arr = run_micecat_fliter_test(inst, icat)
+            data_dict = run_micecat_fliter_test(inst, icat)
         elif run_type == 'cen':
-            data, rbins, filt_order_arr = run_micecat_fliter_test_cen(inst, icat)
+            data_dict = run_micecat_fliter_test_cen(inst, icat)
         elif run_type == '1h':
-            data, rbins = run_micecat_1h(inst, icat)
+            data_dict = run_micecat_1h(inst, icat)
     return
