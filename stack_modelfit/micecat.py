@@ -131,7 +131,6 @@ def run_micecat_fliter_test(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
     
     return data_dict
 
-
 def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
                            savedir = './micecat_data/', save_data = True):
     
@@ -200,8 +199,10 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
                 stack_class.yls = np.array([y])
                 stack_class.ms = np.array([m])
 
-                _, maskstacki, mapstacki = stack_class.run_stacking_bigpix(filtmap_rm, mask_rm, num_rm,
-                                                           verbose=False, return_profile=False)
+                _, maskstacki, mapstacki =\
+                 stack_class.run_stacking_bigpix(filtmap_rm, mask_rm, num_rm,
+                                                           verbose=False,
+                                                            return_profile=False)
 
                 mapstack += mapstacki
                 maskstack += maskstacki
@@ -214,7 +215,7 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
             dx = stack_class.dx
             profile = radial_prof(np.ones([2*dx*10+1,2*dx*10+1]), dx*10, dx*10)
             rbinedges, rbins = profile['rbinedges'], profile['rbins']
-            rsubbins, rsubbinedges = self._radial_binning(rbins, rbinedges)
+            rsubbins, rsubbinedges = radial_binning(rbins, rbinedges)
             Nbins = len(rbins)
             Nsubbins = len(rsubbins)
             stackdat = {}
