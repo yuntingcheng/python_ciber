@@ -259,8 +259,8 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
 
     rbins = stackdat['rbins']
     rbinedges = stackdat['rbinedges']
-    rsubbins = stackdat['rbins']
-    rsubbinedges = stackdat['rbinedges']
+    rsubbins = stackdat['rsubbins']
+    rsubbinedges = stackdat['rsubbinedges']
 
     if save_data:
         data_dict = {'data': data, 'datasub': datasub, 
