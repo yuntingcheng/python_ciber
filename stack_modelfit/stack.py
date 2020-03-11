@@ -43,7 +43,8 @@ class stacking:
         self._get_excess()
         
     def stack_PS(self, srctype='g', dx=1200, 
-        sample_type='jack_region', unmask=True, verbose=True):
+        sample_type='jack_region', unmask=True, verbose=True,
+        cliplim=None, srcdat=None):
 
         inst = self.inst
         ifield = self.ifield
@@ -63,11 +64,13 @@ class stacking:
             mask_inst = mask_inst2
         
         cbmap = image_poly_filter(cbmap, strmask*mask_inst, degree=self.filt_order)
-                
-        srcdat = ps_src_select(inst, ifield, m_min, m_max, 
-            [mask_inst1, mask_inst2], sample_type=sample_type)
         
-        cliplim = self._stackihl_PS_cliplim()
+        if srcdat is None:
+            srcdat = ps_src_select(inst, ifield, m_min, m_max, 
+                [mask_inst1, mask_inst2], sample_type=sample_type)
+            
+        if cliplim is None:
+            cliplim = self._stackihl_PS_cliplim()
 
         # init stackdat
         stackdat = {}
@@ -232,7 +235,7 @@ class stacking:
                 stackdat['sub'][isub]['profcb100'] = 0
                 stackdat['sub'][isub]['profps100'] = 0
                 stackdat['sub'][isub]['profhit100'] = 0
-                
+
         ### end isub for loop ###
         
         spmap = np.where(maskstack!=0)

@@ -4,7 +4,7 @@ import pandas as pd
 import time
 
 def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
-                  Nsub=64, sample_type='jack_random'):
+                  Nsub=64, sample_type='jack_random', Nsrc_use=None):
     catdir = mypaths['PScatdat']
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
 
@@ -86,9 +86,21 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
     srcdat['m_min'], srcdat['m_max'] = m_min, m_max
     srcdat['Ng'], srcdat['Ns'] = len(xg_arr), len(xs_arr)
 
+    if Nsrc_use is not None:
+        if srcdat['Ng'] > Nsrc_use:
+            sp = np.random.choice(srcdat['Ng'], Nsrc_use, replace=False)
+            xg_arr, yg_arr = xg_arr[sp], yg_arr[sp]
+            mg_arr, mg0_arr, zg_arr = mg_arr[sp], mg0_arr[sp], zg_arr[sp]
+        if srcdat['Ns'] > Nsrc_use:
+            sp = np.random.choice(srcdat['Ns'], Nsrc_use, replace=False)
+            xs_arr, ys_arr = xs_arr[sp], ys_arr[sp]
+            ms_arr, ms0_arr = ms_arr[sp], ms0_arr[sp]
+
+
     if sample_type == 'all':
         srcdat['xg_arr'], srcdat['yg_arr'] = xg_arr, yg_arr
         srcdat['mg_arr'], srcdat['zg_arr'] = mg_arr, zg_arr
+        srcdat['mg0_arr'] = mg0_arr
         srcdat['xs_arr'], srcdat['ys_arr'] = xs_arr, ys_arr
         srcdat['ms_arr'] = ms_arr
         srcdat['ms0_arr'] = ms0_arr
@@ -130,6 +142,115 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
             srcdat['sub'][i]['ms_arr'] = ms_arr[sps]
             srcdat['sub'][i]['ms0_arr'] = ms0_arr[sps]
             srcdat['sub'][i]['Ng'], srcdat['sub'][i]['Ns'] = len(spg), len(sps)
+            
+    return srcdat
+    
+def tm_src_select(inst, ifield, m_min, m_max, mask_insts, band_select='I',
+                  Nsub=64, sample_type='jack_random', Nsrc_use=None):
+    catdir = mypaths['2Mcatdat']
+    df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+
+    x1_arr, y1_arr = np.array(df['y1']), np.array(df['x1'])
+    x2_arr, y2_arr = np.array(df['y2']), np.array(df['x2'])
+
+    m_arr = np.array(df[band_select])
+    if inst==1:
+        m0_arr = np.array(df['I'])
+    else:
+        m0_arr = np.array(df['H'])
+
+    sp = np.where((x1_arr>-0.5) & (x1_arr<1023.5) & (x2_arr>-0.5) & (x2_arr<1023.5) & \
+                 (y1_arr>-0.5) & (y1_arr<1023.5) & (y2_arr>-0.5) & (y2_arr<1023.5))[0]
+
+    x1_arr, y1_arr, x2_arr, y2_arr = x1_arr[sp], y1_arr[sp], x2_arr[sp], y2_arr[sp]
+    m_arr, m0_arr = m_arr[sp], m0_arr[sp]
+
+    # count the center pix map
+    centnum_map1, _, _ = np.histogram2d(x1_arr, y1_arr, np.arange(-0.5,1024.5,1))
+    centnum_map2, _, _ = np.histogram2d(x2_arr, y2_arr, np.arange(-0.5,1024.5,1))
+
+    sp = np.where((m_arr<=m_max) & (m_arr>m_min))[0]
+    x1_arr, y1_arr, x2_arr, y2_arr = x1_arr[sp], y1_arr[sp], x2_arr[sp], y2_arr[sp]
+    m_arr, m0_arr, z_arr = m_arr[sp], m0_arr[sp], photz_arr[sp]
+
+    # select sources not coexist with others in the same pixel 
+    mask_inst1, mask_inst2 = mask_insts
+    subm_arr, subm0_arr, subx1_arr, subx2_arr, suby1_arr, suby2_arr = [], [], [], [], [], []
+    for i, (x1, y1, x2, y2) in enumerate(zip(x1_arr, y1_arr, x2_arr, y2_arr)):
+        if centnum_map1[int(np.round(x1)), int(np.round(y1))]==1 and \
+        centnum_map2[int(np.round(x2)), int(np.round(y2))]==1 and \
+        mask_inst1[int(np.round(x1)), int(np.round(y1))]==1 and \
+        mask_inst2[int(np.round(x2)), int(np.round(y2))]==1:
+            subm_arr.append(m_arr[i])
+            subm0_arr.append(m0_arr[i])
+            subx1_arr.append(x1)
+            suby1_arr.append(y1)
+            subx2_arr.append(x2)
+            suby2_arr.append(y2)
+    subm_arr, subm0_arr = np.array(subm_arr), np.array(subm0_arr)
+    subx1_arr, suby1_arr, subx2_arr, suby2_arr = \
+    np.array(subx1_arr), np.array(suby1_arr), np.array(subx2_arr), np.array(suby2_arr)
+
+    randidx = np.arange(len(subm_arr))
+    np.random.shuffle(randidx)
+    if inst==1:
+        x_arr, y_arr = subx1_arr[randidx], suby1_arr[randidx]
+    else:
+        x_arr, y_arr = subx2_arr[randidx], suby2_arr[randidx]
+
+    m_arr, m0_arr = subm_arr[randidx], subm0_arr[randidx]
+    xs_arr, ys_arr, ms_arr, ms0_arr = x_arr, y_arr, m_arr, m0_arr
+
+    srcdat = {}
+    srcdat['inst']= inst
+    srcdat['ifield'] = ifield
+    srcdat['field'] = fieldnamedict[ifield]
+    srcdat['sample_type'] = sample_type
+    srcdat['m_min'], srcdat['m_max'] = m_min, m_max
+    srcdat['Ns'] = len(xs_arr)
+
+    if Nsub is None:
+        Nsub = len(xs_arr)
+
+    if Nsrc_use is not None:
+        if srcdat['Ns'] > Nsrc_use:
+            sp = np.random.choice(srcdat['Ns'], Nsrc_use, replace=False)
+            xs_arr, ys_arr = xs_arr[sp], ys_arr[sp]
+            ms_arr, ms0_arr = ms_arr[sp], ms0_arr[sp]
+
+    if sample_type == 'all':
+        srcdat['xs_arr'], srcdat['ys_arr'] = xs_arr, ys_arr
+        srcdat['ms_arr'] = ms_arr
+        srcdat['ms0_arr'] = ms0_arr
+        
+    elif sample_type == 'jack_random':
+        srcdat['Nsub'] = Nsub
+        srcdat['sub'] = {}
+        for i in range(Nsub):
+            srcdat['sub'][i] = {}
+            sps = np.arange(i,len(xs_arr), Nsub)
+            srcdat['sub'][i]['xs_arr'], srcdat['sub'][i]['ys_arr'] = xs_arr[sps], ys_arr[sps]
+            srcdat['sub'][i]['ms_arr'] = ms_arr[sps]
+            srcdat['sub'][i]['ms0_arr'] = ms0_arr[sps]
+            srcdat['sub'][i]['Ns'] = len(sps)
+    
+    elif sample_type == 'jack_region':
+        srcdat['Nsub'] = Nsub
+        srcdat['sub'] = {}
+        Nsides = int(np.sqrt(Nsub))
+        axlims = np.linspace(-0.5, 1023.5, Nsides+1)
+        ymins, xmins = np.meshgrid(axlims[:-1], axlims[:-1])
+        ymaxs, xmaxs = np.meshgrid(axlims[1:], axlims[1:])
+        for i in range(Nsub):
+            srcdat['sub'][i] = {}
+            ymin, xmin = ymins.flatten()[i], xmins.flatten()[i]
+            ymax, xmax = ymaxs.flatten()[i], xmaxs.flatten()[i]
+            sps = np.where((xs_arr>=xmin) & (xs_arr<xmax) \
+                           & (ys_arr>=ymin) & (ys_arr<ymax))[0]
+            srcdat['sub'][i]['xs_arr'], srcdat['sub'][i]['ys_arr'] = xs_arr[sps], ys_arr[sps]
+            srcdat['sub'][i]['ms_arr'] = ms_arr[sps]
+            srcdat['sub'][i]['ms0_arr'] = ms0_arr[sps]
+            srcdat['sub'][i]['Ns'] = len(sps)
             
     return srcdat
 

@@ -146,7 +146,7 @@ def wgI_zm_approx(z, theta_arr, bg=1, bI=1, dIdz=1):
     return w_arr
 
 
-def wgg(zin, theta_arr, bg=1, zbinedges=None):
+def wgg(zin, theta_arr, bg=1, zbinedges=None, linear=True):
     '''
     Galaxy-Galaxy Correlation function: w_gg(theta)
     
@@ -188,7 +188,10 @@ def wgg(zin, theta_arr, bg=1, zbinedges=None):
     Plins = []
     for z in zbins:
         cosmo_power = cosmology_power_spectrum(z=z,k=kbins)
-        Plin = cosmo_power.linear_power #[h^-3/Mpc^3]
+        if linear:
+            Plin = cosmo_power.linear_power #[h^-3/Mpc^3]
+        else:
+            Plin = cosmo_power.nonlinear_power #[h^-3/Mpc^3]
         Plins.append(Plin)
     Plins = np.array(Plins)
 
@@ -207,7 +210,7 @@ def wgg(zin, theta_arr, bg=1, zbinedges=None):
     
     return bg**2*w_arr
 
-def wgI(zin, theta_arr, bg=1, bI=1, dIdz=1, zbinedges=None):
+def wgI(zin, theta_arr, bg=1, bI=1, dIdz=1, zbinedges=None,linear=True):
     '''
     Galaxy-Intensity Correlation function: w_gI(theta)
     
@@ -249,7 +252,10 @@ def wgI(zin, theta_arr, bg=1, bI=1, dIdz=1, zbinedges=None):
     Plins = []
     for z in zbins:
         cosmo_power = cosmology_power_spectrum(z=z,k=kbins)
-        Plin = cosmo_power.linear_power #[h^-3/Mpc^3]
+        if linear:
+            Plin = cosmo_power.linear_power #[h^-3/Mpc^3]
+        else:
+            Plin = cosmo_power.nonlinear_power #[h^-3/Mpc^3]
         Plins.append(Plin)
     Plins = np.array(Plins)
 

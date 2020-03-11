@@ -1,11 +1,13 @@
 from stack_ancillary import *
 
-def stack_psf(inst, stackmapdat):
+def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10, savedata=True):
     print('Stack 2MASS stars for PSF ...')
 
     # get data & mask
     psfdat = {}
     for ifield in [4,5,6,7,8]:
+        print('get data & mask in %s'%fieldnamedict[ifield])
+
         psfdat[ifield] = {}
 
         DCsubmap = stackmapdat[ifield]['DCsubmap'].copy()
@@ -89,6 +91,8 @@ def stack_psf(inst, stackmapdat):
     stack_class = stacking_mock(inst)
     psfdata = {}
     for ifield in [4,5,6,7,8]:
+        print('stack %s'%fieldnamedict[ifield])
+
         mapin = -psfdat[ifield]['map'].copy()
         mask_inst = psfdat[ifield]['mask'].copy()
         strmask = psfdat[ifield]['strmask'].copy()
@@ -101,29 +105,35 @@ def stack_psf(inst, stackmapdat):
         xs = df['y'+str(inst)].values
         ys = df['x'+str(inst)].values
         ms = df['j'].values + 2.5*np.log10(1594./3631.) # convert to vega mag
-        sp = np.where((ms>12) & (ms<14) & (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5))[0]
+        sp = np.where((ms>m_min) & (ms<m_max) &\
+         (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5))[0]
         xs, ys, ms = xs[sp], ys[sp], ms[sp]
         rs = -6.25 * ms + 110
 
         profs = []
         mapstack, maskstack = 0., 0.
-        for isub in range(10):
-            print('stack PSF %s %d/10'%(fieldnamedict[ifield],isub))
-            stack_class.xls = xs[isub::10]
-            stack_class.yls = ys[isub::10]
-            stack_class.ms = ms[isub::10]
-            stack_class.rs = rs[isub::10]
+
+        if Nsub is None:
+            Nsub = len(xs)
+
+        for isub in range(Nsub):
+            print('stack PSF %s %d/%d'%(fieldnamedict[ifield],isub,Nsub))
+            stack_class.xls = xs[isub::Nsub]
+            stack_class.yls = ys[isub::Nsub]
+            stack_class.ms = ms[isub::Nsub]
+            stack_class.rs = rs[isub::Nsub]
 
             stackdat, stacki, maskstacki, mapstacki \
             = stack_class.run_stacking(mapin, mask_inst*strmask, strnum, 
-                                       mask_inst=mask_inst,return_all=True, update_mask=False, verbose=True)
+                                       mask_inst=mask_inst,return_all=True,
+                                        update_mask=False, verbose=True)
             mapstack += mapstacki
             maskstack += maskstacki
 
             profs.append(stackdat['prof'])
 
         profs = np.array(profs)
-        prof_err = np.std(profs, axis=0) / np.sqrt(10) 
+        prof_err = np.std(profs, axis=0) / np.sqrt(Nsub) 
 
         stack = np.zeros_like(mapstack)
         sp = np.where(maskstack!=0)
@@ -151,8 +161,11 @@ def stack_psf(inst, stackmapdat):
         psfdata[ifield]['prof_err'] = prof_err
         psfdata[ifield]['stackmap'] = stack
 
-    fname = mypaths['alldat'] + 'TM'+ str(inst) + '/psfdata.pkl'
-    with open(fname, "wb") as f:
-        pickle.dump(psfdata, f)
-        
-    return
+    if savedata:
+        fname = mypaths['alldat'] + 'TM'+ str(inst) + '/psfdata.pkl'
+        with open(fname, "wb") as f:
+            pickle.dump(psfdata, f)
+            
+        return
+
+    return psfdata

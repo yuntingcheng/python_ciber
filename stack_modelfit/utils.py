@@ -354,6 +354,7 @@ def load_processed_images(data_maps,
     
     'rawmap': line fit w/o linearization [ADU/fr]
     'rawmask': DC inst mask * negative pixel mask * ts mask
+    'DCmap': DC map [ADU/fr]
     'DCsubmap': linearized map - DC template [ADU/fr]
     'FFpix': FF from stacking off fields. It takes NaNs values at pix w/o FF info
     'FFsm': FFpix smoothed with 3pix Gaussian kernel to fill in NaNs
@@ -398,12 +399,15 @@ def load_processed_images(data_maps,
             strmask = data_maps[inst].stackmapdat[ifield]['strmask'].copy()
             mapi = mapi - np.mean(mapi[mask_inst*strmask==1])
 
+        elif name == 'DCmap':
+            mapi = data_maps[inst].DCtemplate
+            
         else:
             mapi = data_maps[inst].stackmapdat[ifield][name].copy() 
         
         if rotate_TM2 and inst==2:
             mapi = np.rot90(mapi, k=3)
-            
+
         return_maps.append(mapi)
 
     return return_maps
