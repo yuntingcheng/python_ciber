@@ -1,5 +1,6 @@
 from reduction import *
 from stack import * 
+from psfstack import *
 
 def run_psf_synth(inst, savedata=True):
     
