@@ -50,7 +50,7 @@ def run_psf_synth(inst, ifield, savedata=True):
 
         profdat[im] = {}
         profdat[im]['m_min'] = m_min
-        profdat[im]['m_max'] = m_min
+        profdat[im]['m_max'] = m_max
         profdat[im]['profcb'] = stack_class.stackdat['profcb']
         profdat[im]['profcbsub'] = stack_class.stackdat['profcbsub']
         profdat[im]['profcb_err'] = np.sqrt(np.diag(stackdat['cov']['profcb']))
