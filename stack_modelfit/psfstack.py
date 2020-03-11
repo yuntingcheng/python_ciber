@@ -1,6 +1,7 @@
 from stack_ancillary import *
 
-def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10, savedata=True):
+def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10, 
+    Nsub_single=True, savedata=True):
     print('Stack 2MASS stars for PSF ...')
 
     # get data & mask
@@ -113,7 +114,7 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10, savedata=True):
         profs = []
         mapstack, maskstack = 0., 0.
 
-        if Nsub is None:
+        if Nsub_single:
             Nsub = len(xs)
 
         for isub in range(Nsub):

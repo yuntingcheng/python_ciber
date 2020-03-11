@@ -7,7 +7,7 @@ def run_psf_synth(inst, savedata=True):
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
 
     psfdata = stack_psf(inst, data_maps[inst].stackmapdat,
-                    m_min=4, m_max=9, Nsub=None, savedata=False)
+                    m_min=4, m_max=9, Nsub_single=True, savedata=False)
     profdat = {}
     for ifield in [4,5,6,7,8]:
         profdat[ifield] = {}
