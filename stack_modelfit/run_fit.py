@@ -174,7 +174,7 @@ class fit_stacking_mcmc:
     
     def get_chi2(self, **kwargs):
         modelprof = self.get_profexcess_model(**kwargs)
-        D = modelprof['profgal_sub'] + modelprof['prof1h_sub'] +\
+        D = modelprof['profex_sub'] + modelprof['prof1h_sub'] +\
         modelprof['prof2h_sub'] - self.profex_sub
         Covi = self.covsub_inv
         D = D[np.newaxis,...]
@@ -496,7 +496,32 @@ def run_mcmc_fit_joint(inst, im, **kwargs):
     param_fit.run_mcmc(**kwargs)
     return param_fit
 
-def get_mcmc_fit_params(inst, im, ifield=None):
+def get_mcmc_fit_params_3par(inst, im, ifield=None):
+
+    R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
+    
+    if ifield in [4,5,6,7,8]:
+        savename = 'mcmc_3par_' + fieldnamedict[ifield] + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+    elif ifield is None:
+        savename = 'mcmc_3par_joint' + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+
+    savedir = mypaths['alldat'] + 'TM' + str(inst) + '/'
+    samples = np.load(savedir + savename)
+    flatsamps = samples.copy()
+    flatsamps = flatsamps[100:,:,:].reshape((-1,3))
+    xe2, A1h, A2h = np.median(flatsamps, axis=0)
+    xe2_low, A1h_low, A2h_low = np.percentile(flatsamps, 16, axis=0)
+    xe2_high, A1h_high, A2h_high = np.percentile(flatsamps, 84, axis=0)
+    
+    fitparamdat = {'R200': R200, 'xe2': xe2, 'xe2_low': xe2_low, 'xe2_high': xe2_high,
+                  'Re2': xe2*R200, 'Re2_low': xe2_low*R200, 'Re2_high': xe2_high*R200,
+                  'A1h': A1h, 'A1h_low': A1h_low, 'A1h_high': A1h_high,
+                  'A2h': A2h, 'A2h_low': A2h_low, 'A2h_high': A2h_high}
+    return fitparamdat
+
+def get_mcmc_fit_params_2par(inst, im, ifield=None):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
     
