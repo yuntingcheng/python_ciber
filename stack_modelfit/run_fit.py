@@ -1,11 +1,11 @@
-from ciber_info import *
-from utils import * 
 from scipy import interpolate
 from scipy.signal import fftconvolve
 import emcee
 from multiprocessing import Pool
-from ciber_info import *
+from utils import * 
+from stack import *
 from clustering import *
+from micecat import *
 
 class fit_stacking_mcmc:
     
@@ -17,7 +17,225 @@ class fit_stacking_mcmc:
         self.im = im
         self.m_min = magbindict['m_min'][im]
         self.m_max = magbindict['m_max'][im]
-        self.z = magbindict['zmean'][im]
+        self.dx = 1200
+        
+        self._fit_data_preprocess()
+        
+    def _fit_data_preprocess(self):
+        self._load_data()
+        self._get_model_1h()
+        self._get_model_2h()
+        self._get_model_psf()
+
+    def _load_data(self):
+        stackdat = stacking(self.inst, self.ifield, self.m_min, self.m_max,
+                            load_from_file=True, BGsub=False).stackdat
+        
+        self.rbins = stackdat['rbins']
+        self.rbinedges = stackdat['rbinedges']
+        self.rsubbins = stackdat['rsubbins']
+        self.rsubbinedges = stackdat['rsubbinedges']
+        self.profcb = stackdat['profcb']
+        self.profcb_sub = stackdat['profcbsub']
+        self.profex = stackdat['ex']['profcb']
+        self.profex_sub = stackdat['ex']['profcbsub']
+        self.cov = stackdat['excov']['profcb']
+        self.covsub = stackdat['excov']['profcbsub']
+        self.cov_inv = np.linalg.inv(self.cov)
+        self.covsub_inv = np.linalg.inv(self.covsub)
+        self.dof_data = len(self.profcb_sub)
+        
+        return stackdat
+    
+    def _get_model_1h(self):
+        _, mc_avg, mc_std, _ = get_micecat_sim_1h(self.inst, self.im, sub=False)
+        _, mc_avg_sub, mc_std_sub, _ = get_micecat_sim_1h(self.inst, self.im, sub=True)
+        self.prof1h = mc_avg
+        self.prof1h_sub = mc_avg_sub
+        return
+    
+    def _get_model_2h(self):
+        
+        data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+        mask_inst1, mask_inst2 = \
+        load_processed_images(data_maps,
+                              return_names=[(1,self.ifield,'mask_inst'),
+                                            (2,self.ifield,'mask_inst')])
+        
+        srcdat = ps_src_select(self.inst, self.ifield, self.m_min, self.m_max, 
+                [mask_inst1, mask_inst2], sample_type='all')
+        
+        dx = self.dx
+        theta_arr = np.logspace(-1,3.2,100)
+        w_arr = wgI(srcdat['zg_arr'], theta_arr)
+        radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
+        tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
+        radmap[dx,dx] = radmap[dx,dx+1]
+        w_map = interpolate.splev(np.log(radmap),tck)
+        
+        self.prof2h = radial_prof(w_map, rbinedges=self.rbinedges/0.7,
+                                  return_full=False)
+        self.prof2h_sub = radial_prof(w_map, rbinedges=self.rsubbinedges/0.7,
+                                      return_full=False)
+        
+        return
+    
+    def _get_model_psf(self):
+        
+        fname = mypaths['alldat'] + 'TM'+ str(self.inst) + '/psfdata.pkl'
+        with open(fname,"rb") as f:
+            psfdata = pickle.load(f)
+            
+        dx = self.dx
+        radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
+        spr = np.where(self.rbins<30)[0]
+        tck = interpolate.splrep(np.log(self.rbins[spr]),
+                                 np.log(psfdata[self.ifield]['prof'][spr]), k=1)
+        radmap[dx,dx] = radmap[dx,dx+1]
+        psfwin_map = np.exp(interpolate.splev(np.log(radmap),tck))
+        psfwin_map[psfwin_map < 0] = 0
+        
+        profpsf = radial_prof(psfwin_map, dx, dx)
+        profpsf_arr = np.array(profpsf['prof'])
+        profpsf_arr /= profpsf_arr[0]
+
+        profpsf = radial_prof(psfwin_map, rbinedges=self.rbinedges/0.7,
+                                  return_full=False)
+        profpsf_sub = radial_prof(psfwin_map, rbinedges=self.rsubbinedges/0.7,
+                                      return_full=False)
+        self.profpsf = profpsf / profpsf[0]
+        self.profpsf_sub = profpsf_sub / profpsf_sub[0]
+        self.psfwin_map = psfwin_map
+        
+        return
+
+    def get_profgal_model(self, subbin=True, **kwargs):
+        
+        dx = self.dx
+        
+        # model
+        radmap = make_radius_map(np.zeros([201,201]), 100, 100)*0.7
+        modeldat = gal_profile_model().Wang19_profile(radmap, self.im, **kwargs)
+        modeldat['I_arr'] = np.pad(modeldat['I_arr'], 1100, 'constant')
+        
+        # conv model
+        modconv_map = fftconvolve(self.psfwin_map, modeldat['I_arr'], 'same')
+        modconv_map /= np.sum(modconv_map)
+        modconv_map[modconv_map<0] = 0
+
+        profgal_sub = radial_prof(modconv_map, rbinedges=self.rsubbinedges/0.7,
+                                      return_full=False)
+        profgal = radial_prof(modconv_map, rbinedges=self.rbinedges/0.7,
+                                  return_full=False)
+        if subbin:
+            return profgal_sub / profgal[0]
+        else:
+            return profgal / profgal[0]
+
+    def get_profexcess_model(self, **kwargs):
+        
+        profgal = self.get_profgal_model(subbin=False,**kwargs)
+        profgal_sub = self.get_profgal_model(**kwargs)
+        
+        if 'A1h' in kwargs.keys(): 
+            A1h = kwargs['A1h']
+        else:
+            A1h = 1
+            
+        if 'A2h' in kwargs.keys(): 
+            A2h = kwargs['A2h']
+        else:
+            A2h = 1
+
+        # excess profile
+        normg = self.profcb[0] - A1h*self.prof1h[0] - A2h*self.prof2h[0]
+        norms = self.profcb[0]
+        
+        profex = normg*profgal - norms*self.profpsf
+        profex_sub = normg*profgal_sub - norms*self.profpsf_sub
+        
+        modelprof = {}
+        modelprof['rbins'] = self.rbins
+        modelprof['rbinedges'] = self.rbinedges
+        modelprof['rsubbins'] = self.rsubbins
+        modelprof['rsubbinedges'] = self.rsubbinedges
+        modelprof['profgal'] = normg*profgal
+        modelprof['profgal_sub'] = normg*profgal_sub
+        modelprof['profpsf'] = norms*self.profpsf
+        modelprof['profpsf_sub'] = norms*self.profpsf_sub
+        modelprof['prof1h'] = A1h*self.prof1h
+        modelprof['prof1h_sub'] = A1h*self.prof1h_sub
+        modelprof['prof2h'] = A2h*self.prof2h
+        modelprof['prof2h_sub'] = A2h*self.prof2h_sub
+        modelprof['profex'] = profex
+        modelprof['profex_sub'] = profex_sub
+          
+        return modelprof
+    
+    def get_chi2(self, **kwargs):
+        modelprof = self.get_profexcess_model(**kwargs)
+        D = modelprof['profgal_sub'] + modelprof['prof1h_sub'] +\
+        modelprof['prof2h_sub'] - self.profex_sub
+        Covi = self.covsub_inv
+        D = D[np.newaxis,...]
+        chi2 = D@Covi@D.T
+        
+        return chi2[0,0]
+    
+    def _log_likelihood(self, theta):
+        xe2, A1h, A2h = theta
+        chi2 = self.get_chi2(xe2=xe2, A1h=A1h, A2h=A2h)
+        return np.array([[-chi2/2]])
+
+    def _log_prior(self, theta):
+        xe2, A1h, A2h = theta
+        if 0.0001 < xe2 < 1 and 0.0 < A1h < 200 and 0.0 < A2h < 200:
+            return 0.
+        return -np.inf
+
+    def _log_prob(self, theta):
+        lp = self._log_prior(theta)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self._log_likelihood(theta)
+
+    def run_mcmc(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
+                save_chain=True, savedir = None, savename=None):
+        ndim = 3
+        p01 = np.random.uniform(0.0001, 1, nwalkers)
+        p02 = np.random.uniform(0.0, 200, nwalkers)
+        p03 = np.random.uniform(0.0, 200, nwalkers)
+        p0 = np.stack((p01, p02, p03), axis=1)
+        
+        with Pool() as pool:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob, pool=pool)
+            sampler.run_mcmc(p0, steps, progress=progress)
+        
+        if save_chain:
+            if savedir is None:
+                savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+            if savename is None:
+                savename = 'mcmc_3par_' + self.field + \
+                '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
+                
+            np.save(savedir + savename, sampler.get_chain(), sampler)
+            self.mcmc_savename = savedir + savename
+        
+        if return_chain:
+            return sampler.get_chain()
+        else:
+            return
+
+class fit_stacking_mcmc_2par:
+    
+    def __init__(self, inst, ifield, im):
+
+        self.inst = inst
+        self.ifield = ifield
+        self.field = fieldnamedict[ifield]
+        self.im = im
+        self.m_min = magbindict['m_min'][im]
+        self.m_max = magbindict['m_max'][im]
         
         self._fit_data_preprocess()
 
@@ -43,7 +261,6 @@ class fit_stacking_mcmc:
 
         # clustering
         theta_arr = np.logspace(-1,3.2,100)
-        # w_arr = wgI_zm_approx(self.z, theta_arr)
         cat_data = get_catalog(self.inst, self.ifield, self.im)
         w_arr = wgI(cat_data['z'], theta_arr)
 
@@ -51,8 +268,7 @@ class fit_stacking_mcmc:
         tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
         radmap[dx,dx] = radmap[dx,dx+1]
         w_map = interpolate.splev(np.log(radmap),tck)
-        # self.w_arr = wgI_zm_approx(self.z, data['rfull_arr'])
-        self.w_arr = w_arr = wgI(cat_data['z'], data['rfull_arr'])
+        self.w_arr = wgI(cat_data['z'], data['rfull_arr'])
         
         profclus_arr = np.array(data['profclus'])
         profclus_arr[r_arr<clus_rcut] = 0
@@ -102,7 +318,9 @@ class fit_stacking_mcmc:
         return profgal_arr
     
     def get_profclus_model_exact(self, **kwargs):
-        
+        '''
+        convolve the clustering model with PSF
+        '''
         dx = self.dx
         clusconv_map = fftconvolve(self.modconv_map, self.w_map, 'same')
         profclus_arr = radial_prof(clusconv_map, dx, dx)
@@ -190,12 +408,11 @@ def run_mcmc_fit(inst, ifield, im, **kwargs):
     
     param_fit = fit_stacking_mcmc(inst, ifield, im)
     
-    print('MCMC fit 2 params for TM%d %s %d < m < %d'\
+    print('MCMC fit 3 params for TM%d %s %d < m < %d'\
           %(param_fit.inst, param_fit.field, param_fit.m_min, param_fit.m_max))
     
     param_fit.run_mcmc(**kwargs)
     return param_fit
-
 
 
 class joint_fit_mcmc:

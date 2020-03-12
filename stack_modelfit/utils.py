@@ -86,7 +86,9 @@ def radial_prof(mapin, cenx=None, ceny=None, log=True, nbins=25, maskin=None,
             rbinedges = np.linspace(0, np.max(radmap), nbins+1)
             
         rbinedges[-1] *= 1.01
-    
+    else:
+        nbins = len(rbinedges) - 1
+
     rbins = np.zeros(nbins)
     prof = np.zeros(nbins)
     err = np.zeros(nbins)
