@@ -274,32 +274,53 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,5,6,7,10,1
     
     return data_dict
 
-def run_micecat_1h(inst, icat, Nstack=500, savedir='./micecat_data/', save_data=True):
+def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf,
+                   savedir='./micecat_data/', save_data=True):
+    '''
+    Nstack: only stack 2at most Nstack sources to speed up
+    Mhcut [M_sun]: don't stack on source with Mh > Mhcut 
+    R200cut [arcsec]: don't stack on the source with R200 > R200cut
+    '''
     
     df = get_micecat_df(icat)
     df = df.sort_values(by=['unique_halo_id'])
+    z_arr = np.array(df['z_cgal'])
+    Mh_arr = 10**np.array(df['lmhalo'])
+    rhoc_arr = np.array(cosmo.critical_density(z_arr).to(u.M_sun / u.Mpc**3))
+    rvir_arr = ((3 * Mh_arr) / (4 * np.pi * 200 * rhoc_arr))**(1./3)
+    DA_arr = np.array(cosmo.comoving_distance(z_arr))
+    rvir_ang_arr = (rvir_arr / DA_arr) * u.rad.to(u.arcsec)
+    df['Rv_arcsec'] = rvir_ang_arr
 
     make_srcmap_class = make_srcmap(inst)
     stack_class = stacking_mock(inst)
-    
+
     df1h = {}
     for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
         df1h[im] = {}
         dfm = df[(df['I']>=m_min) & (df['I']<m_max) \
                  & (df['x']<1023.5) & (df['x']>-0.5)\
-                & (df['y']<1023.5) & (df['y']>-0.5)]
+                & (df['y']<1023.5) & (df['y']>-0.5)].copy()
         galids = np.array(dfm.index)
+        haloids = dfm['unique_halo_id'].values
+        shuffle_idx = np.random.permutation(len(dfm))
+        galids, haloids = galids[shuffle_idx], haloids[shuffle_idx]
         dfm1h = pd.DataFrame()
-        for i, (haloid, galid) in enumerate(zip(dfm['unique_halo_id'], galids)):
+        galid_removed_list = []
+        for i, (haloid, galid) in enumerate(zip(haloids, galids)):
             dfi = df[df['unique_halo_id']==haloid].copy()
             dfi['stack_gal_id'] = galid
+            Rvi = np.mean(dfi['Rv_arcsec'].values)
+            Mh = 10**np.mean(dfi['lmhalo'].values)
+            if (Rvi > R200cut) and (Mh > Mhcut):
+                galid_removed_list.append(galid)
+                continue
             dfi.drop(['unique_halo_id', 'z_cgal', 'nsats', 'lmhalo'], axis=1, inplace=True)
             dfi.drop(galid, inplace=True)
             dfm1h = pd.concat([dfm1h, dfi])
-
+        dfm.drop(galid_removed_list, inplace=True)
         df1h[im] = {'dfm': dfm, 'df1h':dfm1h}
-    
-
+        
     data = np.zeros([4, 25])
     datasub = np.zeros([4, 15])
     for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
@@ -387,21 +408,34 @@ def run_micecat_1h(inst, icat, Nstack=500, savedir='./micecat_data/', save_data=
 
     if save_data:
         fname  = savedir + 'onehalo_TM%d_icat%d.pkl'%(inst, icat)
-
+        if (Mhcut != np.inf) or (R200cut != np.inf):
+            fname  = savedir + 'onehalo_TM{}_icat{}_R200cut{}_Mhcut{:.0f}.pkl'\
+            .format(inst, icat, R200cut, np.log10(Mhcut))
         with open(fname, "wb") as f:
             pickle.dump(data_dict , f)
     
     return data_dict
 
-def run_micecat_batch(inst, ibatch, run_type='all'):
+def run_micecat_batch(inst, ibatch, run_type='all', return_data=False, **kwargs):
+    
+    if return_data:
+        data_dicts = [] 
     icat_arr = np.linspace(0,9,10) + ibatch*10
     for icat in icat_arr:
+
         if run_type == 'all':
-            data_dict = run_micecat_fliter_test(inst, icat)
+            data_dict = run_micecat_fliter_test(inst, icat, **kwargs)
         elif run_type == 'cen':
-            data_dict = run_micecat_fliter_test_cen(inst, icat)
+            data_dict = run_micecat_fliter_test_cen(inst, icat, **kwargs)
         elif run_type == '1h':
-            data_dict = run_micecat_1h(inst, icat)
+            data_dict = run_micecat_1h(inst, icat, **kwargs)
+
+        if return_data:
+            data_dicts.append(data_dict)
+
+    if return_data:
+        return data_dicts
+    
     return
 
 def get_micecat_sim_1h(inst, im, sub=False):

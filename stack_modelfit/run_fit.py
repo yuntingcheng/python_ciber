@@ -9,7 +9,7 @@ from micecat import *
 
 class fit_stacking_mcmc:
     
-    def __init__(self, inst, ifield, im):
+    def __init__(self, inst, ifield, im, data_maps=None):
 
         self.inst = inst
         self.ifield = ifield
@@ -18,6 +18,7 @@ class fit_stacking_mcmc:
         self.m_min = magbindict['m_min'][im]
         self.m_max = magbindict['m_max'][im]
         self.dx = 1200
+        self.data_maps = data_maps
         
         self._fit_data_preprocess()
         
@@ -55,8 +56,12 @@ class fit_stacking_mcmc:
         return
     
     def _get_model_2h(self):
-        
-        data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+
+        if self.data_maps is None:
+            data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+        else:
+            data_maps = self.data_maps
+
         mask_inst1, mask_inst2 = \
         load_processed_images(data_maps,
                               return_names=[(1,self.ifield,'mask_inst'),
