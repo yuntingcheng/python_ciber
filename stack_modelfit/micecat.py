@@ -409,7 +409,7 @@ def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf,
     if save_data:
         fname  = savedir + 'onehalo_TM%d_icat%d.pkl'%(inst, icat)
         if (Mhcut != np.inf) or (R200cut != np.inf):
-            fname  = savedir + 'onehalo_TM{}_icat{}_R200cut{}_Mhcut{:.0f}.pkl'\
+            fname  = savedir + 'onehalo_TM{:.0f}_icat{:.0f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
             .format(inst, icat, R200cut, np.log10(Mhcut))
         with open(fname, "wb") as f:
             pickle.dump(data_dict , f)
