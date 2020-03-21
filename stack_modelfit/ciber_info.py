@@ -7,6 +7,14 @@ fieldnamedict = {4:'elat10',
                  7:'BootesA',
                  8:'SWIRE'}
 
+field_center_dict = {# (approximately) the ra dec of the field centre [deg]
+                     4: (191.5, 8.25),
+                     5: (193.943, 27.998),
+                     6: (218.109, 33.175),
+                     7: (219.249, 34.832),
+                     8: (241.530, 54.767)
+                    }
+
 magbindict = {'m_min':[16,17,18,19],
               'm_max':[17,18,19,20],
               'zmean': [0.13, 0.20, 0.27, 0.43],

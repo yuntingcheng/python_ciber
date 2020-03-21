@@ -2,7 +2,7 @@ from srcmap import *
 from stack_ancillary import *
 import bz2
 
-def get_micecat_df(icat):
+def get_micecat_df(icat, add_Rvir=False):
     ira, idec = icat%45, icat//45 
     ra_min, ra_max = ira*2, ira*2+2
     dec_min, dec_max = idec*2, idec*2+2
@@ -44,6 +44,16 @@ def get_micecat_df(icat):
     df.drop(['lsfr','lmstellar', 'ra_gal', 'dec_gal','euclid_nisp_y_true',
              'euclid_nisp_j_true','euclid_nisp_h_true'], axis=1, inplace=True)
     
+    if add_Rvir:
+        z_arr = np.array(df['z_cgal'])
+        Mh_arr = 10**np.array(df['lmhalo'])
+        rhoc_arr = np.array(cosmo.critical_density(z_arr).to(u.M_sun / u.Mpc**3))
+        rvir_arr = ((3 * Mh_arr) / (4 * np.pi * 200 * rhoc_arr))**(1./3)
+        DA_arr = np.array(cosmo.comoving_distance(z_arr))
+        rvir_ang_arr = (rvir_arr / DA_arr) * u.rad.to(u.arcsec)
+        df['Rv_Mpc'] = rvir_arr
+        df['Rv_arcsec'] = rvir_ang_arr
+
     return df
 
 def radial_binning(rbins,rbinedges):
@@ -274,12 +284,13 @@ def run_micecat_fliter_test_cen(inst, icat, filt_order_arr=[0,1,2,3,4,5,6,7,10,1
     
     return data_dict
 
-def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf,
+def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf, zcut=0,
                    savedir='./micecat_data/', save_data=True):
     '''
     Nstack: only stack 2at most Nstack sources to speed up
     Mhcut [M_sun]: don't stack on source with Mh > Mhcut 
     R200cut [arcsec]: don't stack on the source with R200 > R200cut
+    zcut: only stack sources with z > zcut
     '''
     
     df = get_micecat_df(icat)
@@ -300,7 +311,8 @@ def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf,
         df1h[im] = {}
         dfm = df[(df['I']>=m_min) & (df['I']<m_max) \
                  & (df['x']<1023.5) & (df['x']>-0.5)\
-                & (df['y']<1023.5) & (df['y']>-0.5)].copy()
+                & (df['y']<1023.5) & (df['y']>-0.5) \
+                & (df['z_cgal']>zcut)].copy()
         galids = np.array(dfm.index)
         haloids = dfm['unique_halo_id'].values
         shuffle_idx = np.random.permutation(len(dfm))
@@ -320,7 +332,7 @@ def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf,
             dfm1h = pd.concat([dfm1h, dfi])
         dfm.drop(galid_removed_list, inplace=True)
         df1h[im] = {'dfm': dfm, 'df1h':dfm1h}
-        
+
     data = np.zeros([4, 25])
     datasub = np.zeros([4, 15])
     for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
@@ -411,6 +423,9 @@ def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf,
         if (Mhcut != np.inf) or (R200cut != np.inf):
             fname  = savedir + 'onehalo_TM{:.0f}_icat{:.0f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
             .format(inst, icat, R200cut, np.log10(Mhcut))
+        if zcut!=0:
+            fname  = savedir + 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}.pkl'\
+            .format(inst, icat, zcut)
         with open(fname, "wb") as f:
             pickle.dump(data_dict , f)
     
@@ -435,19 +450,20 @@ def run_micecat_batch(inst, ibatch, run_type='all', return_data=False, **kwargs)
 
     if return_data:
         return data_dicts
-    
+
     return
 
-def get_micecat_sim_1h(inst, im, sub=False):
+def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, sub=False):
     '''
     Get the MICECAT 1halo sim results.
     '''
     savedir='./micecat_data/'
-    typename = 'onehalo'
     data_all = []
     for icat in range(90):
-        savedir='./micecat_data/'
-        fname  = typename + '_TM%d_icat%d.pkl'%(inst, icat)
+        fname  = 'onehalo_TM%d_icat%d.pkl'%(inst, icat)
+        if (Mhcut != np.inf) or (R200cut != np.inf):
+            fname  = 'onehalo_TM{:.0f}_icat{:.0f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
+            .format(inst, icat, R200cut, np.log10(Mhcut))
         if fname not in os.listdir(savedir):
             continue
 
