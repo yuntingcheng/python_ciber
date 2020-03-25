@@ -6,6 +6,7 @@ stack_modelfit/*/*
 *.csv
 *.pyc
 *.pkl
+chromedriver
 **.ipynb_checkpoints
 **__pycache__
 **.DS_Store

@@ -101,7 +101,10 @@ def run_micecat_fliter_test(inst, icat, filt_order_arr=[0,1,2,3,4,7,10,13],
     datasub = np.zeros([len(filt_order_arr), 4, 15])
     for ifilt, filt_order in enumerate(filt_order_arr):
         print('cat #%d, %d-th order filter'%(icat,filt_order))
-        filtmap = image_poly_filter(srcmap, mask, degree=filt_order)
+        if filt_order==0:
+            filtmap = srcmap - np.mean(srcmap[mask==1])
+        else:   
+            filtmap = image_poly_filter(srcmap, mask, degree=filt_order)
 
         for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
             #print('cat #%d, %d-th order filter, stack %d < m < %d'\
@@ -453,7 +456,7 @@ def run_micecat_batch(inst, ibatch, run_type='all', return_data=False, **kwargs)
 
     return
 
-def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, sub=False):
+def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False):
     '''
     Get the MICECAT 1halo sim results.
     '''
@@ -464,6 +467,10 @@ def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, sub=False):
         if (Mhcut != np.inf) or (R200cut != np.inf):
             fname  = 'onehalo_TM{:.0f}_icat{:.0f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
             .format(inst, icat, R200cut, np.log10(Mhcut))
+        if zcut!=0:
+            fname  = 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}.pkl'\
+            .format(inst, icat, zcut)
+
         if fname not in os.listdir(savedir):
             continue
 
