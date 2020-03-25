@@ -382,7 +382,8 @@ def run_micecat_auto_batch(inst ,ibatch, istart=0, batch_size=20, return_data=Fa
     if return_data:
         data_dicts = [] 
     icat_arr = np.linspace(0, batch_size-1, batch_size) + ibatch*batch_size + istart
-
+    icat_arr = icat_arr.astype(int)
+    
     for icat in icat_arr:
         data_dict = run_micecat_auto_fliter_test_cen(inst, icat, **kwargs)
 
