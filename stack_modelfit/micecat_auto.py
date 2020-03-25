@@ -175,7 +175,6 @@ def process_downloaded_micecat(request_id_dict):
     return
 
 def get_micecat_df_auto(icat, add_Rvir=False):
-    icat = 0
     fname = mypaths['MCcatdat'] + 'all_fields/' + 'micecat_%d.csv.bz2'%icat
     micecat_fields_coords = get_micecat_fields_coords()
     ra_cent, ra_min, ra_max, dec_cent, dec_min, dec_max = micecat_fields_coords[icat]
