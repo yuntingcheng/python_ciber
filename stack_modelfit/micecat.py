@@ -336,91 +336,91 @@ def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf, zcut=0,
         dfm.drop(galid_removed_list, inplace=True)
         df1h[im] = {'dfm': dfm, 'df1h':dfm1h}
 
-    # data = np.zeros([4, 25])
-    # datasub = np.zeros([4, 15])
-    # for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
-    #     dfm, dfm1h = df1h[im]['dfm'], df1h[im]['df1h']
+    data = np.zeros([4, 25])
+    datasub = np.zeros([4, 15])
+    for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
+        dfm, dfm1h = df1h[im]['dfm'], df1h[im]['df1h']
 
-    #     start_time = time.time()
-    #     mapstack, maskstack = 0., 0.
-    #     for i, galid in enumerate(dfm.index):
-    #         if i > Nstack:
-    #             break
-    #         dfi = dfm1h.loc[dfm1h['stack_gal_id']==galid]
-    #         x0, y0, m0 = dfm.loc[galid][['x','y','I']]
+        start_time = time.time()
+        mapstack, maskstack = 0., 0.
+        for i, galid in enumerate(dfm.index):
+            if i > Nstack:
+                break
+            dfi = dfm1h.loc[dfm1h['stack_gal_id']==galid]
+            x0, y0, m0 = dfm.loc[galid][['x','y','I']]
 
-    #         if i%100==0:
-    #             print('stack 1-halo, icat %d, %d < m < %d, %d / %d, %d sats, t = %.2f min'\
-    #                   %(icat, m_min, m_max, i, len(dfm), len(dfi), (time.time()-start_time)/60))
+            if i%100==0:
+                print('stack 1-halo, icat %d, %d < m < %d, %d / %d, %d sats, t = %.2f min'\
+                      %(icat, m_min, m_max, i, len(dfm), len(dfi), (time.time()-start_time)/60))
 
-    #         make_srcmap_class.xls = np.array(dfi['x'])
-    #         make_srcmap_class.yls = np.array(dfi['y'])
-    #         make_srcmap_class.ms = np.array(dfi['I'])
+            make_srcmap_class.xls = np.array(dfi['x'])
+            make_srcmap_class.yls = np.array(dfi['y'])
+            make_srcmap_class.ms = np.array(dfi['I'])
 
-    #         if inst == 1:
-    #             make_srcmap_class.ms_inband = np.array(dfi['I'])
-    #         else:
-    #             make_srcmap_class.ms_inband = np.array(dfi['H'])
+            if inst == 1:
+                make_srcmap_class.ms_inband = np.array(dfi['I'])
+            else:
+                make_srcmap_class.ms_inband = np.array(dfi['H'])
 
-    #         srcmapi = make_srcmap_class.run_srcmap(ptsrc=True, verbose=False)
+            srcmapi = make_srcmap_class.run_srcmap(ptsrc=True, verbose=False)
 
-    #         maski, numi = Ith_mask_mock(np.concatenate((np.array(dfi['x']),np.array([x0]))),
-    #                                     np.concatenate((np.array(dfi['y']),np.array([y0]))),
-    #                                     np.concatenate((np.array(dfi['I']),np.array([m0]))),
-    #                                     verbose=False)      
+            maski, numi = Ith_mask_mock(np.concatenate((np.array(dfi['x']),np.array([x0]))),
+                                        np.concatenate((np.array(dfi['y']),np.array([y0]))),
+                                        np.concatenate((np.array(dfi['I']),np.array([m0]))),
+                                        verbose=False)      
 
-    #         stack_class.xls = np.array([x0])
-    #         stack_class.yls = np.array([y0])
-    #         stack_class.ms = np.array([m0])
+            stack_class.xls = np.array([x0])
+            stack_class.yls = np.array([y0])
+            stack_class.ms = np.array([m0])
 
-    #         _, maskstacki, mapstacki = stack_class.run_stacking(srcmapi, maski, numi,
-    #                                                            verbose=False, return_profile=False)
+            _, maskstacki, mapstacki = stack_class.run_stacking(srcmapi, maski, numi,
+                                                               verbose=False, return_profile=False)
 
-    #         mapstack += mapstacki
-    #         maskstack += maskstacki
+            mapstack += mapstacki
+            maskstack += maskstacki
 
-    #     stack = np.zeros_like(mapstack)
-    #     sp = np.where(maskstack!=0)
-    #     stack[sp] = mapstack[sp] / maskstack[sp]
-    #     stack[maskstack==0] = 0
+        stack = np.zeros_like(mapstack)
+        sp = np.where(maskstack!=0)
+        stack[sp] = mapstack[sp] / maskstack[sp]
+        stack[maskstack==0] = 0
 
-    #     dx = stack_class.dx
-    #     profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
-    #     rbinedges, rbins = profile['rbinedges'], profile['rbins']
-    #     rsubbins, rsubbinedges = radial_binning(rbins, rbinedges)
-    #     Nbins = len(rbins)
-    #     Nsubbins = len(rsubbins)
-    #     radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
+        dx = stack_class.dx
+        profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
+        rbinedges, rbins = profile['rbinedges'], profile['rbins']
+        rsubbins, rsubbinedges = radial_binning(rbins, rbinedges)
+        Nbins = len(rbins)
+        Nsubbins = len(rsubbins)
+        radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
         
-    #     prof_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
-    #     for ibin in range(Nbins):
-    #         spi = np.where((radmapstamp>=rbinedges[ibin]) &\
-    #                        (radmapstamp<rbinedges[ibin+1]))
-    #         prof_arr[ibin] += np.sum(mapstack[spi])
-    #         hit_arr[ibin] += np.sum(maskstack[spi])
-    #     prof_norm = np.zeros_like(prof_arr)
-    #     prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
-    #     data[im,:] = prof_norm
+        prof_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
+        for ibin in range(Nbins):
+            spi = np.where((radmapstamp>=rbinedges[ibin]) &\
+                           (radmapstamp<rbinedges[ibin+1]))
+            prof_arr[ibin] += np.sum(mapstack[spi])
+            hit_arr[ibin] += np.sum(maskstack[spi])
+        prof_norm = np.zeros_like(prof_arr)
+        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+        data[im,:] = prof_norm
     
-    #     prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
-    #     for ibin in range(Nsubbins):
-    #         spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
-    #                        (radmapstamp<rsubbinedges[ibin+1]))
-    #         prof_arr[ibin] += np.sum(mapstack[spi])
-    #         hit_arr[ibin] += np.sum(maskstack[spi])
-    #     prof_norm = np.zeros_like(prof_arr)
-    #     prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
-    #     datasub[im,:] = prof_norm
+        prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
+        for ibin in range(Nsubbins):
+            spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                           (radmapstamp<rsubbinedges[ibin+1]))
+            prof_arr[ibin] += np.sum(mapstack[spi])
+            hit_arr[ibin] += np.sum(maskstack[spi])
+        prof_norm = np.zeros_like(prof_arr)
+        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+        datasub[im,:] = prof_norm
 
-    # rbins = rbins*0.7
-    # rbinedges = rbinedges*0.7 
-    # rsubbins = rsubbins*0.7
-    # rsubbinedges = rsubbinedges*0.7 
+    rbins = rbins*0.7
+    rbinedges = rbinedges*0.7 
+    rsubbins = rsubbins*0.7
+    rsubbinedges = rsubbinedges*0.7 
 
-    # data_dict = {'data': data, 'datasub': datasub, 
-    #             'rbins':rbins, 'rbinedges':rbinedges, 
-    #             'rsubbins':rsubbins, 'rsubbinedges':rsubbinedges}
-    data_dict = {}####
+    data_dict = {'data': data, 'datasub': datasub, 
+                'rbins':rbins, 'rbinedges':rbinedges, 
+                'rsubbins':rsubbins, 'rsubbinedges':rsubbinedges}
+
     if save_data:
         fname  = savedir + 'onehalo_TM%d_icat%d.pkl'%(inst, icat)
         if (Mhcut != np.inf) or (R200cut != np.inf):
@@ -435,9 +435,7 @@ def run_micecat_1h(inst, icat, Nstack=500, Mhcut=np.inf, R200cut=np.inf, zcut=0,
         with open(fname, "wb") as f:
             pickle.dump(data_dict , f)
     
-    #return data_dict####
-    print(fname)####
-    return df1h###
+    return data_dict
 
 def run_micecat_batch(inst, ibatch, run_type='all', return_data=False, **kwargs):
     
@@ -473,9 +471,12 @@ def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False
             fname  = 'onehalo_TM{:.0f}_icat{:.0f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
             .format(inst, icat, R200cut, np.log10(Mhcut))
         if zcut!=0:
-            fname  = 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}.pkl'\
+            fname  = savedir + 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}.pkl'\
             .format(inst, icat, zcut)
-
+            if (Mhcut != np.inf) or (R200cut != np.inf):
+                fname  = savedir + 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
+                .format(inst, icat, zcut, R200cut, np.log10(Mhcut))
+ 
         if fname not in os.listdir(savedir):
             continue
 
