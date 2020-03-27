@@ -163,6 +163,7 @@ def dowload_micecat(request_id_dict):
                 time.sleep(wait_time)
                 
     return driver
+
 def process_downloaded_micecat(request_id_dict):
     for icat, request_id in request_id_dict.items():  
         try:
@@ -173,6 +174,21 @@ def process_downloaded_micecat(request_id_dict):
         except FileNotFoundError:
             continue
     return
+
+def run_micecat_query(icat_list):
+    for icat in icat_list:
+        driver = query_micecat()
+        sql = gen_sql(icat, select_top=None)
+        request_id = sendSQL_micecat(driver, sql)
+        print('query cat %d, request id %d'%(icat, request_id))
+        driver.quit()
+        
+        time.sleep(120)
+        driver = dowload_micecat({icat: request_id})
+        time.sleep(60)
+        driver.quit()
+        process_downloaded_micecat({icat: request_id})
+
 
 def get_micecat_df_auto(icat, add_Rvir=False):
     fname = mypaths['MCcatdat'] + 'all_fields/' + 'micecat_%d.csv.bz2'%icat
@@ -383,7 +399,7 @@ def run_micecat_auto_batch(inst ,ibatch, istart=0, batch_size=20, return_data=Fa
         data_dicts = [] 
     icat_arr = np.linspace(0, batch_size-1, batch_size) + ibatch*batch_size + istart
     icat_arr = icat_arr.astype(int)
-    
+
     for icat in icat_arr:
         data_dict = run_micecat_auto_fliter_test_cen(inst, icat, **kwargs)
 
@@ -394,3 +410,59 @@ def run_micecat_auto_batch(inst ,ibatch, istart=0, batch_size=20, return_data=Fa
         return data_dicts
 
     return
+
+def get_micecat_sim_cen_auto(inst, im, sub=False, 
+    filt_order=None, ratio=False, return_icat=False):
+    '''
+    Get the MICECAT central gal sim results.
+    '''
+    savedir='./micecat_data/all_fields/'
+    typename = 'filter_test_cen'
+    data_all = []
+    icat_arr = []
+    for icat in range(300):
+        fname  = typename + '_TM%d_icat%d.pkl'%(inst, icat)
+        if fname not in os.listdir(savedir):
+            continue
+        icat_arr.append(icat)
+        
+        with open(savedir + fname,"rb") as f:
+            data_dict = pickle.load(f)
+            
+        if not sub:
+            rbinedges = data_dict['rbinedges']
+            rbins = data_dict['rbins']
+            data = data_dict['data']
+        else:
+            rbinedges = data_dict['rsubbinedges']
+            rbins = data_dict['rsubbins']
+            data = data_dict['datasub']
+            
+        data_all.append(data)
+
+    filt_order_arr = np.array(data_dict['filt_order_arr'])
+    icat_arr = np.array(icat_arr)
+    data_all = np.array(data_all)[...,im,:]
+    
+    if ratio:
+        for i in range(data_all.shape[0]):
+            nofilt = data_all[i,0,:].copy()
+            for j in range(data_all.shape[1]):
+                data_all[i,j,:] = data_all[i,j,:]/nofilt
+                
+    data_avg = np.mean(data_all, axis=0)
+    data_std = np.std(data_all, axis=0)
+    
+    if filt_order is None:
+        if return_icat:
+            return rbins, data_avg, data_std, data_all, filt_order_arr, icat_arr
+        return rbins, data_avg, data_std, data_all, filt_order_arr
+    
+    else:
+        sp = np.where(filt_order_arr==filt_order)[0]
+        data_avg = np.squeeze(data_avg[sp])
+        data_std = np.squeeze(data_std[sp])
+        data_all = np.squeeze(data_all[:,sp,:])
+        if return_icat:
+            return rbins, data_avg, data_std, data_all, icat_arr
+        return rbins, data_avg, data_std, data_all
