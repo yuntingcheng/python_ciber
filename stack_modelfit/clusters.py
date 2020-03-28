@@ -89,7 +89,7 @@ class clusters:
         order = [c for c in df.columns]
         # find the x, y solution with all quad
         for inst in [1,2]:
-            hdrdir = '/Users/ytcheng/ciber/doc/20170617_Stacking/maps/astroutputs/inst' + str(inst) + '/'
+            hdrdir = mypaths['ciberdir'] + 'doc/20170617_Stacking/maps/astroutputs/inst' + str(inst) + '/'
             xoff = [0,0,512,512]
             yoff = [0,512,0,512]
             for iquad,quad in enumerate(['A','B','C','D']):

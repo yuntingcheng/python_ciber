@@ -13,8 +13,8 @@ class stacking:
         self.BGsub = BGsub
         
         if savename is None:
-            savename = './stack_data/stackdat_TM%d_%s_%d_%d'\
-            %(inst, self.field, m_min, m_max)
+            savename = './stack_data/stackdat_TM%d_%s_%d_%d_filt%d'\
+            %(inst, self.field, m_min, m_max, filt_order)
         self.savename = savename
         
         if load_from_file:
