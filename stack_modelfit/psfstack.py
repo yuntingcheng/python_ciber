@@ -112,6 +112,7 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         rs = -6.25 * ms + 110
 
         profs = []
+        profsubs = []
         mapstack, maskstack = 0., 0.
 
         if Nsub_single:
@@ -132,9 +133,11 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
             maskstack += maskstacki
 
             profs.append(stackdat['prof'])
+            profsubs.append(stackdat['profsub'])
 
         profs = np.array(profs)
         prof_err = np.std(profs, axis=0) / np.sqrt(Nsub) 
+        profsub_err = np.std(profsubs, axis=0) / np.sqrt(Nsub) 
 
         stack = np.zeros_like(mapstack)
         sp = np.where(maskstack!=0)
@@ -153,13 +156,28 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         prof_norm = np.zeros_like(prof_arr)
         prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
 
+        rsubbins, rsubbinedges = stackdat['rsubbins']/0.7, stackdat['rsubbinedges']/0.7
+        Nsubbins = len(rsubbins)
+        prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
+        for ibin in range(Nsubbins):
+            spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                           (radmapstamp<rsubbinedges[ibin+1]))
+            prof_arr[ibin] += np.sum(mapstack[spi])
+            hit_arr[ibin] += np.sum(maskstack[spi])
+        profsub_norm = np.zeros_like(prof_arr)
+        profsub_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+
         psfdata[ifield] = {}
         psfdata[ifield]['Nsrc'] = len(xs)
         psfdata[ifield]['rbins'] = stackdat['rbins'].copy()
         psfdata[ifield]['rbinedges'] = stackdat['rbinedges'].copy()
+        psfdata[ifield]['rsubbins'] = stackdat['rsubbins'].copy()
+        psfdata[ifield]['rsubbinedges'] = stackdat['rsubbinedges'].copy()
         psfdata[ifield]['prof'] = prof_norm
+        psfdata[ifield]['profsub'] = profsub_norm
         psfdata[ifield]['profhit'] = hit_arr
         psfdata[ifield]['prof_err'] = prof_err
+        psfdata[ifield]['profsub_err'] = profsub_err
         psfdata[ifield]['stackmap'] = stack
 
     if savedata:

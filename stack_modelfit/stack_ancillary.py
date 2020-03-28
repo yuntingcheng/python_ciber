@@ -1,10 +1,12 @@
 from mask import *
 from reduction import *
+from clusters import *
 import pandas as pd
 import time
 
-def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
-                  Nsub=64, sample_type='jack_random', Nsrc_use=None):
+def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, 
+                  sample_type='jack_random', Nsrc_use=None, mask_clus=True, **kwargs):
+
     catdir = mypaths['PScatdat']
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
 
@@ -72,6 +74,25 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts,
 
     z_arr, m_arr, m0_arr, cls_arr =\
     subz_arr[randidx], subm_arr[randidx], subm0_arr[randidx], subcls_arr[randidx]
+    
+    if mask_clus:
+        maskmh = clusters(inst, ifield, lnMhrange=(14, np.inf)).cluster_mask()
+        maskz = clusters(inst, ifield, zrange=(0, 0.15)).cluster_mask()  
+        clus_mask = maskz * maskmh
+        subm_arr, subm0_arr, subx_arr, suby_arr, subz_arr, subcls_arr =\
+        [], [], [], [], [], []
+        for i, (x,y) in enumerate(zip(x_arr, y_arr)):
+            if clus_mask[int(np.round(x)), int(np.round(y))]==1:
+                subm_arr.append(m_arr[i])
+                subm0_arr.append(m0_arr[i])
+                subz_arr.append(z_arr[i])
+                subcls_arr.append(cls_arr[i])
+                subx_arr.append(x)
+                suby_arr.append(y)
+        x_arr, y_arr, z_arr = np.array(subx_arr), np.array(suby_arr), np.array(subz_arr)
+        m_arr, m0_arr, cls_arr = np.array(subm_arr), np.array(subm0_arr), np.array(subcls_arr) 
+        
+    
     xg_arr, yg_arr, mg_arr, mg0_arr =\
     x_arr[cls_arr==1], y_arr[cls_arr==1], m_arr[cls_arr==1], m0_arr[cls_arr==1]
     zg_arr = z_arr[cls_arr==1]

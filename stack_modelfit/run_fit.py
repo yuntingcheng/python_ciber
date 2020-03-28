@@ -109,7 +109,7 @@ class fit_stacking_mcmc:
         profpsf_sub = radial_prof(psfwin_map, rbinedges=self.rsubbinedges/0.7,
                                       return_full=False)
         self.profpsf = profpsf / profpsf[0]
-        self.profpsf_sub = profpsf_sub / profpsf_sub[0]
+        self.profpsf_sub = profpsf_sub / profpsf[0]
         self.psfwin_map = psfwin_map
         
         return

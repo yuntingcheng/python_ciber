@@ -471,10 +471,10 @@ def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False
             fname  = 'onehalo_TM{:.0f}_icat{:.0f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
             .format(inst, icat, R200cut, np.log10(Mhcut))
         if zcut!=0:
-            fname  = savedir + 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}.pkl'\
+            fname  = 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}.pkl'\
             .format(inst, icat, zcut)
             if (Mhcut != np.inf) or (R200cut != np.inf):
-                fname  = savedir + 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
+                fname  = 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
                 .format(inst, icat, zcut, R200cut, np.log10(Mhcut))
  
         if fname not in os.listdir(savedir):

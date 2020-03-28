@@ -420,7 +420,7 @@ def get_micecat_sim_cen_auto(inst, im, sub=False,
     typename = 'filter_test_cen'
     data_all = []
     icat_arr = []
-    for icat in range(300):
+    for icat in range(400):
         fname  = typename + '_TM%d_icat%d.pkl'%(inst, icat)
         if fname not in os.listdir(savedir):
             continue
