@@ -35,7 +35,7 @@ class clusters:
         dfc = pd.read_csv(datadir + self.field + '.csv')
         dfc = self._cat_add_xy(self.field, dfc)
         dfc = dfc[(dfc['x1']>-0.5) & (dfc['x1']<1023.5) & (dfc['y1']>-0.5) & (dfc['y1']<1023.5)]
-        dfc['r200_arcsec'] = (cosmo.arcsec_per_kpc_proper(dfc['zph']) * dfc['r200'] * 1e3).value
+        dfc['r200_arcsec'] = np.array(cosmo.arcsec_per_kpc_proper(dfc['zph'])) * dfc['r200'].values * 1e3
         rhoc_arr = np.array(cosmo.critical_density(dfc['zph'].values).to(u.M_sun / u.Mpc**3))
         Mh_arr = (4/3*np.pi*dfc['r200']**3)*200*rhoc_arr
         dfc['lmhalo'] = np.log10(Mh_arr)
