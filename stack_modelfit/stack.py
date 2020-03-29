@@ -830,3 +830,9 @@ class stacking:
                                         - self.stackdat['PSF']['profcb100']
         self.stackdat['ex']['profps100'] = self.stackdat['BGsub']['profps100'] \
                                         - self.stackdat['PSF']['profps100']
+
+
+def run_stacking(inst, ifield, **kwargs):
+    for m_min, m_max in zip(magbindict['m_min'], magbindict['m_max']):
+        stacking(inst, ifield, m_min, m_max, **kwargs)
+    return
