@@ -393,6 +393,196 @@ def run_micecat_auto_fliter_test_cen(inst, icat, filt_order_arr=[0], mag_stack =
     
     return data_dict
 
+def run_micecat_auto_fliter_test(inst, icat, filt_order_arr=[0], mag_stack = [0,1],
+                                 Mhcut=np.inf, R200cut=np.inf, zcut=0,
+                           savedir = './micecat_data/all_fields/', save_data = True):
+
+
+    df = get_micecat_df_auto(icat, add_Rvir=True)
+
+    mag_th = 20
+    xs, ys, ms = np.array(df['x']), np.array(df['y']), np.array(df['I'])
+    ms_inband = np.array(df['I']) if inst==1 else np.array(df['H'])
+
+    make_srcmap_class = make_srcmap(inst)
+    spb = np.where(df['I']<=mag_th)[0]
+    spf = np.where(df['I']>mag_th)[0]
+
+    make_srcmap_class.ms = ms[spb]
+    make_srcmap_class.ms_inband = ms_inband[spb]
+    make_srcmap_class.xls = xs[spb]
+    make_srcmap_class.yls = ys[spb]
+    srcmapb = make_srcmap_class.run_srcmap(ptsrc=True, verbose=False)
+
+    make_srcmap_class.ms = ms[spf]
+    make_srcmap_class.ms_inband = ms[spf]
+    make_srcmap_class.xls = xs[spf]
+    make_srcmap_class.yls = ys[spf]
+    srcmapf = make_srcmap_class.run_srcmap_nopsf()
+    srcmap = srcmapb + srcmapf
+
+    mask, num = Ith_mask_mock(xs, ys, ms, verbose=False)
+
+    stack_class = stacking_mock(inst)
+
+    df1h = {}
+    for im, (m_min, m_max) in enumerate(zip(np.array(magbindict['m_min'])[mag_stack],
+                                            np.array(magbindict['m_max'])[mag_stack])):
+        df1h[im] = {}
+        dfm = df[(df['I']>=m_min) & (df['I']<m_max) \
+                 & (df['x']<1023.5) & (df['x']>-0.5)\
+                & (df['y']<1023.5) & (df['y']>-0.5) \
+                & (df['z_cgal']>zcut)].copy()
+        galids = np.array(dfm.index)
+        haloids = dfm['unique_halo_id'].values
+        shuffle_idx = np.random.permutation(len(dfm))
+        galids, haloids = galids[shuffle_idx], haloids[shuffle_idx]
+        dfm1h = pd.DataFrame()
+        galid_removed_list = []
+        for i, (haloid, galid) in enumerate(zip(haloids, galids)):
+            dfi = df[df['unique_halo_id']==haloid].copy()
+            dfi['stack_gal_id'] = galid
+            Rvi = np.mean(dfi['Rv_arcsec'].values)
+            Mh = 10**np.mean(dfi['lmhalo'].values)
+            if (Rvi > R200cut) and (Mh > Mhcut):
+                galid_removed_list.append(galid)
+                continue
+            dfi.drop(['unique_halo_id', 'z_cgal', 'nsats', 'lmhalo'], axis=1, inplace=True)
+
+            dfm1h = pd.concat([dfm1h, dfi])
+        dfm.drop(galid_removed_list, inplace=True)
+        df1h[im] = {'dfm': dfm, 'df1h':dfm1h}
+
+    data = np.zeros([len(filt_order_arr), 4, 25])
+    datasub = np.zeros([len(filt_order_arr), 4, 15])
+    for ifilt, filt_order in enumerate(filt_order_arr):
+        print('cat #%d, %d-th order filter'%(icat,filt_order))
+        if filt_order==0:
+            filtmap = srcmap - np.mean(srcmap[mask==1])
+        else:   
+            filtmap = image_poly_filter(srcmap, mask, degree=filt_order)
+
+        for im, (m_min, m_max) in enumerate(zip(np.array(magbindict['m_min'])[mag_stack],
+                                                np.array(magbindict['m_max'])[mag_stack])):
+            print('cat #%d, %d-th order filter, stack %d < m < %d'\
+                 %(icat,filt_order, m_min, m_max))
+
+            dfm, dfm1h = df1h[im]['dfm'], df1h[im]['df1h']
+
+            mapstack, maskstack = 0., 0.
+            for i, galid in enumerate(dfm.index):
+                dfi = dfm1h.loc[dfm1h['stack_gal_id']==galid]
+                x0, y0, m0 = dfm.loc[galid][['x','y','I']]
+                if i%100 == 0:
+                    print('stack %d/%d sources'%(i, len(dfm)))
+
+                spb = np.where(dfi['I']<=mag_th)[0]
+                spf = np.where(dfi['I']>mag_th)[0]
+
+                xs, ys, ms = np.array(dfi['x']), np.array(dfi['y']), np.array(dfi['I'])
+                ms_inband = np.array(dfi['I']) if inst==1 else np.array(dfi['H'])
+
+                make_srcmap_class.ms = ms[spb]
+                make_srcmap_class.ms_inband = ms_inband[spb]
+                make_srcmap_class.xls = xs[spb]
+                make_srcmap_class.yls = ys[spb]
+                srcmapbi = make_srcmap_class.run_srcmap(ptsrc=True, verbose=False)
+
+                make_srcmap_class.ms = ms[spf]
+                make_srcmap_class.ms_inband = ms[spf]
+                make_srcmap_class.xls = xs[spf]
+                make_srcmap_class.yls = ys[spf]
+                srcmapfi = make_srcmap_class.run_srcmap_nopsf()
+
+                maski, numi = Ith_mask_mock(xs, ys, ms, verbose=False)
+
+                filtmap_rm = filtmap - srcmapbi - srcmapfi
+
+                num_rm = num - numi
+                mask_rm = mask.copy()
+                mask_rm[(maski==0) & (num==1)] = 1
+
+                stack_class.xls = np.array([x0])
+                stack_class.yls = np.array([y0])
+                stack_class.ms = np.array([m0])
+
+                _, maskstacki, mapstacki =\
+                 stack_class.run_stacking_bigpix(filtmap_rm, mask_rm, num_rm,
+                                                           verbose=False,
+                                                            return_profile=False)
+
+                mapstack += mapstacki
+                maskstack += maskstacki
+
+
+            stack = np.zeros_like(mapstack)
+            sp = np.where(maskstack!=0)
+            stack[sp] = mapstack[sp] / maskstack[sp]
+            stack[maskstack==0] = 0
+
+            dx = stack_class.dx
+            profile = radial_prof(np.ones([2*dx*10+1,2*dx*10+1]), dx*10, dx*10)
+            rbinedges, rbins = profile['rbinedges'], profile['rbins']
+            rsubbins, rsubbinedges = radial_binning(rbins, rbinedges)
+            Nbins = len(rbins)
+            Nsubbins = len(rsubbins)
+            stackdat = {}
+            stackdat['rbins'] = rbins*0.7
+            stackdat['rbinedges'] = rbinedges*0.7 
+            stackdat['rsubbins'] = rsubbins*0.7
+            stackdat['rsubbinedges'] = rsubbinedges*0.7
+
+            rbins /= 10 # bigpix
+            rbinedges /=10 # bigpix
+            radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
+            prof_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
+            for ibin in range(Nbins):
+                spi = np.where((radmapstamp>=rbinedges[ibin]) &\
+                               (radmapstamp<rbinedges[ibin+1]))
+                prof_arr[ibin] += np.sum(mapstack[spi])
+                hit_arr[ibin] += np.sum(maskstack[spi])
+            prof_norm = np.zeros_like(prof_arr)
+            prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+
+            stackdat['prof'] = prof_norm
+            stackdat['profhit'] = hit_arr
+
+            data[ifilt, im, :] = stackdat['prof']
+
+
+            rsubbins /= 10 # bigpix
+            rsubbinedges /=10 # bigpix
+            prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
+            for ibin in range(Nsubbins):
+                spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
+                               (radmapstamp<rsubbinedges[ibin+1]))
+                prof_arr[ibin] += np.sum(mapstack[spi])
+                hit_arr[ibin] += np.sum(maskstack[spi])
+            prof_norm = np.zeros_like(prof_arr)
+            prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]       
+            stackdat['profsub'] = prof_norm
+            stackdat['profhitsub'] = hit_arr
+
+            datasub[ifilt, im, :] = stackdat['profsub']
+
+    rbins = stackdat['rbins']
+    rbinedges = stackdat['rbinedges']
+    rsubbins = stackdat['rsubbins']
+    rsubbinedges = stackdat['rsubbinedges']
+
+    data_dict = {'data': data, 'datasub': datasub, 
+        'rbins':rbins, 'rbinedges':rbinedges, 
+        'rsubbins':rsubbins, 'rsubbinedges':rsubbinedges,
+        'filt_order_arr':filt_order_arr}
+
+    if save_data:
+        fname  = savedir + 'filter_test_TM%d_icat%d.pkl'%(inst, icat)
+
+        with open(fname, "wb") as f:
+            pickle.dump(data_dict , f)
+
+    return data_dict
+
 def run_micecat_auto_batch(inst ,ibatch, istart=0, batch_size=20, return_data=False, **kwargs):
     
     if return_data:
@@ -401,8 +591,8 @@ def run_micecat_auto_batch(inst ,ibatch, istart=0, batch_size=20, return_data=Fa
     icat_arr = icat_arr.astype(int)
 
     for icat in icat_arr:
-        data_dict = run_micecat_auto_fliter_test_cen(inst, icat, **kwargs)
-
+        # data_dict = run_micecat_auto_fliter_test_cen(inst, icat, **kwargs)
+        data_dict = run_micecat_auto_fliter_test(inst, icat, **kwargs)
         if return_data:
             data_dicts.append(data_dict)
 
