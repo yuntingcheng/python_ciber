@@ -601,24 +601,46 @@ def run_micecat_auto_batch(inst ,ibatch, istart=0, batch_size=20, return_data=Fa
 
     return
 
-def get_micecat_sim_cen_auto(inst, im, sub=False, 
-    filt_order=None, ratio=False, return_icat=False):
+def get_micecat_sim_auto(inst, im, run_type='2h', sub=False, 
+    filt_order=0, ratio=False, return_icat=False, savedir=None):
     '''
     Get the MICECAT central gal sim results.
+
+    run_type: 
+    '2h' - all gal but reject same halo objects in stack
+    'cen' - only cen gal
     '''
-    savedir='./micecat_data/all_fields/'
-    typename = 'filter_test_cen'
+
+    if savedir is None:
+        savedir='./micecat_data/all_fields/'
+    if run_type == 'cen':
+        typename = 'filter_test_cen'
+    elif run_type == '2h':
+        typename = 'filter_test'
+    
     data_all = []
+    data0_all = []
     icat_arr = []
     for icat in range(400):
+
         fname  = typename + '_TM%d_icat%d.pkl'%(inst, icat)
         if fname not in os.listdir(savedir):
             continue
-        icat_arr.append(icat)
-        
+
         with open(savedir + fname,"rb") as f:
             data_dict = pickle.load(f)
-            
+
+        filt_order_arr = np.array(data_dict['filt_order_arr'])
+        spfilt = np.where(filt_order_arr==filt_order)[0]
+        spfilt0 = np.where(filt_order_arr==0)[0]
+
+        if len(spfilt)==0 or len(spfilt0)==0:
+            continue
+        if len(filt_order_arr)!=7 and run_type=='2h':###
+            continue###
+        icat_arr.append(icat)
+        spfilt, spfilt0 = spfilt[0], spfilt0[0]
+
         if not sub:
             rbinedges = data_dict['rbinedges']
             rbins = data_dict['rbins']
@@ -627,32 +649,20 @@ def get_micecat_sim_cen_auto(inst, im, sub=False,
             rbinedges = data_dict['rsubbinedges']
             rbins = data_dict['rsubbins']
             data = data_dict['datasub']
-            
-        data_all.append(data)
 
-    filt_order_arr = np.array(data_dict['filt_order_arr'])
+        data_all.append(data[spfilt,...])
+        data0_all.append(data[spfilt0,...])
+
     icat_arr = np.array(icat_arr)
-    data_all = np.array(data_all)[...,im,:]
+    data_all = np.array(data_all)[:,im,:]
+    data0_all = np.array(data0_all)[:,im,:]
     
     if ratio:
-        for i in range(data_all.shape[0]):
-            nofilt = data_all[i,0,:].copy()
-            for j in range(data_all.shape[1]):
-                data_all[i,j,:] = data_all[i,j,:]/nofilt
-                
+        data_all = data_all / data0_all
+
     data_avg = np.mean(data_all, axis=0)
-    data_std = np.std(data_all, axis=0)
-    
-    if filt_order is None:
-        if return_icat:
-            return rbins, data_avg, data_std, data_all, filt_order_arr, icat_arr
-        return rbins, data_avg, data_std, data_all, filt_order_arr
-    
-    else:
-        sp = np.where(filt_order_arr==filt_order)[0]
-        data_avg = np.squeeze(data_avg[sp])
-        data_std = np.squeeze(data_std[sp])
-        data_all = np.squeeze(data_all[:,sp,:])
-        if return_icat:
-            return rbins, data_avg, data_std, data_all, icat_arr
-        return rbins, data_avg, data_std, data_all
+    data_std = np.std(data_all, axis=0)    
+
+    if return_icat:
+        return rbins, data_avg, data_std, data_all, icat_arr
+    return rbins, data_avg, data_std, data_all

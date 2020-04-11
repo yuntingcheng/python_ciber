@@ -3,7 +3,8 @@ from stack_ancillary import *
 class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
         savename=None, load_from_file=False, filt_order=2,
-         run_nonuniform_BG=False, BGsub=True):
+         run_nonuniform_BG=False, BGsub=True, all_src=False,
+         uniform_jack=False):
         self.inst = inst
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
@@ -11,23 +12,40 @@ class stacking:
         self.m_max = m_max
         self.filt_order = filt_order
         self.BGsub = BGsub
-        
+        self.uniform_jack = uniform_jack
+
         if savename is None:
             savename = './stack_data/stackdat_TM%d_%s_%d_%d_filt%d'\
             %(inst, self.field, m_min, m_max, filt_order)
+            if uniform_jack:
+                savename = './stack_data/stackdat_TM%d_%s_%d_%d_filt%d_unijack'\
+                %(inst, self.field, m_min, m_max, filt_order)
+
+        if all_src:
+            # This has no z & Mh cut
+            savename = './stack_data/stackdat_TM%d_%s_%d_%d'\
+            %(inst, self.field, m_min, m_max)
+            if uniform_jack:
+                savename = './stack_data/stackdat_TM%d_%s_%d_%d_unijack'\
+                %(inst, self.field, m_min, m_max)
+
+
         self.savename = savename
         
         if load_from_file:
             stackdat = np.load(savename + '.npy' ,allow_pickle='TRUE').item()
             self.stackdat = stackdat
             if run_nonuniform_BG:
-                self.stack_BG(Nbg=64, uniform=False)
+                self.stack_BG(Nbg=64, uniform=uniform_jack)
                 np.save(savename, stackdat)
 
         else:
-            stackdat = self.stack_PS()
+            if uniform_jack:
+                stackdat = self.stack_PS(sample_type='jack_random')
+            else:
+                stackdat = self.stack_PS(sample_type='jack_region')
             self.stackdat = stackdat
-            self.stack_BG(Nbg=64)
+            self.stack_BG(Nbg=64, uniform=uniform_jack)
             np.save(savename, stackdat)
         
         self._post_process()

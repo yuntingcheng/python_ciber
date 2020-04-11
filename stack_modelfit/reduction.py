@@ -194,7 +194,7 @@ class image_reduction:
 
     def get_DC_mask_inst(self, inst):
         inst = self.inst
-        DCdir = mypaths['ciberdir'] + 'doc/20160808_DarkProcess/40030/'
+        DCdir = mypaths['DCdir']
         DCtemplate = loadmat(DCdir + 'band' + str(inst) + '_DCtemplate.mat')['DCtemplate']
         mask_inst = loadmat(DCdir + 'band' + str(inst) + '_mask_inst.mat')['mask_inst']
         return DCtemplate, mask_inst
