@@ -4,7 +4,7 @@ class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
         savename=None, load_from_file=False, filt_order=2,
          run_nonuniform_BG=False, BGsub=True, all_src=False,
-         uniform_jack=False):
+         uniform_jack=False, savemaps=False):
         self.inst = inst
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
@@ -13,6 +13,7 @@ class stacking:
         self.filt_order = filt_order
         self.BGsub = BGsub
         self.uniform_jack = uniform_jack
+        self.savemaps = savemaps
 
         if savename is None:
             savename = './stack_data/stackdat_TM%d_%s_%d_%d_filt%d'\
@@ -261,9 +262,10 @@ class stacking:
         psmapstack_norm = np.zeros_like(psmapstack)
         cbmapstack_norm[spmap] = cbmapstack[spmap]/maskstack[spmap]
         psmapstack_norm[spmap] = psmapstack[spmap]/maskstack[spmap]
-        stackdat['cbmapstack'] = cbmapstack_norm
-        stackdat['psmapstack'] = psmapstack_norm
-        stackdat['maskstack'] = maskstack
+        if self.savemaps:
+            stackdat['cbmapstack'] = cbmapstack_norm
+            stackdat['psmapstack'] = psmapstack_norm
+            stackdat['maskstack'] = maskstack
 
         profcb_arr, profps_arr, hit_arr \
         = np.zeros(Nbins), np.zeros(Nbins), np.zeros(Nbins)
@@ -646,9 +648,10 @@ class stacking:
         psmapstack_norm = np.zeros_like(psmapstack)
         cbmapstack_norm[spmap] = cbmapstack[spmap]/maskstack[spmap]
         psmapstack_norm[spmap] = psmapstack[spmap]/maskstack[spmap]
-        self.stackdat['cbmapstackBG'] = cbmapstack_norm
-        self.stackdat['psmapstackBG'] = psmapstack_norm
-        self.stackdat['maskstackBG'] = maskstack
+        if self.savemaps:
+            self.stackdat['cbmapstackBG'] = cbmapstack_norm
+            self.stackdat['psmapstackBG'] = psmapstack_norm
+            self.stackdat['maskstackBG'] = maskstack
         
         self._get_BG_avg()
         return
