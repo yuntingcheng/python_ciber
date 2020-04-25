@@ -636,10 +636,14 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
 
         if len(spfilt)==0 or len(spfilt0)==0:
             continue
-        if len(filt_order_arr)!=7 and run_type=='2h':###
-            continue###
-        icat_arr.append(icat)
+        # if len(filt_order_arr)!=7 and run_type=='2h' and im>=2:###
+        #     continue###
+
         spfilt, spfilt0 = spfilt[0], spfilt0[0]
+        if np.all(data_dict['data'][spfilt,im,:]==0):
+            continue
+        
+        icat_arr.append(icat)
 
         if not sub:
             rbinedges = data_dict['rbinedges']
@@ -652,6 +656,19 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
 
         data_all.append(data[spfilt,...])
         data0_all.append(data[spfilt0,...])
+
+    if len(icat_arr)==0:
+        if not sub:
+            rbins = data_dict['rbins']
+        else:
+            rbins = data_dict['rsubbins']
+
+        if return_icat:
+            return rbins, np.full(rbins.shape,np.nan),np.full(rbins.shape,np.nan),\
+                    np.full(rbins.shape,np.nan), icat_arr
+        else:
+            return rbins, np.full(rbins.shape,np.nan),\
+                    np.full(rbins.shape,np.nan),np.full(rbins.shape,np.nan)
 
     icat_arr = np.array(icat_arr)
     data_all = np.array(data_all)[:,im,:]
@@ -666,3 +683,65 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
     if return_icat:
         return rbins, data_avg, data_std, data_all, icat_arr
     return rbins, data_avg, data_std, data_all
+
+def micecat_profile_fit(inst, im, sub=True, filt_order=0, return_full=False):
+    if im==0:
+        rbins, mc_avg, _, _, _ = get_micecat_sim_auto(inst, 1,
+                                                    filt_order=filt_order,
+                                                      sub=False,return_icat=True)
+
+        pfit = np.poly1d(np.polyfit(np.log10(rbins[mc_avg>0]), mc_avg[mc_avg>0],4))
+        mc_avg_fit = pfit(np.log10(rbins))
+        spfit = np.where((rbins>=25) & (rbins<80))[0]
+        linfit = np.poly1d(np.polyfit(np.log10(rbins[spfit]), mc_avg_fit[spfit],1))
+        mc_avg_fit[rbins<25] = linfit(np.log10(rbins[rbins<25]))
+        mc_avg_fit[-6:] = mc_avg[-6:]
+
+        rsubbins, mc_avgsub, _, _, _ = get_micecat_sim_auto(inst, 1,
+                                                    filt_order=filt_order,
+                                                            sub=True,return_icat=True)
+        mc_avgsub_fit = np.zeros_like(mc_avgsub)
+        mc_avgsub_fit[-1] = mc_avgsub[-1]
+        mc_avgsub_fit[0] = linfit(np.log10(rsubbins[0]))
+        mc_avgsub_fit[1:-1] = mc_avg_fit[6:-6]
+
+        rbins, mc_avg, _, _, _ = get_micecat_sim_auto(inst, im,
+                                                    filt_order=filt_order,
+                                                      sub=False,return_icat=True)
+        rsubbins, mc_avgsub, _, _, _ = get_micecat_sim_auto(inst, im,
+                                                    filt_order=filt_order,
+                                                            sub=True,return_icat=True)
+
+        mc_avg_fit *= np.mean(mc_avg[rbins>30]/mc_avg_fit[rbins>30])
+        mc_avgsub_fit *= np.mean(mc_avg[rbins>30]/mc_avg_fit[rbins>30])
+
+    else:
+        rbins, mc_avg, _, _, _ = get_micecat_sim_auto(inst, im,
+                                                    filt_order=filt_order,
+                                                      sub=False,return_icat=True)
+
+        pfit = np.poly1d(np.polyfit(np.log10(rbins[mc_avg>0]), mc_avg[mc_avg>0],4))
+        mc_avg_fit = pfit(np.log10(rbins))
+        spfit = np.where((rbins>=15) & (rbins<50))[0]
+        if im== 1:
+            spfit = np.where((rbins>=25) & (rbins<80))[0]
+        linfit = np.poly1d(np.polyfit(np.log10(rbins[spfit]), mc_avg_fit[spfit],1))
+        mc_avg_fit[rbins<15] = linfit(np.log10(rbins[rbins<15]))
+        if im==1:
+            mc_avg_fit[rbins<25] = linfit(np.log10(rbins[rbins<25]))
+        mc_avg_fit[-6:] = mc_avg[-6:]
+
+        rsubbins, mc_avgsub, _, _, _ = get_micecat_sim_auto(inst, im,
+                                                    filt_order=filt_order,
+                                                            sub=True,return_icat=True)
+        mc_avgsub_fit = np.zeros_like(mc_avgsub)
+        mc_avgsub_fit[-1] = mc_avgsub[-1]
+        mc_avgsub_fit[0] = linfit(np.log10(rsubbins[0]))
+        mc_avgsub_fit[1:-1] = mc_avg_fit[6:-6]
+    
+    if return_full:
+        return rbins, mc_avg, mc_avg_fit, rsubbins, mc_avgsub, mc_avgsub_fit
+    if sub:
+        return rsubbins, mc_avgsub_fit
+    else:
+        return rbins, mc_avg_fit

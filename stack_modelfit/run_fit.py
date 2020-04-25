@@ -1,15 +1,17 @@
 from scipy import interpolate
 from scipy.signal import fftconvolve
+import pyfftw
 import emcee
 from multiprocessing import Pool
 from utils import * 
 from stack import *
 from clustering import *
 from micecat import *
+from micecat_auto import *
 
 class fit_stacking_mcmc:
     
-    def __init__(self, inst, ifield, im, data_maps=None):
+    def __init__(self, inst, ifield, im, filt_order, data_maps=None):
 
         self.inst = inst
         self.ifield = ifield
@@ -19,7 +21,8 @@ class fit_stacking_mcmc:
         self.m_max = magbindict['m_max'][im]
         self.dx = 1200
         self.data_maps = data_maps
-        
+        self.filt_order = filt_order
+
         self._fit_data_preprocess()
         
     def _fit_data_preprocess(self):
@@ -29,7 +32,9 @@ class fit_stacking_mcmc:
         self._get_model_psf()
 
     def _load_data(self):
-        stackdat = stacking(self.inst, self.ifield, self.m_min, self.m_max,
+        stackdat = stacking(self.inst, self.ifield,
+                            self.m_min, self.m_max,
+                            filt_order=self.filt_order, 
                             load_from_file=True, BGsub=False).stackdat
         
         self.rbins = stackdat['rbins']
@@ -49,42 +54,55 @@ class fit_stacking_mcmc:
         return stackdat
     
     def _get_model_1h(self):
-        _, mc_avg, mc_std, _ = get_micecat_sim_1h(self.inst, self.im, sub=False)
-        _, mc_avg_sub, mc_std_sub, _ = get_micecat_sim_1h(self.inst, self.im, sub=True)
+        _, mc_avg, mc_std, _ = get_micecat_sim_1h(self.inst, self.im, 
+            Mhcut=1e14, R200cut=0, zcut=0.15, sub=False)
+        _, mc_avg_sub, mc_std_sub, _ = get_micecat_sim_1h(self.inst, self.im,
+            Mhcut=1e14, R200cut=0, zcut=0.15, sub=True)
         self.prof1h = mc_avg
         self.prof1h_sub = mc_avg_sub
         return
     
+    # def _get_model_2h(self):
+
+    #     if self.data_maps is None:
+    #         data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+    #     else:
+    #         data_maps = self.data_maps
+
+    #     mask_inst1, mask_inst2 = \
+    #     load_processed_images(data_maps,
+    #                           return_names=[(1,self.ifield,'mask_inst'),
+    #                                         (2,self.ifield,'mask_inst')])
+        
+    #     srcdat = ps_src_select(self.inst, self.ifield, self.m_min, self.m_max, 
+    #             [mask_inst1, mask_inst2], sample_type='all')
+        
+    #     dx = self.dx
+    #     theta_arr = np.logspace(-1,3.2,100)
+    #     w_arr = wgI(srcdat['zg_arr'], theta_arr)
+    #     radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
+    #     tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
+    #     radmap[dx,dx] = radmap[dx,dx+1]
+    #     w_map = interpolate.splev(np.log(radmap),tck)
+        
+    #     self.prof2h = radial_prof(w_map, rbinedges=self.rbinedges/0.7,
+    #                               return_full=False)
+    #     self.prof2h_sub = radial_prof(w_map, rbinedges=self.rsubbinedges/0.7,
+    #                                   return_full=False)
+        
+    #     return
+
     def _get_model_2h(self):
 
-        if self.data_maps is None:
-            data_maps = {1: image_reduction(1), 2: image_reduction(2)}
-        else:
-            data_maps = self.data_maps
+        rbins, mc_avg, mc_avg_fit, rsubbins, mc_avgsub, mc_avgsub_fit = \
+        micecat_profile_fit(self.inst, self.im, filt_order=self.filt_order,
+         return_full=True)
 
-        mask_inst1, mask_inst2 = \
-        load_processed_images(data_maps,
-                              return_names=[(1,self.ifield,'mask_inst'),
-                                            (2,self.ifield,'mask_inst')])
-        
-        srcdat = ps_src_select(self.inst, self.ifield, self.m_min, self.m_max, 
-                [mask_inst1, mask_inst2], sample_type='all')
-        
-        dx = self.dx
-        theta_arr = np.logspace(-1,3.2,100)
-        w_arr = wgI(srcdat['zg_arr'], theta_arr)
-        radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
-        tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
-        radmap[dx,dx] = radmap[dx,dx+1]
-        w_map = interpolate.splev(np.log(radmap),tck)
-        
-        self.prof2h = radial_prof(w_map, rbinedges=self.rbinedges/0.7,
-                                  return_full=False)
-        self.prof2h_sub = radial_prof(w_map, rbinedges=self.rsubbinedges/0.7,
-                                      return_full=False)
+        self.prof2h = mc_avg_fit
+        self.prof2h_sub = mc_avgsub_fit
         
         return
-    
+     
     def _get_model_psf(self):
         
         fname = mypaths['alldat'] + 'TM'+ str(self.inst) + '/psfdata.pkl'
@@ -100,18 +118,25 @@ class fit_stacking_mcmc:
         psfwin_map = np.exp(interpolate.splev(np.log(radmap),tck))
         psfwin_map[psfwin_map < 0] = 0
         
-        profpsf = radial_prof(psfwin_map, dx, dx)
-        profpsf_arr = np.array(profpsf['prof'])
+        profpsf_arr = radial_prof(psfwin_map, return_full=False)
         profpsf_arr /= profpsf_arr[0]
 
         profpsf = radial_prof(psfwin_map, rbinedges=self.rbinedges/0.7,
                                   return_full=False)
         profpsf_sub = radial_prof(psfwin_map, rbinedges=self.rsubbinedges/0.7,
                                       return_full=False)
+        
         self.profpsf = profpsf / profpsf[0]
         self.profpsf_sub = profpsf_sub / profpsf[0]
         self.psfwin_map = psfwin_map
         
+        a = pyfftw.empty_aligned((2401,2401), dtype='complex64') 
+        fftpsf = pyfftw.empty_aligned((2401,2401), dtype='complex64') 
+        psffft_obj = pyfftw.FFTW(a,fftpsf, axes=(0,1),threads=1, 
+                         direction='FFTW_FORWARD',flags=('FFTW_MEASURE',))
+        psffft_obj(psfwin_map)
+        self.fft_psfwin_map = fftpsf
+
         return
 
     def get_profgal_model(self, subbin=True, **kwargs):
@@ -123,10 +148,26 @@ class fit_stacking_mcmc:
         modeldat = gal_profile_model().Wang19_profile(radmap, self.im, **kwargs)
         modeldat['I_arr'] = np.pad(modeldat['I_arr'], 1100, 'constant')
         
-        # conv model
-        modconv_map = fftconvolve(self.psfwin_map, modeldat['I_arr'], 'same')
-        modconv_map /= np.sum(modconv_map)
+        # # conv model (fftconvolve)
+        # modconv_map = fftconvolve(self.psfwin_map, modeldat['I_arr'], 'same')
+        # modconv_map /= np.sum(modconv_map)
+        # modconv_map[modconv_map<0] = 0
+
+        # conv model (pyFFTw)
+        a = pyfftw.empty_aligned((2401,2401), dtype='complex64')
+        fftmod = pyfftw.empty_aligned((2401,2401), dtype='complex64')
+        modfft_obj = pyfftw.FFTW(a,fftmod, axes=(0,1),threads=1, 
+                                 direction='FFTW_FORWARD',flags=('FFTW_MEASURE',))
+        modfft_obj(modeldat['I_arr'])
+        b = pyfftw.empty_aligned((2401,2401), dtype='complex64')
+        modconv_map = pyfftw.empty_aligned((2401,2401), dtype='complex64')
+        convifft_obj = pyfftw.FFTW(b,modconv_map, axes=(0,1),threads=1, 
+                                   direction='FFTW_BACKWARD',flags=('FFTW_MEASURE',))
+        convifft_obj(np.conj(self.fft_psfwin_map)*fftmod)
+        modconv_map = np.real(np.fft.fftshift(modconv_map))
         modconv_map[modconv_map<0] = 0
+        modconv_map /= np.sum(modconv_map)
+
 
         profgal_sub = radial_prof(modconv_map, rbinedges=self.rsubbinedges/0.7,
                                       return_full=False)
@@ -205,7 +246,7 @@ class fit_stacking_mcmc:
         return lp + self._log_likelihood(theta)
 
     def run_mcmc(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
-                save_chain=True, savedir = None, savename=None):
+                return_sampler=False, save_chain=True, savedir = None, savename=None):
         ndim = 3
         p01 = np.random.uniform(0.0001, 1, nwalkers)
         p02 = np.random.uniform(0.0, 200, nwalkers)
@@ -226,11 +267,13 @@ class fit_stacking_mcmc:
             np.save(savedir + savename, sampler.get_chain(), sampler)
             self.mcmc_savename = savedir + savename
         
+        if return_sampler:
+            return sampler
         if return_chain:
             return sampler.get_chain()
         else:
             return
-
+'''
 class fit_stacking_mcmc_2par:
     
     def __init__(self, inst, ifield, im):
@@ -323,9 +366,9 @@ class fit_stacking_mcmc_2par:
         return profgal_arr
     
     def get_profclus_model_exact(self, **kwargs):
-        '''
-        convolve the clustering model with PSF
-        '''
+        
+        # convolve the clustering model with PSF
+        
         dx = self.dx
         clusconv_map = fftconvolve(self.modconv_map, self.w_map, 'same')
         profclus_arr = radial_prof(clusconv_map, dx, dx)
@@ -419,6 +462,7 @@ def run_mcmc_fit(inst, ifield, im, **kwargs):
     param_fit.run_mcmc(**kwargs)
     return param_fit
 
+'''
 
 class joint_fit_mcmc:
     '''

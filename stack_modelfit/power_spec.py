@@ -181,3 +181,16 @@ def map_from_Cl(lbins, lbinedges, Cl, mapsize=(1024,1024), pixsize=7, Clinterp=F
     map2D = np.real(map2D)
     
     return map2D
+
+def sigCl_extrp_mz14(lbins=None):
+    
+    if lbins is None:
+        lbins, _, _, _, _, _, _ =\
+         get_power_spec(np.ones([1024,1024]), return_full=True)
+    logDl = np.log10(12)+ (np.log10(2) - np.log10(12))\
+     * (np.log10(lbins) - np.log10(1e2))\
+    / (np.log10(2e3) - np.log10(1e2))
+    Clsig = 10**logDl * 2 * np.pi / lbins / (lbins+1)
+    Clshot = 1e3 * 2 * np.pi / 1e5 / (1e5+1)
+    
+    return lbins, Clsig, Clshot
