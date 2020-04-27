@@ -248,8 +248,10 @@ class gal_profile_model:
         table 3
         '''
 
+        # from MICECAT
+        R200_arr = [103.27, 70.31, 47.46, 34.06] #[arcsec]
         # from SIDES abundance matching
-        R200_arr = [98.90,62.83,42.48,29.34] #[arcsec]
+        # R200_arr = [98.90,62.83,42.48,29.34] #[arcsec]
         W19params = {}
         W19params['m_min'] = im + 16
         W19params['m_max'] = im + 17
