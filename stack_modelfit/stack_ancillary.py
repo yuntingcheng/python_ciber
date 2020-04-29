@@ -81,8 +81,8 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
         clus_mask = maskz * maskmh
         subm_arr, subm0_arr, subx_arr, suby_arr, subz_arr, subcls_arr =\
         [], [], [], [], [], []
-        for i, (x,y) in enumerate(zip(x_arr, y_arr)):
-            if clus_mask[int(np.round(x)), int(np.round(y))]==1:
+        for i, (x,y,z) in enumerate(zip(x_arr, y_arr,z_arr)):
+            if clus_mask[int(np.round(x)), int(np.round(y))]==1 and z>0.15:
                 subm_arr.append(m_arr[i])
                 subm0_arr.append(m0_arr[i])
                 subz_arr.append(z_arr[i])
