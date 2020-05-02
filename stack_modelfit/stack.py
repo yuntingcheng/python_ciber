@@ -54,8 +54,8 @@ class stacking:
     
     def _post_process(self):
         self._get_jackknife_profile()
-        self._get_BG_jackknife_profile()
         self._get_covariance()
+        self._get_BG_jackknife_profile()
         self._get_BG_covariance()
         self._get_BGsub()
         self._get_PSF_from_data()
@@ -773,8 +773,14 @@ class stacking:
             profps = self.stackdat['BG']['profps']*self.stackdat['BG']['profhit'] - \
             self.stackdat['BG'][isub]['profps']*self.stackdat['BG'][isub]['profhit']
             profhit = self.stackdat['BG']['profhit'] - self.stackdat['BG'][isub]['profhit']
-            self.stackdat['BGjack'][isub]['profcb'] = profcb/profhit
-            self.stackdat['BGjack'][isub]['profps'] = profps/profhit
+            
+            sp = np.where(profhit!=0)[0]
+            p = np.zeros_like(profcb)
+            p[sp] = profcb[sp]/profhit[sp]
+            self.stackdat['BGjack'][isub]['profcb'] = p
+            p = np.zeros_like(profps)
+            p[sp] = profps[sp]/profhit[sp]
+            self.stackdat['BGjack'][isub]['profps'] = p
             self.stackdat['BGjack'][isub]['profhit'] = profhit
 
             profcbsub = self.stackdat['BG']['profcbsub']*self.stackdat['BG']['profhitsub'] - \
@@ -783,8 +789,14 @@ class stacking:
             self.stackdat['BG'][isub]['profpssub']*self.stackdat['BG'][isub]['profhitsub']
             profhitsub = self.stackdat['BG']['profhitsub'] - \
             self.stackdat['BG'][isub]['profhitsub']
-            self.stackdat['BGjack'][isub]['profcbsub'] = profcbsub/profhitsub
-            self.stackdat['BGjack'][isub]['profpssub'] = profpssub/profhitsub
+            
+            sp = np.where(profhitsub!=0)[0]
+            p = np.zeros_like(profcbsub)
+            p[sp] = profcbsub[sp]/profhitsub[sp]
+            self.stackdat['BGjack'][isub]['profcbsub'] = p
+            p = np.zeros_like(profpssub)
+            p[sp] = profpssub[sp]/profhitsub[sp]
+            self.stackdat['BGjack'][isub]['profpssub'] = p
             self.stackdat['BGjack'][isub]['profhitsub'] = profhitsub
 
             profcb100 = self.stackdat['BG']['profcb100']*self.stackdat['BG']['profhit100'] - \
@@ -793,8 +805,13 @@ class stacking:
             self.stackdat['BG'][isub]['profps100']*self.stackdat['BG'][isub]['profhit100']
             profhit100 = self.stackdat['BG']['profhit100'] - \
             self.stackdat['BG'][isub]['profhit100']
-            self.stackdat['BGjack'][isub]['profcb100'] = profcb100/profhit100
-            self.stackdat['BGjack'][isub]['profps100'] = profps100/profhit100
+
+            if profhit100 == 0:
+                self.stackdat['BGjack'][isub]['profcb100'] = 0
+                self.stackdat['BGjack'][isub]['profps100'] = 0
+            else:
+                self.stackdat['BGjack'][isub]['profcb100'] = profcb100/profhit100
+                self.stackdat['BGjack'][isub]['profps100'] = profps100/profhit100
             self.stackdat['BGjack'][isub]['profhit100'] = profhit100
             
         return
