@@ -274,6 +274,51 @@ class fit_stacking_mcmc:
         else:
             return
 
+    def _log_likelihood_2par(self, theta):
+        xe2, A2h = theta
+        chi2 = self.get_chi2(xe2=xe2, A1h=0, A2h=A2h)
+        return np.array([[-chi2/2]])
+
+    def _log_prior_2par(self, theta):
+        xe2, A2h = theta
+        if 0.0001 < xe2 < 1 and 0.0 < A2h < 200:
+            return 0.
+        return -np.inf
+
+    def _log_prob_2par(self, theta):
+        lp = self._log_prior_2par(theta)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self._log_likelihood_2par(theta)
+
+    def run_mcmc_2par(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
+                return_sampler=False, save_chain=True, savedir = None, savename=None):
+        ndim = 2
+        p01 = np.random.uniform(0.0001, 1, nwalkers)
+        p02 = np.random.uniform(0.0, 200, nwalkers)
+        p0 = np.stack((p01, p02), axis=1)
+        
+        with Pool() as pool:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob_2par, pool=pool)
+            sampler.run_mcmc(p0, steps, progress=progress)
+        
+        if save_chain:
+            if savedir is None:
+                savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+            if savename is None:
+                savename = 'mcmc_2par_' + self.field + \
+                '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
+                
+            np.save(savedir + savename, sampler.get_chain(), sampler)
+            self.mcmc_savename = savedir + savename
+        
+        if return_sampler:
+            return sampler
+        if return_chain:
+            return sampler.get_chain()
+        else:
+            return
+
 class joint_fit_mcmc:
     
     # joint fit the params 
@@ -338,6 +383,50 @@ class joint_fit_mcmc:
                 savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_3par_joint' + \
+                '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
+                
+            np.save(savedir + savename, sampler.get_chain(), sampler)
+            self.mcmc_savename = savedir + savename
+
+        if return_sampler:
+            return sampler
+        if return_chain:
+            return sampler.get_chain()
+        else:
+            return
+
+    def _log_likelihood_2par(self, theta):
+        xe2, A2h = theta
+        chi2 = self.get_chi2(xe2=xe2, A1h=0, A2h=A2h)
+        return np.array([[-chi2/2]])
+
+    def _log_prior_2par(self, theta):
+        xe2, A2h = theta
+        if 0.0001 < xe2 < 1 and 0.0 < A2h < 200:
+            return 0.
+        return -np.inf
+
+    def _log_prob_2par(self, theta):
+        lp = self._log_prior_2par(theta)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self._log_likelihood_2par(theta)
+
+    def run_mcmc_2par(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
+                return_sampler=False, save_chain=True, savedir = None, savename=None):
+        ndim = 2
+        p01 = np.random.uniform(0.0001, 1, nwalkers)
+        p02 = np.random.uniform(0.0, 200, nwalkers)
+        p0 = np.stack((p01, p02), axis=1)
+        with Pool() as pool:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob_2par, pool=pool)
+            sampler.run_mcmc(p0, steps, progress=True)
+        
+        if save_chain:
+            if savedir is None:
+                savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+            if savename is None:
+                savename = 'mcmc_2par_joint' + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
                 
             np.save(savedir + savename, sampler.get_chain(), sampler)
@@ -621,7 +710,7 @@ def run_mcmc_fit_joint(inst, im, **kwargs):
     param_fit.run_mcmc(**kwargs)
     return param_fit
 '''
-def get_mcmc_fit_params_3par(inst, im, ifield=None):
+def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=100):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
     
@@ -635,7 +724,7 @@ def get_mcmc_fit_params_3par(inst, im, ifield=None):
     savedir = mypaths['alldat'] + 'TM' + str(inst) + '/'
     samples = np.load(savedir + savename)
     flatsamps = samples.copy()
-    flatsamps = flatsamps[100:,:,:].reshape((-1,3))
+    flatsamps = flatsamps[burn_in:,:,:].reshape((-1,3))
     xe2, A1h, A2h = np.median(flatsamps, axis=0)
     xe2_low, A1h_low, A2h_low = np.percentile(flatsamps, 16, axis=0)
     xe2_high, A1h_high, A2h_high = np.percentile(flatsamps, 84, axis=0)
