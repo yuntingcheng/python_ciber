@@ -11,7 +11,7 @@ from micecat_auto import *
 
 class fit_stacking_mcmc:
     
-    def __init__(self, inst, ifield, im, filt_order, data_maps=None):
+    def __init__(self, inst, ifield, im, filt_order, data_maps=None, loaddir=None):
 
         self.inst = inst
         self.ifield = ifield
@@ -23,20 +23,20 @@ class fit_stacking_mcmc:
         self.data_maps = data_maps
         self.filt_order = filt_order
 
-        self._fit_data_preprocess()
+        self._fit_data_preprocess(loaddir)
         
-    def _fit_data_preprocess(self):
-        self._load_data()
+    def _fit_data_preprocess(self,loaddir):
+        self._load_data(loaddir)
         self._get_model_1h()
         self._get_model_2h()
         self._get_model_psf()
 
-    def _load_data(self):
+    def _load_data(self, loaddir):
         stackdat = stacking(self.inst, self.ifield,
                             self.m_min, self.m_max,
-                            filt_order=self.filt_order, 
+                            filt_order=self.filt_order,loaddir=loaddir, 
                             load_from_file=True, BGsub=False).stackdat
-        
+        self.Nsrc = stackdat['Nsrc']
         self.rbins = stackdat['rbins']
         self.rbinedges = stackdat['rbinedges']
         self.rsubbins = stackdat['rsubbins']
@@ -246,7 +246,8 @@ class fit_stacking_mcmc:
         return lp + self._log_likelihood(theta)
 
     def run_mcmc(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
-                return_sampler=False, save_chain=True, savedir = None, savename=None):
+                return_sampler=False, save_chain=True, savedir = None, savename=None,
+                moves=None):
         ndim = 3
         p01 = np.random.uniform(0.0001, 1, nwalkers)
         p02 = np.random.uniform(0.0, 200, nwalkers)
@@ -254,7 +255,8 @@ class fit_stacking_mcmc:
         p0 = np.stack((p01, p02, p03), axis=1)
         
         with Pool() as pool:
-            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob, pool=pool)
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, 
+                self._log_prob, pool=pool, moves=moves)
             sampler.run_mcmc(p0, steps, progress=progress)
         
         if save_chain:
@@ -292,14 +294,16 @@ class fit_stacking_mcmc:
         return lp + self._log_likelihood_2par(theta)
 
     def run_mcmc_2par(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
-                return_sampler=False, save_chain=True, savedir = None, savename=None):
+                return_sampler=False, save_chain=True, savedir = None, savename=None,
+                moves=None):
         ndim = 2
         p01 = np.random.uniform(0.0001, 1, nwalkers)
         p02 = np.random.uniform(0.0, 200, nwalkers)
         p0 = np.stack((p01, p02), axis=1)
         
         with Pool() as pool:
-            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob_2par, pool=pool)
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._log_prob_2par,
+             pool=pool, moves=moves)
             sampler.run_mcmc(p0, steps, progress=progress)
         
         if save_chain:
@@ -710,6 +714,8 @@ def run_mcmc_fit_joint(inst, im, **kwargs):
     param_fit.run_mcmc(**kwargs)
     return param_fit
 '''
+
+'''
 def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=100):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
@@ -759,6 +765,113 @@ def get_mcmc_fit_params_2par(inst, im, ifield=None):
                   'Re2': xe2*R200, 'Re2_low': xe2_low*R200, 'Re2_high': xe2_high*R200,
                   'Aclus': Aclus, 'Aclus_low': Aclus_low, 'Aclus_high': Aclus_high}
     return fitparamdat
+'''
+
+def get_posterior_interval(samples, ci=68, return_hist=False):
+    Nsamps = len(samples)
+    N68 = Nsamps * 0.68
+    hist, binedges = np.histogram(samples,bins=np.linspace(0,np.max(samples),Nsamps//500))
+    bins = (binedges[1:] + binedges[:-1]) / 2
+    
+    idx_in = []
+    idx_low = []
+    idx_high = []
+    Nint = 0
+
+    idx_in.append(np.argmax(hist))
+    idx_low = [i for i in np.arange(len(bins)) if i < np.min(idx_in)]
+    idx_high = [i for i in np.arange(len(bins))[::-1] if i > np.max(idx_in)]
+
+    param_mid = bins[idx_in[0]]
+    Nint += hist[idx_in[0]]
+    while Nint < N68:
+        if len(idx_low) == 0:
+            idx_add = idx_high.pop()
+            idx_in.append(idx_add)
+
+        elif len(idx_high) == 0:
+            idx_add = idx_low.pop()
+            idx_in.append(idx_add)
+
+        elif np.max(hist[idx_low]) <= np.max(hist[idx_high]):
+            idx_add = idx_high.pop()
+            idx_in.append(idx_add)
+
+        elif np.max(hist[idx_low]) > np.max(hist[idx_high]):
+            idx_add = idx_low.pop()
+            idx_in.append(idx_add)
+
+        Nint += hist[idx_add] 
+
+    param_low = binedges[np.min(idx_in)]
+    param_high = binedges[np.max(idx_in)+1]
+    
+    if return_hist:
+        return param_mid, param_low, param_high, hist, bins, binedges
+    return param_mid, param_low, param_high
+
+def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,chaindir=None):
+
+    R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
+
+    if ifield in [4,5,6,7,8]:
+        savename = 'mcmc_3par_' + fieldnamedict[ifield] + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+    elif ifield is None:
+        savename = 'mcmc_3par_joint' + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+
+    if chaindir is None:
+        chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'
+    samples = np.load(chaindir + savename)
+    flatsamps = samples.copy()
+
+    # chain rejection
+    chain_use_idx = []
+    Nchain = flatsamps.shape[1]
+    for i in range(Nchain):
+        if not np.any(flatsamps[100:,i,1]>100):
+            chain_use_idx.append(i)
+    flatsamps = flatsamps[burn_in:,chain_use_idx,:].reshape((-1,3))
+
+    # get 68 C.I.
+    xe2, xe2_low, xe2_high = get_posterior_interval(flatsamps[:,0])
+    A1h, A1h_low, A1h_high = get_posterior_interval(flatsamps[:,1])
+    A2h, A2h_low, A2h_high = get_posterior_interval(flatsamps[:,2])
+
+    fitparamdat = {'R200': R200, 'xe2': xe2, 'xe2_low': xe2_low, 'xe2_high': xe2_high,
+                  'Re2': xe2*R200, 'Re2_low': xe2_low*R200, 'Re2_high': xe2_high*R200,
+                  'A1h': A1h, 'A1h_low': A1h_low, 'A1h_high': A1h_high,
+                  'A2h': A2h, 'A2h_low': A2h_low, 'A2h_high': A2h_high}
+    return fitparamdat
+
+def get_mcmc_fit_params_2par(inst, im, ifield=None,burn_in=150,chaindir=None):
+
+    R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
+
+    if ifield in [4,5,6,7,8]:
+        savename = 'mcmc_2par_' + fieldnamedict[ifield] + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+    elif ifield is None:
+        savename = 'mcmc_2par_joint' + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+
+    if chaindir is None:
+        chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'
+    samples = np.load(chaindir + savename)
+    flatsamps = samples.copy()
+    flatsamps = flatsamps[burn_in:,:,:].reshape((-1,2))
+    
+    # get 68 C.I.
+    xe2, xe2_low, xe2_high = get_posterior_interval(flatsamps[:,0])
+    A2h, A2h_low, A2h_high = get_posterior_interval(flatsamps[:,1])
+
+    fitparamdat = {'R200': R200, 'xe2': xe2, 'xe2_low': xe2_low, 'xe2_high': xe2_high,
+                  'Re2': xe2*R200, 'Re2_low': xe2_low*R200, 'Re2_high': xe2_high*R200,
+                  'A2h': A2h, 'A2h_low': A2h_low, 'A2h_high': A2h_high}
+    return fitparamdat
+
+
 
 
 '''

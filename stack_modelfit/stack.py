@@ -2,8 +2,8 @@ from stack_ancillary import *
 
 class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
-        savename=None, load_from_file=False, filt_order=2,
-         run_nonuniform_BG=False, BGsub=True, all_src=False,
+        savename=None, load_from_file=False, loaddir=None, filt_order=2,
+         run_nonuniform_BG=False, getBG=False, BGsub=True, all_src=False,
          uniform_jack=False, savemaps=False):
         self.inst = inst
         self.ifield = ifield
@@ -11,24 +11,27 @@ class stacking:
         self.m_min = m_min
         self.m_max = m_max
         self.filt_order = filt_order
+        self.getBG = getBG
         self.BGsub = BGsub
         self.uniform_jack = uniform_jack
         self.savemaps = savemaps
         self.data_maps = None
 
+        if loaddir is None:
+            loaddir = './stack_data/'
         if savename is None:
-            savename = './stack_data/stackdat_TM%d_%s_%d_%d_filt%d'\
+            savename = loaddir + 'stackdat_TM%d_%s_%d_%d_filt%d'\
             %(inst, self.field, m_min, m_max, filt_order)
             if uniform_jack:
-                savename = './stack_data/stackdat_TM%d_%s_%d_%d_filt%d_unijack'\
+                savename = loaddir + 'stackdat_TM%d_%s_%d_%d_filt%d_unijack'\
                 %(inst, self.field, m_min, m_max, filt_order)
 
         if all_src:
             # This has no z & Mh cut
-            savename = './stack_data/stackdat_TM%d_%s_%d_%d'\
+            savename = loaddir + 'stackdat_TM%d_%s_%d_%d'\
             %(inst, self.field, m_min, m_max)
             if uniform_jack:
-                savename = './stack_data/stackdat_TM%d_%s_%d_%d_unijack'\
+                savename = loaddir + 'stackdat_TM%d_%s_%d_%d_unijack'\
                 %(inst, self.field, m_min, m_max)
 
 
@@ -55,8 +58,9 @@ class stacking:
     def _post_process(self):
         self._get_jackknife_profile()
         self._get_covariance()
-        self._get_BG_jackknife_profile()
-        self._get_BG_covariance()
+        if self.getBG:
+            self._get_BG_jackknife_profile()
+            self._get_BG_covariance()
         self._get_BGsub()
         self._get_PSF_from_data()
         self._get_PSF_covariance_from_data()
