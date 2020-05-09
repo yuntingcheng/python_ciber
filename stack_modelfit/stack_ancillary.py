@@ -82,7 +82,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
         subm_arr, subm0_arr, subx_arr, suby_arr, subz_arr, subcls_arr =\
         [], [], [], [], [], []
         for i, (x,y,z) in enumerate(zip(x_arr, y_arr,z_arr)):
-            if clus_mask[int(np.round(x)), int(np.round(y))]==1 and z>0.15:
+            if clus_mask[int(np.round(x)), int(np.round(y))]==1:
                 subm_arr.append(m_arr[i])
                 subm0_arr.append(m0_arr[i])
                 subz_arr.append(z_arr[i])
@@ -96,9 +96,15 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
     xg_arr, yg_arr, mg_arr, mg0_arr =\
     x_arr[cls_arr==1], y_arr[cls_arr==1], m_arr[cls_arr==1], m0_arr[cls_arr==1]
     zg_arr = z_arr[cls_arr==1]
+
+    if mask_clus:
+        sp = np.where(zg_arr>0.15)[0]
+        xg_arr, yg_arr, zg_arr, mg_arr, mg0_arr = \
+        xg_arr[sp], yg_arr[sp], zg_arr[sp], mg_arr[sp], mg0_arr[sp]
+    
     xs_arr, ys_arr, ms_arr, ms0_arr =\
     x_arr[cls_arr==-1], y_arr[cls_arr==-1], m_arr[cls_arr==-1], m0_arr[cls_arr==-1]
-
+    
     srcdat = {}
     srcdat['inst']= inst
     srcdat['ifield'] = ifield

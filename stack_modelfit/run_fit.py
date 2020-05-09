@@ -48,11 +48,30 @@ class fit_stacking_mcmc:
         self.cov = stackdat['excov']['profcb']
         self.covsub = stackdat['excov']['profcbsub']
         self.cov_inv = np.linalg.inv(self.cov)
-        self.covsub_inv = np.linalg.inv(self.covsub)
+        self.covsub_inv, self.covsub_inv_Nmode = self._get_covsub_inv()
         self.dof_data = len(self.profcb_sub)
         
         return stackdat
     
+    def _get_covsub_inv(self):
+        
+        if self.inst ==1 and self.im == 0:
+            Nmodes = {4:14, 5:15, 6:11, 7:15, 8:11}
+        else:
+            Nmodes = {4:15, 5:15, 6:15, 7:15, 8:15}
+        
+        Nmode = Nmodes[self.ifield]
+        Cov = self.covsub
+        U, s, VT = np.linalg.svd(Cov)
+        V = VT.T
+        UT = U.T
+        S = np.diag(s)
+        Sinv  = np.diag(1/s)
+        Cov_svd = U[:,:Nmode]@S[:Nmode,:Nmode]@VT[:Nmode,:]
+        Covi_svd = V[:,:Nmode]@Sinv[:Nmode,:Nmode]@UT[:Nmode,:]
+
+        return Covi_svd, Nmode
+
     def _get_model_1h(self):
         _, mc_avg, mc_std, _ = get_micecat_sim_1h(self.inst, self.im, 
             Mhcut=1e14, R200cut=0, zcut=0.15, sub=False)

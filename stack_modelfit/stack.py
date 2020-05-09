@@ -3,7 +3,7 @@ from stack_ancillary import *
 class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
         savename=None, load_from_file=False, loaddir=None, filt_order=2,
-         run_nonuniform_BG=False, getBG=False, BGsub=True, all_src=False,
+         run_nonuniform_BG=False, getBG=True, BGsub=True, all_src=False,
          uniform_jack=False, savemaps=False):
         self.inst = inst
         self.ifield = ifield
@@ -50,7 +50,7 @@ class stacking:
             else:
                 stackdat = self.stack_PS(sample_type='jack_region')
             self.stackdat = stackdat
-            self.stack_BG(Nbg=64, uniform=uniform_jack)
+            self.stack_BG(uniform=uniform_jack)
             np.save(savename, stackdat)
         
         self._post_process()
@@ -98,7 +98,11 @@ class stacking:
         if srcdat is None:
             srcdat = ps_src_select(inst, ifield, m_min, m_max, 
                 [mask_inst1, mask_inst2], sample_type=sample_type)
-            
+
+            if srcdat['N' + srctype] < 64:
+                srcdat = ps_src_select(inst, ifield, m_min, m_max, 
+                    [mask_inst1, mask_inst2], sample_type='jack_random',
+                    Nsub=srcdat['N' + srctype])                
         if cliplim is None:
             cliplim = self._stackihl_PS_cliplim()
 
@@ -115,7 +119,7 @@ class stacking:
         stackdat['Nsrc'] = srcdat['N' + srctype]
         stackdat['Nsub'] = srcdat['Nsub']
         stackdat['sub'] = {}
-
+        
         # start stacking
         Nbins = len(stackdat['rbins'])
         Nsubbins = len(stackdat['rsubbins'])
@@ -548,11 +552,15 @@ class stacking:
 
         return
     
-    def stack_BG(self, srctype='g', dx=120, verbose=True, Nbg=64, uniform=False):
+    def stack_BG(self, srctype='g', dx=120, verbose=True, Nbg=None, uniform=False):
 
         inst = self.inst
         ifield = self.ifield
         m_min, m_max = self.m_min, self.m_max
+        if Nbg is None:
+            Nbg = self.stackdat['Nsub']
+        if Nbg < 64:
+            uniform = True
 
         if self.data_maps is None:
             data_maps = {1: image_reduction(1), 2: image_reduction(2)}
@@ -921,6 +929,7 @@ class stacking:
         
         scalecb = self.stackdat['BGsub']['profcb'][0]
         scaleps = self.stackdat['BGsub']['profps'][0]
+
         self.stackdat['PSFcov'] = {}
         self.stackdat['PSFcov']['profcb'] = np.array(data['covpsfcbfull'])
         self.stackdat['PSFcov']['profps'] = np.array(data['covpsfpsfull'])
