@@ -9,17 +9,10 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
     
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
 
-    psfdata_in = stack_psf(inst, data_maps[inst].stackmapdat,m_min=4, m_max=9,
+    # psfdata_in = stack_psf(inst, data_maps[inst].stackmapdat,m_min=4, m_max=9,
+    #  Nsub_single=True, savedata=False, save_stackmap=False)
+    psfdata_in = stack_psf(inst, data_maps[inst].stackmapdat,m_min=4, m_max=6,
      Nsub_single=True, savedata=False, save_stackmap=False)
-    psfdata_mid = stack_psf(inst, data_maps[inst].stackmapdat, m_min=13, m_max=14,
-     Nsub_single=True, savedata=False, save_stackmap=False)
-
-    mapin, strmask, strnum, mask_inst1, mask_inst2 = \
-    load_processed_images(data_maps, return_names=[(inst,ifield,'cbmap'), 
-                                       (inst,ifield,'strmask'), 
-                                       (inst,ifield,'strnum'),
-                                       (1,ifield,'mask_inst'),
-                                       (2,ifield,'mask_inst')])
 
     profdat = {}
     profdat['rbins'] = psfdata_in[ifield]['rbins']
@@ -27,7 +20,7 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
     profdat['rsubbins'] = psfdata_in[ifield]['rsubbins']
     profdat['rsubbinedges'] = psfdata_in[ifield]['rsubbinedges']
     profdat['filt_order'] = filt_order
-    
+
     profdat['in'] = {}
     profdat['in']['m_min'] = 4
     profdat['in']['m_max'] = 9
@@ -39,10 +32,15 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
     profdat['in']['cov'] = psfdata_in[ifield]['cov']
     profdat['in']['covsub'] = psfdata_in[ifield]['covsub']
 
+    # psfdata_mid = stack_psf(inst, data_maps[inst].stackmapdat, m_min=13, m_max=14,
+    #  Nsub_single=True, savedata=False, save_stackmap=False)
+    psfdata_mid = stack_psf(inst, data_maps[inst].stackmapdat, m_min=4, m_max=6,
+     Nsub_single=True, savedata=False, save_stackmap=False)
+
     profdat['mid'] = {}
     profdat['mid']['m_min'] = 13
     profdat['mid']['m_max'] = 14
-    profdat['mid']['Nsrc'] = psfdata_in[ifield]['mid']
+    profdat['mid']['Nsrc'] = psfdata_mid[ifield]['Nsrc']
     profdat['mid']['profcb'] = psfdata_mid[ifield]['prof']
     profdat['mid']['profcb_err'] = psfdata_mid[ifield]['prof_err']
     profdat['mid']['profcbsub'] = psfdata_mid[ifield]['profsub']
@@ -55,6 +53,13 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
          '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
         with open(fname, "wb") as f:
             pickle.dump(profdat, f)
+
+    mapin, strmask, strnum, mask_inst1, mask_inst2 = \
+    load_processed_images(data_maps, return_names=[(inst,ifield,'cbmap'), 
+                                       (inst,ifield,'strmask'), 
+                                       (inst,ifield,'strnum'),
+                                       (1,ifield,'mask_inst'),
+                                       (2,ifield,'mask_inst')])
     
     for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
         stack_class = stacking(inst, ifield, m_min, m_max, filt_order=filt_order, 
