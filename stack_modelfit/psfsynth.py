@@ -26,7 +26,8 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
     profdat['rbinedges'] = psfdata_in[ifield]['rbinedges']
     profdat['rsubbins'] = psfdata_in[ifield]['rsubbins']
     profdat['rsubbinedges'] = psfdata_in[ifield]['rsubbinedges']
-
+    profdat['filt_order'] = filt_order
+    
     profdat['in'] = {}
     profdat['in']['m_min'] = 4
     profdat['in']['m_max'] = 9
