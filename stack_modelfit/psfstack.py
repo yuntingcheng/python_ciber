@@ -1,7 +1,7 @@
 from stack_ancillary import *
 
 def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10, 
-    Nsub_single=True, savedata=True):
+    Nsub_single=True, savedata=True, save_stackmap=True):
     print('Stack 2MASS stars for PSF ...')
 
     # get data & mask
@@ -88,7 +88,8 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         mask[(-FFcorrmap < clipmin) & (mask*strmask==1)] = 0
 
         psfdat[i]['mask'] = mask
-        
+    
+    # stack
     stack_class = stacking_mock(inst)
     psfdata = {}
     for ifield in [4,5,6,7,8]:
@@ -111,8 +112,10 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         xs, ys, ms = xs[sp], ys[sp], ms[sp]
         rs = -6.25 * ms + 110
 
-        profs = []
-        profsubs = []
+        prof_arr = []
+        profhit_arr = []
+        profsub_arr = []
+        profsubhit_arr = []
         mapstack, maskstack = 0., 0.
 
         if Nsub_single:
@@ -132,40 +135,53 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
             mapstack += mapstacki
             maskstack += maskstacki
 
-            profs.append(stackdat['prof'])
-            profsubs.append(stackdat['profsub'])
-
-        profs = np.array(profs)
-        prof_err = np.std(profs, axis=0) / np.sqrt(Nsub) 
-        profsub_err = np.std(profsubs, axis=0) / np.sqrt(Nsub) 
+            prof_arr.append(stackdat['prof'])
+            profhit_arr.append(stackdat['profhit'])
+            profsub_arr.append(stackdat['profsub'])
+            profsubhit_arr.append(stackdat['profhitsub'])
 
         stack = np.zeros_like(mapstack)
         sp = np.where(maskstack!=0)
         stack[sp] = mapstack[sp] / maskstack[sp]
         stack[maskstack==0] = 0
 
-        rbins, rbinedges, dx = stackdat['rbins']/0.7, stackdat['rbinedges']/0.7, stack_class.dx
-        Nbins = len(rbins)
-        radmapstamp =  make_radius_map(np.zeros((2*dx+1, 2*dx+1)), dx, dx)
-        prof_arr, hit_arr = np.zeros(Nbins), np.zeros(Nbins)
-        for ibin in range(Nbins):
-            spi = np.where((radmapstamp>=rbinedges[ibin]) &\
-                           (radmapstamp<rbinedges[ibin+1]))
-            prof_arr[ibin] += np.sum(mapstack[spi])
-            hit_arr[ibin] += np.sum(maskstack[spi])
-        prof_norm = np.zeros_like(prof_arr)
-        prof_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+        prof_arr = np.array(prof_arr)
+        profhit_arr = np.array(profhit_arr)
+        profsub_arr = np.array(profsub_arr)
+        profsubhit_arr = np.array(profsubhit_arr)
 
-        rsubbins, rsubbinedges = stackdat['rsubbins']/0.7, stackdat['rsubbinedges']/0.7
-        Nsubbins = len(rsubbins)
-        prof_arr, hit_arr = np.zeros(Nsubbins), np.zeros(Nsubbins)
-        for ibin in range(Nsubbins):
-            spi = np.where((radmapstamp>=rsubbinedges[ibin]) &\
-                           (radmapstamp<rsubbinedges[ibin+1]))
-            prof_arr[ibin] += np.sum(mapstack[spi])
-            hit_arr[ibin] += np.sum(maskstack[spi])
-        profsub_norm = np.zeros_like(prof_arr)
-        profsub_norm[hit_arr!=0] = prof_arr[hit_arr!=0]/hit_arr[hit_arr!=0]
+        prof = (np.sum(prof_arr * profhit_arr, axis=0) / np.sum(profhit_arr, axis=0))
+        profsub = (np.sum(profsub_arr * profsubhit_arr, axis=0) / np.sum(profsubhit_arr, axis=0))  
+
+        profjack_arr = np.zeros_like(prof_arr)
+        profsubjack_arr = np.zeros_like(profsub_arr)
+
+        for isub in range(Nsub):
+            proftot = np.sum(prof_arr * profhit_arr, axis=0)
+            profi = prof_arr[isub] * profhit_arr[isub]
+            hittot = np.sum(profhit_arr, axis=0)
+            hiti = profhit_arr[isub]
+            profjack_arr[isub] = (proftot - profi) / (hittot - hiti)
+
+            proftot = np.sum(profsub_arr * profsubhit_arr, axis=0)
+            profi = profsub_arr[isub] * profsubhit_arr[isub]
+            hittot = np.sum(profsubhit_arr, axis=0)
+            hiti = profsubhit_arr[isub]    
+            profsubjack_arr[isub] = (proftot - profi) / (hittot - hiti)
+
+        cov = np.zeros([len(prof),len(prof)])
+        for i in range(len(prof)):
+            for j in range(len(prof)):
+                cov[i,j] = np.mean(profjack_arr[:,i]*profjack_arr[:,j]) \
+                - np.mean(profjack_arr[:,i])*np.mean(profjack_arr[:,j])
+        cov *= (Nsub-1)
+
+        covsub = np.zeros([len(profsub),len(profsub)])
+        for i in range(len(profsub)):
+            for j in range(len(profsub)):
+                covsub[i,j] = np.mean(profsubjack_arr[:,i]*profsubjack_arr[:,j]) \
+                - np.mean(profsubjack_arr[:,i])*np.mean(profsubjack_arr[:,j])
+        covsub *= (Nsub-1)
 
         psfdata[ifield] = {}
         psfdata[ifield]['Nsrc'] = len(xs)
@@ -173,12 +189,15 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         psfdata[ifield]['rbinedges'] = stackdat['rbinedges'].copy()
         psfdata[ifield]['rsubbins'] = stackdat['rsubbins'].copy()
         psfdata[ifield]['rsubbinedges'] = stackdat['rsubbinedges'].copy()
-        psfdata[ifield]['prof'] = prof_norm
-        psfdata[ifield]['profsub'] = profsub_norm
-        psfdata[ifield]['profhit'] = hit_arr
-        psfdata[ifield]['prof_err'] = prof_err
-        psfdata[ifield]['profsub_err'] = profsub_err
-        psfdata[ifield]['stackmap'] = stack
+        psfdata[ifield]['prof'] = prof
+        psfdata[ifield]['profsub'] = profsub
+        psfdata[ifield]['profhit'] = np.sum(profhit_arr,axis=0)
+        psfdata[ifield]['prof_err'] = np.sqrt(np.diag(cov))
+        psfdata[ifield]['profsub_err'] = np.sqrt(np.diag(covsub))
+        psfdata[ifield]['cov'] = cov
+        psfdata[ifield]['covsub'] = cov
+        if save_stackmap:
+            psfdata[ifield]['stackmap'] = stack
 
     if savedata:
         fname = mypaths['alldat'] + 'TM'+ str(inst) + '/psfdata.pkl'
