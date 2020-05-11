@@ -1,7 +1,7 @@
 from stack_ancillary import *
 
-def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10, 
-    Nsub_single=True, savedata=True, save_stackmap=True):
+def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
+    ifield_arr=[4,5,6,7,8], Nsub_single=True, savedata=True, save_stackmap=True):
     print('Stack 2MASS stars for PSF ...')
 
     # get data & mask
@@ -92,7 +92,7 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
     # stack
     stack_class = stacking_mock(inst)
     psfdata = {}
-    for ifield in [4,5,6,7,8]:
+    for ifield in ifield_arr:
         print('stack %s'%fieldnamedict[ifield])
 
         mapin = -psfdat[ifield]['map'].copy()

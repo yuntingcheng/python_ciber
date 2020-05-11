@@ -11,8 +11,8 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
 
     # psfdata_in = stack_psf(inst, data_maps[inst].stackmapdat,m_min=4, m_max=9,
     #  Nsub_single=True, savedata=False, save_stackmap=False)
-    psfdata_in = stack_psf(inst, data_maps[inst].stackmapdat,m_min=4, m_max=6,
-     Nsub_single=True, savedata=False, save_stackmap=False)
+    psfdata_in = stack_psf(inst, data_maps[inst].stackmapdat,m_min=4, m_max=9,
+     ifield=ifield, Nsub_single=True, savedata=False, save_stackmap=False)
 
     profdat = {}
     profdat['rbins'] = psfdata_in[ifield]['rbins']
@@ -34,8 +34,8 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
 
     # psfdata_mid = stack_psf(inst, data_maps[inst].stackmapdat, m_min=13, m_max=14,
     #  Nsub_single=True, savedata=False, save_stackmap=False)
-    psfdata_mid = stack_psf(inst, data_maps[inst].stackmapdat, m_min=4, m_max=6,
-     Nsub_single=True, savedata=False, save_stackmap=False)
+    psfdata_mid = stack_psf(inst, data_maps[inst].stackmapdat, m_min=4, m_max=9,
+     ifield=ifield, Nsub_single=True, savedata=False, save_stackmap=False)
 
     profdat['mid'] = {}
     profdat['mid']['m_min'] = 13
@@ -61,7 +61,9 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
                                        (1,ifield,'mask_inst'),
                                        (2,ifield,'mask_inst')])
     
-    for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
+    # for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
+    for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'][:1], magbindict['m_max'][:1])):
+
         stack_class = stacking(inst, ifield, m_min, m_max, filt_order=filt_order, 
                             load_from_file=True,BGsub=False)
 
