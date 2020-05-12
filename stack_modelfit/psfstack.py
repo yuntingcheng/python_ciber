@@ -195,7 +195,7 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         psfdata[ifield]['prof_err'] = np.sqrt(np.diag(cov))
         psfdata[ifield]['profsub_err'] = np.sqrt(np.diag(covsub))
         psfdata[ifield]['cov'] = cov
-        psfdata[ifield]['covsub'] = cov_sub
+        psfdata[ifield]['covsub'] = covsub
         if save_stackmap:
             psfdata[ifield]['stackmap'] = stack
 
