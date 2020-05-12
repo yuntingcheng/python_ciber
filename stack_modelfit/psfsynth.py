@@ -6,9 +6,9 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
 
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
-    with open(fname, "wb") as f:
+    with open(fname, "rb") as f:
         profdat = pickle.load(f)
-   
+
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
 
     psfdata_in = stack_psf(inst, data_maps[inst].stackmapdat,m_min=4, m_max=9,
