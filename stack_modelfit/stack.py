@@ -901,42 +901,56 @@ class stacking:
             self.stackdat['BGsub']['profps100'] = self.stackdat['profps100'].copy()
 
     def _get_PSF_from_data(self):
-        import json
-        loaddir = mypaths['alldat']+'TM' + str(self.inst) + '/'
-        with open(loaddir + self.field + '_datafit.json') as json_file:
-            data_all = json.load(json_file)
-        im = self.stackdat['m_min'] - 16
-        data = data_all[im]
-        
+
         scalecb = self.stackdat['BGsub']['profcb'][0]
         scaleps = self.stackdat['BGsub']['profps'][0]
         self.stackdat['PSF'] = {}
-        self.stackdat['PSF']['profcb'] = np.array(data['profpsfcbfull'])*scalecb
-        self.stackdat['PSF']['profps'] = np.array(data['profpsfpsfull'])*scaleps
-        self.stackdat['PSF']['profcbsub'] = np.array(data['profpsfcb'])*scalecb
-        self.stackdat['PSF']['profpssub'] = np.array(data['profpsfps'])*scaleps
-        self.stackdat['PSF']['profcb100'] = np.array(data['profpsfcb100'])*scalecb
-        self.stackdat['PSF']['profps100'] = np.array(data['profpsfps100'])*scaleps
+
+        fname = mypaths['alldat'] + 'TM'+ str(self.inst) + \
+        '/psfdata_synth_%s.pkl'%(self.field)
+        with open(fname, "rb") as f:
+            profdat = pickle.load(f)
+        psfdat = profdat[m_min-16]['comb']
+
+        self.stackdat['PSF']['profcb'] = psfdat['profcb']*scalecb
+        self.stackdat['PSF']['profps'] = psfdat['profcb']*scaleps
+        self.stackdat['PSF']['profcbsub'] = psfdat['profcbsub']*scalecb
+        self.stackdat['PSF']['profpssub'] = psfdat['profcbsub']*scaleps
+        self.stackdat['PSF']['profcb100'] = psfdat['profcbsub'][-1]*scalecb
+        self.stackdat['PSF']['profps100'] = psfdat['profcbsub'][-1]*scaleps
+
+
+        # import json
+        # loaddir = mypaths['alldat']+'TM' + str(self.inst) + '/'
+        # with open(loaddir + self.field + '_datafit.json') as json_file:
+        #     data_all = json.load(json_file)
+        # im = self.stackdat['m_min'] - 16
+        # data = data_all[im]
+        # self.stackdat['PSF']['profcb'] = np.array(data['profpsfcbfull'])*scalecb
+        # self.stackdat['PSF']['profps'] = np.array(data['profpsfpsfull'])*scaleps
+        # self.stackdat['PSF']['profcbsub'] = np.array(data['profpsfcb'])*scalecb
+        # self.stackdat['PSF']['profpssub'] = np.array(data['profpsfps'])*scaleps
+        # self.stackdat['PSF']['profcb100'] = np.array(data['profpsfcb100'])*scalecb
+        # self.stackdat['PSF']['profps100'] = np.array(data['profpsfps100'])*scaleps
 
 
     def _get_PSF_covariance_from_data(self):
-        import json
-        loaddir = mypaths['alldat']+'TM' + str(self.inst) + '/'
-        with open(loaddir + self.field + '_datafit.json') as json_file:
-            data_all = json.load(json_file)
-        im = self.stackdat['m_min'] - 16
-        data = data_all[im]
-        
         scalecb = self.stackdat['BGsub']['profcb'][0]
         scaleps = self.stackdat['BGsub']['profps'][0]
-
         self.stackdat['PSFcov'] = {}
-        self.stackdat['PSFcov']['profcb'] = np.array(data['covpsfcbfull'])
-        self.stackdat['PSFcov']['profps'] = np.array(data['covpsfpsfull'])
-        self.stackdat['PSFcov']['profcbsub'] = np.array(data['covpsfcb'])
-        self.stackdat['PSFcov']['profpssub'] = np.array(data['covpsfps'])
-        self.stackdat['PSFcov']['profcb100'] = np.array(data['covpsfcb100'])
-        self.stackdat['PSFcov']['profps100'] = np.array(data['covpsfps100'])
+
+        fname = mypaths['alldat'] + 'TM'+ str(self.inst) + \
+        '/psfdata_synth_%s.pkl'%(self.field)
+        with open(fname, "rb") as f:
+            profdat = pickle.load(f)
+        psfdat = profdat[m_min-16]['comb']
+
+        self.stackdat['PSFcov']['profcb'] = psfdat['cov']*scalecb**2
+        self.stackdat['PSFcov']['profps'] = psfdat['cov']*scalecb**2
+        self.stackdat['PSFcov']['profcbsub'] = psfdat['covsub']*scalecb**2
+        self.stackdat['PSFcov']['profpssub'] = psfdat['covsub']*scalecb**2
+        self.stackdat['PSFcov']['profcb100'] = psfdat['covsub'][-1,-1]*scalecb**2
+        self.stackdat['PSFcov']['profps100'] = psfdat['covsub'][-1,-1]*scalecb**2
         self.stackdat['PSFcov']['profcb_rho'] \
         = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
         self.stackdat['PSFcov']['profps_rho'] \
@@ -945,6 +959,27 @@ class stacking:
         = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
         self.stackdat['PSFcov']['profpssub_rho'] \
         = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
+
+        # import json
+        # loaddir = mypaths['alldat']+'TM' + str(self.inst) + '/'
+        # with open(loaddir + self.field + '_datafit.json') as json_file:
+        #     data_all = json.load(json_file)
+        # im = self.stackdat['m_min'] - 16
+        # data = data_all[im]
+        # self.stackdat['PSFcov']['profcb'] = np.array(data['covpsfcbfull'])
+        # self.stackdat['PSFcov']['profps'] = np.array(data['covpsfpsfull'])
+        # self.stackdat['PSFcov']['profcbsub'] = np.array(data['covpsfcb'])
+        # self.stackdat['PSFcov']['profpssub'] = np.array(data['covpsfps'])
+        # self.stackdat['PSFcov']['profcb100'] = np.array(data['covpsfcb100'])
+        # self.stackdat['PSFcov']['profps100'] = np.array(data['covpsfps100'])
+        # self.stackdat['PSFcov']['profcb_rho'] \
+        # = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
+        # self.stackdat['PSFcov']['profps_rho'] \
+        # = self._normalize_cov(self.stackdat['PSFcov']['profps'])
+        # self.stackdat['PSFcov']['profcbsub_rho'] \
+        # = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
+        # self.stackdat['PSFcov']['profpssub_rho'] \
+        # = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
 
 
     def _get_ex_covariance(self):
