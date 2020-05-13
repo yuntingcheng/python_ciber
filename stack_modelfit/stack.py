@@ -910,8 +910,10 @@ class stacking:
         '/psfdata_synth_%s.pkl'%(self.field)
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
-        psfdat = profdat[m_min-16]['comb']
+        Nsrc = profdat[self.m_min-16]['Nsrc']
+        psfdat = profdat[self.m_min-16]['comb']
 
+        self.stackdat['PSF']['Nsrc'] = Nsrc
         self.stackdat['PSF']['profcb'] = psfdat['profcb']*scalecb
         self.stackdat['PSF']['profps'] = psfdat['profcb']*scaleps
         self.stackdat['PSF']['profcbsub'] = psfdat['profcbsub']*scalecb
@@ -943,7 +945,7 @@ class stacking:
         '/psfdata_synth_%s.pkl'%(self.field)
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
-        psfdat = profdat[m_min-16]['comb']
+        psfdat = profdat[self.m_min-16]['comb']
 
         self.stackdat['PSFcov']['profcb'] = psfdat['cov']*scalecb**2
         self.stackdat['PSFcov']['profps'] = psfdat['cov']*scalecb**2
