@@ -11,7 +11,8 @@ from micecat_auto import *
 
 class fit_stacking_mcmc:
     
-    def __init__(self, inst, ifield, im, filt_order, data_maps=None, loaddir=None):
+    def __init__(self, inst, ifield, im, filt_order,
+     data_maps=None, loaddir=None, modify_cov=False):
 
         self.inst = inst
         self.ifield = ifield
@@ -22,6 +23,7 @@ class fit_stacking_mcmc:
         self.dx = 1200
         self.data_maps = data_maps
         self.filt_order = filt_order
+        self.modify_cov = modify_cov
 
         self._fit_data_preprocess(loaddir)
         
@@ -48,12 +50,25 @@ class fit_stacking_mcmc:
         self.cov = stackdat['excov']['profcb']
         self.covsub = stackdat['excov']['profcbsub']
         self.cov_inv = np.linalg.inv(self.cov)
-        self.covsub_inv, self.covsub_inv_Nmode = self._get_covsub_inv()
+        self.covsub_inv, self.covsub_inv_Nmode = self._get_covsub_inv(self.covsub)
         self.dof_data = len(self.profcb_sub)
         
+        # get modified cov
+        if self.modify_cov:
+            covg = stackdat['cov']['profcbsub'].copy()
+            covpsf = stackdat['PSFcov']['profcbsub'].copy()
+            covg1 = covg.copy()
+            scale = stackdat['PSF']['Nsrc'] / stackdat['Nsrc']
+            covg1[:4,:] = covpsf[:4,:] * scale
+            covg1[:,:4] = covpsf[:,:4] * scale
+            covex1 = covg1 + covpsf
+            self.covsub1 = covex1
+            self.covsub_inv, self.covsub_inv_Nmode = \
+            self._get_covsub_inv(self.covsub1)
+
         return stackdat
     
-    def _get_covsub_inv(self):
+    def _get_covsub_inv(self, Cov):
         
         if self.inst ==1 and self.im == 0:
             Nmodes = {4:14, 5:15, 6:11, 7:15, 8:11}
@@ -61,7 +76,6 @@ class fit_stacking_mcmc:
             Nmodes = {4:15, 5:15, 6:15, 7:15, 8:15}
         
         Nmode = Nmodes[self.ifield]
-        Cov = self.covsub
         U, s, VT = np.linalg.svd(Cov)
         V = VT.T
         UT = U.T
