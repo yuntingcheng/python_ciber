@@ -911,11 +911,10 @@ class stacking:
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
 
-        if 'Nsrc' in profdat[self.m_min-16]:
-            self.stackdat['PSF']['Nsrc'] = Nsrc
-
-        if 'comb' in profdat[self.m_min-16]:
-            psfdat = profdat[self.m_min-16]['comb']
+        im = self.m_min-16
+        if im in profdat:
+            self.stackdat['PSF']['Nsrc'] = profdat[self.m_min-16]['Nsrc']
+            psfdat = profdat[im]['comb']
             self.stackdat['PSF']['profcb'] = psfdat['profcb']*scalecb
             self.stackdat['PSF']['profps'] = psfdat['profcb']*scaleps
             self.stackdat['PSF']['profcbsub'] = psfdat['profcbsub']*scalecb
@@ -956,7 +955,8 @@ class stacking:
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
 
-        if 'comb' in profdat[self.m_min-16]:
+        im = self.m_min-16
+        if im in profdat:
             psfdat = profdat[self.m_min-16]['comb']
             self.stackdat['PSFcov']['profcb'] = psfdat['cov']*scalecb**2
             self.stackdat['PSFcov']['profps'] = psfdat['cov']*scalecb**2
