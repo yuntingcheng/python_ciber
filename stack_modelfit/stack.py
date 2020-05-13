@@ -910,6 +910,8 @@ class stacking:
         '/psfdata_synth_%s.pkl'%(self.field)
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
+        print(self.m_min, self.m_min-16)
+        print(list(profdat[self.m_min-16]))
         Nsrc = profdat[self.m_min-16]['Nsrc']
         psfdat = profdat[self.m_min-16]['comb']
 
