@@ -910,18 +910,26 @@ class stacking:
         '/psfdata_synth_%s.pkl'%(self.field)
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
-        print(self.m_min, self.m_min-16)
-        print(list(profdat[self.m_min-16]))
-        Nsrc = profdat[self.m_min-16]['Nsrc']
-        psfdat = profdat[self.m_min-16]['comb']
 
-        self.stackdat['PSF']['Nsrc'] = Nsrc
-        self.stackdat['PSF']['profcb'] = psfdat['profcb']*scalecb
-        self.stackdat['PSF']['profps'] = psfdat['profcb']*scaleps
-        self.stackdat['PSF']['profcbsub'] = psfdat['profcbsub']*scalecb
-        self.stackdat['PSF']['profpssub'] = psfdat['profcbsub']*scaleps
-        self.stackdat['PSF']['profcb100'] = psfdat['profcbsub'][-1]*scalecb
-        self.stackdat['PSF']['profps100'] = psfdat['profcbsub'][-1]*scaleps
+        if 'Nsrc' in profdat[self.m_min-16]:
+            self.stackdat['PSF']['Nsrc'] = Nsrc
+
+        if 'comb' in profdat[self.m_min-16]:
+            psfdat = profdat[self.m_min-16]['comb']
+            self.stackdat['PSF']['profcb'] = psfdat['profcb']*scalecb
+            self.stackdat['PSF']['profps'] = psfdat['profcb']*scaleps
+            self.stackdat['PSF']['profcbsub'] = psfdat['profcbsub']*scalecb
+            self.stackdat['PSF']['profpssub'] = psfdat['profcbsub']*scaleps
+            self.stackdat['PSF']['profcb100'] = psfdat['profcbsub'][-1]*scalecb
+            self.stackdat['PSF']['profps100'] = psfdat['profcbsub'][-1]*scaleps
+        else:
+            # this is for running PSF stack only (run_psf_synth)
+            self.stackdat['PSF']['profcb'] = self.stackdat['profcb']
+            self.stackdat['PSF']['profps'] = self.stackdat['profcb']
+            self.stackdat['PSF']['profcbsub'] = self.stackdat['profcbsub']
+            self.stackdat['PSF']['profpssub'] = self.stackdat['profcbsub']
+            self.stackdat['PSF']['profcb100'] = self.stackdat['profcbsub'][-1]
+            self.stackdat['PSF']['profps100'] = self.stackdat['profcbsub'][-1]
 
 
         # import json
@@ -947,22 +955,39 @@ class stacking:
         '/psfdata_synth_%s.pkl'%(self.field)
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
-        psfdat = profdat[self.m_min-16]['comb']
 
-        self.stackdat['PSFcov']['profcb'] = psfdat['cov']*scalecb**2
-        self.stackdat['PSFcov']['profps'] = psfdat['cov']*scalecb**2
-        self.stackdat['PSFcov']['profcbsub'] = psfdat['covsub']*scalecb**2
-        self.stackdat['PSFcov']['profpssub'] = psfdat['covsub']*scalecb**2
-        self.stackdat['PSFcov']['profcb100'] = psfdat['covsub'][-1,-1]*scalecb**2
-        self.stackdat['PSFcov']['profps100'] = psfdat['covsub'][-1,-1]*scalecb**2
-        self.stackdat['PSFcov']['profcb_rho'] \
-        = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
-        self.stackdat['PSFcov']['profps_rho'] \
-        = self._normalize_cov(self.stackdat['PSFcov']['profps'])
-        self.stackdat['PSFcov']['profcbsub_rho'] \
-        = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
-        self.stackdat['PSFcov']['profpssub_rho'] \
-        = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
+        if 'comb' in profdat[self.m_min-16]:
+            psfdat = profdat[self.m_min-16]['comb']
+            self.stackdat['PSFcov']['profcb'] = psfdat['cov']*scalecb**2
+            self.stackdat['PSFcov']['profps'] = psfdat['cov']*scalecb**2
+            self.stackdat['PSFcov']['profcbsub'] = psfdat['covsub']*scalecb**2
+            self.stackdat['PSFcov']['profpssub'] = psfdat['covsub']*scalecb**2
+            self.stackdat['PSFcov']['profcb100'] = psfdat['covsub'][-1,-1]*scalecb**2
+            self.stackdat['PSFcov']['profps100'] = psfdat['covsub'][-1,-1]*scalecb**2
+            self.stackdat['PSFcov']['profcb_rho'] \
+            = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
+            self.stackdat['PSFcov']['profps_rho'] \
+            = self._normalize_cov(self.stackdat['PSFcov']['profps'])
+            self.stackdat['PSFcov']['profcbsub_rho'] \
+            = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
+            self.stackdat['PSFcov']['profpssub_rho'] \
+            = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
+        else:
+            # this is for running PSF stack only (run_psf_synth)
+            self.stackdat['PSFcov']['profcb'] = self.stackdat['cov']['profcb']
+            self.stackdat['PSFcov']['profps'] = self.stackdat['cov']['profcb']
+            self.stackdat['PSFcov']['profcbsub'] = self.stackdat['cov']['profcbsub']
+            self.stackdat['PSFcov']['profpssub'] = self.stackdat['cov']['profcbsub']
+            self.stackdat['PSFcov']['profcb100'] = self.stackdat['cov']['profcbsub'][-1,-1]
+            self.stackdat['PSFcov']['profps100'] = self.stackdat['cov']['profcbsub'][-1,-1]
+            self.stackdat['PSFcov']['profcb_rho'] \
+            = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
+            self.stackdat['PSFcov']['profps_rho'] \
+            = self._normalize_cov(self.stackdat['PSFcov']['profps'])
+            self.stackdat['PSFcov']['profcbsub_rho'] \
+            = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
+            self.stackdat['PSFcov']['profpssub_rho'] \
+            = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
 
         # import json
         # loaddir = mypaths['alldat']+'TM' + str(self.inst) + '/'
