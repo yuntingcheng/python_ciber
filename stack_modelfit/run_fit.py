@@ -80,7 +80,8 @@ class fit_stacking_mcmc:
     def _get_covsub_inv(self, Cov):
         
         if self.inst ==1 and self.im == 0:
-            Nmodes = {4:14, 5:15, 6:11, 7:15, 8:11}
+            # Nmodes = {4:14, 5:15, 6:11, 7:15, 8:11}
+            Nmodes = {4:15, 5:15, 6:12, 7:15, 8:15}
         else:
             Nmodes = {4:15, 5:15, 6:15, 7:15, 8:15}
         
