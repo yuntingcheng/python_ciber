@@ -39,6 +39,7 @@ class fit_stacking_mcmc:
                             filt_order=self.filt_order,loaddir=loaddir, 
                             load_from_file=True, BGsub=False).stackdat
         self.Nsrc = stackdat['Nsrc']
+        self.Njk = stackdat['Nsub']
         self.rbins = stackdat['rbins']
         self.rbinedges = stackdat['rbinedges']
         self.rsubbins = stackdat['rsubbins']
@@ -49,8 +50,16 @@ class fit_stacking_mcmc:
         self.profex_sub = stackdat['ex']['profcbsub']
         self.cov = stackdat['excov']['profcb']
         self.covsub = stackdat['excov']['profcbsub']
+        
+        # https://arxiv.org/pdf/astro-ph/0608064.pdf Eq 17
+        n, p = self.Njk, len(self.rbins)
+        self.cov_inv_debias = (n - p - 2) / (n - 1)
+        n, p = self.Njk, len(self.rsubbins)
+        self.covsub_inv_debias = (n - p - 2) / (n - 1)
+
         self.cov_inv = np.linalg.inv(self.cov)
-        self.covsub_inv, self.covsub_inv_Nmode = self._get_covsub_inv(self.covsub)
+        self.covsub_inv, self.covsub_inv_Nmode \
+        = self._get_covsub_inv(self.covsub)
         self.dof_data = len(self.profcb_sub)
         
         # get modified cov
@@ -356,6 +365,23 @@ class fit_stacking_mcmc:
         else:
             return
 
+    def get_chi2_pte(self, Npar=3, **kwargs):
+        # reuturn debiased chi2, pte, dof, original chi2
+
+        if 'chi2' not in kwargs.keys(): 
+            chi2 = self.get_chi2(**kwargs)
+
+        dof = self.dof_data - Npar
+
+        debias_scaling = self.covsub_inv_debias
+        if debias_scaling <= 0:
+            print('Warning: Inv Cov not well-defined.')
+            return 0, 1, dof, chi2
+        
+        pte = scipy.stats.distributions.chi2
+        pte = pte.sf(chi2 * debias_scaling, dof)
+        return chi2 * debias_scaling, pte, dof, chi2
+
 class joint_fit_mcmc:
     
     # joint fit the params 
@@ -375,6 +401,7 @@ class joint_fit_mcmc:
         for i in range(self.Nfields):
             self.dof_data += self.param_fits[i].dof_data
 
+
     def get_chi2_fields(self, **kwargs):
         chi2_fields = []
         for i in range(self.Nfields):
@@ -383,8 +410,16 @@ class joint_fit_mcmc:
         
     def get_chi2(self, **kwargs):
         chi2tot = 0
+
+        use_fields = []
         for i in range(len(self.ifield_list)):
-            chi2tot += self.param_fits[i].get_chi2(**kwargs)
+            db_scale = self.param_fits[i].covsub_inv_debias
+            if db_scale > 0:
+                use_fields.append(i)
+
+        for i in use_fields:
+            db_scale = self.param_fits[i].covsub_inv_debias
+            chi2tot += self.param_fits[i].get_chi2(**kwargs) * db_scale
         return chi2tot
         
     def _log_likelihood(self, theta):
@@ -475,6 +510,24 @@ class joint_fit_mcmc:
             return sampler.get_chain()
         else:
             return
+
+    def get_chi2_pte(self, Npar=3, **kwargs):
+        chi2tot = 0
+        chi2tot_debias = 0
+        dof = 0
+        use_fields = []
+        for i in range(len(self.ifield_list)):
+            db_scale = self.param_fits[i].covsub_inv_debias
+            if db_scale > 0:
+                chi2field = self.param_fits[i].get_chi2(**kwargs) 
+                chi2tot += chi2field
+                chi2tot_debias += chi2field * db_scale
+                dof += self.param_fits[i].dof_data
+        dof -= Npar
+        pte = scipy.stats.distributions.chi2
+        pte = pte.sf(chi2tot_debias, dof)
+
+        return chi2tot_debias, pte, dof, chi2tot
 
 '''
 class fit_stacking_mcmc_2par:
