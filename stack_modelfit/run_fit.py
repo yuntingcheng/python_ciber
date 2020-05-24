@@ -396,7 +396,8 @@ class joint_fit_mcmc:
     
     # joint fit the params 
     
-    def __init__(self, inst, im, filt_order, ifield_list = [4,5,6,7,8]):
+    def __init__(self, inst, im, filt_order,
+     ifield_list = [4,5,6,7,8], subsub=False):
         self.inst = inst
         self.ifield_list = ifield_list
         self.Nfields = len(ifield_list)
@@ -405,7 +406,8 @@ class joint_fit_mcmc:
         self.m_min = magbindict['m_min'][im]
         self.m_max = magbindict['m_max'][im]
         self.filt_order = filt_order
-        self.param_fits = [fit_stacking_mcmc(inst, i, im, filt_order) for i in ifield_list]
+        self.subsub = subsub
+        self.param_fits = [fit_stacking_mcmc(inst, i, im, filt_order, subsub=subsub) for i in ifield_list]
         
         self.dof_data = 0
         for i in range(self.Nfields):
@@ -466,6 +468,9 @@ class joint_fit_mcmc:
             if savename is None:
                 savename = 'mcmc_3par_joint' + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
+                if self.subsub:
+                    savename = 'mcmc_3par_joint' + \
+                    '_m' + str(self.m_min) + '_' + str(self.m_max) + '_sub.npy'
                 
             np.save(savedir + savename, sampler.get_chain(), sampler)
             self.mcmc_savename = savedir + savename
@@ -510,6 +515,10 @@ class joint_fit_mcmc:
             if savename is None:
                 savename = 'mcmc_2par_joint' + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
+                if self.subsub:
+                    savename = 'mcmc_2par_joint' + \
+                    '_m' + str(self.m_min) + '_' + str(self.m_max) + '_sub.npy'
+
                 
             np.save(savedir + savename, sampler.get_chain(), sampler)
             self.mcmc_savename = savedir + savename
