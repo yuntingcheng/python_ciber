@@ -459,10 +459,12 @@ def run_micecat_batch(inst, ibatch, run_type='all', return_data=False, **kwargs)
 
     return
 
-def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False):
+def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False, subsub=False):
     '''
     Get the MICECAT 1halo sim results.
     '''
+    if subsub:
+        sub=True
     savedir='./micecat_data/'
     data_all = []
     for icat in range(90):
@@ -476,7 +478,7 @@ def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False
             if (Mhcut != np.inf) or (R200cut != np.inf):
                 fname  = 'onehalo_TM{:.0f}_icat{:.0f}_zcut{:.2f}_R200cut{:.0f}_Mhcut{:.0f}.pkl'\
                 .format(inst, icat, zcut, R200cut, np.log10(Mhcut))
- 
+        
         if fname not in os.listdir(savedir):
             continue
 
@@ -499,6 +501,28 @@ def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False
     data_avg = np.mean(data_all, axis=0)
     data_std = np.std(data_all, axis=0)
     
+    if subsub:
+        Nrebin = 6
+        rsubsubbins, data_avg_sub, data_std_sub =\
+        np.zeros(len(rbins) - Nrebin+1), np.zeros(len(rbins) - Nrebin+1), np.zeros(len(rbins) - Nrebin+1)
+        rsubsubbins[1:] = rbins[Nrebin:]
+        data_avg_sub[1:] = data_avg[Nrebin:]
+        data_std_sub[1:] = data_std[Nrebin:]
+
+        win = rbinedges[1:Nrebin+1]**2 - rbinedges[:Nrebin]**2
+        pin = data_avg[:Nrebin]
+        ein = data_std[:Nrebin]
+        data_avg_sub[0] = np.sum(win*pin)/np.sum(win)
+        data_std_sub[0] = np.sqrt(np.sum(win**2*ein**2))/np.sum(win)
+
+        rsubbinedges = np.concatenate((rbinedges[:1],rbinedges[Nrebin:]))
+        rsubsubbins[0] = (2./3) * (rsubbinedges[1]**3 - rsubbinedges[0]**3)\
+        / (rsubbinedges[1]**2 - rsubbinedges[0]**2)
+        
+        rbins = rsubsubbins
+        data_avg = data_avg_sub
+        data_std = data_std_sub
+        
     return rbins, data_avg, data_std, data_all
 
 def get_micecat_sim_cen(inst, im, sub=False, 

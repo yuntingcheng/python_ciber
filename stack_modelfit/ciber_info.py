@@ -7,6 +7,7 @@ fieldnamedict = {4:'elat10',
                  7:'BootesA',
                  8:'SWIRE'}
 
+
 field_center_dict = {# (approximately) the ra dec of the field centre [deg]
                      4: (191.5, 8.25),
                      5: (193.943, 27.998),
@@ -17,8 +18,9 @@ field_center_dict = {# (approximately) the ra dec of the field centre [deg]
 
 magbindict = {'m_min':[16,17,18,19],
               'm_max':[17,18,19,20],
-              'zmean': [0.13, 0.20, 0.27, 0.43],
-              'zmed': [0.11, 0.19, 0.26, 0.41]
+              # From MICECAT
+              'zmean': [0.21, 0.24, 0.32, 0.41],
+              'zmed': [0.21, 0.24, 0.29, 0.41]
              }
 
 cal_factor_dict = {'framerate': 1/(1.6e-6 * 512 * 513 * 68 / 16), # 0.5599 frame / s
@@ -31,6 +33,7 @@ cal_factor_dict = {'framerate': 1/(1.6e-6 * 512 * 513 * 68 / 16), # 0.5599 frame
                                   }
                   }
 
+filt_order_dict = {1:3, 2:5}
 
 PSF_model_dict = {
                     1:{

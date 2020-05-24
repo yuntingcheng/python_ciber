@@ -4,7 +4,7 @@ class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
         savename=None, load_from_file=False, loaddir=None, filt_order=2,
          run_nonuniform_BG=False, getBG=True, BGsub=True, all_src=False,
-         uniform_jack=False, savemaps=False):
+         subsub=False, uniform_jack=False, savemaps=False):
         self.inst = inst
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
@@ -13,6 +13,7 @@ class stacking:
         self.filt_order = filt_order
         self.getBG = getBG
         self.BGsub = BGsub
+        self.subsub = subsub
         self.uniform_jack = uniform_jack
         self.savemaps = savemaps
         self.data_maps = None
@@ -56,6 +57,8 @@ class stacking:
         self._post_process()
     
     def _post_process(self):
+        if self.subsub:
+            self._get_subsubbins(Nrebin=6)
         self._get_jackknife_profile()
         self._get_covariance()
         if self.getBG:
@@ -64,6 +67,8 @@ class stacking:
         self._get_BGsub()
         self._get_PSF_from_data()
         self._get_PSF_covariance_from_data()
+        if self.subsub:
+            self._get_PSF_subsubbins(Nrebin=6)
         self._get_ex_covariance()
         self._get_excess()
         
@@ -446,7 +451,7 @@ class stacking:
     def _radial_binning(self,rbins,rbinedges):
         rsubbinedges = np.concatenate((rbinedges[:1],rbinedges[6:20],rbinedges[-1:]))
 
-        # calculate 
+        # calculate the mean r in and out
         rin = (2./3) * (rsubbinedges[1]**3 - rsubbinedges[0]**3)\
         / (rsubbinedges[1]**2 - rsubbinedges[0]**2)
 
@@ -744,37 +749,7 @@ class stacking:
         self.stackdat['BG']['profps100'] = np.sum(psmapstack[spi]) / np.sum(maskstack[spi])
         self.stackdat['BG']['profhit100'] = np.sum(maskstack[spi])
 
-        #self._get_BG_avg()
         return
-
-    # def _get_BG_avg(self):
-    #     Nsub = self.stackdat['BG']['Nbg']
-    #     Nbins = len(self.stackdat['rbins'])
-    #     Nsubbins = len(self.stackdat['rsubbins'])
-    #     data_cb, data_ps = np.zeros([Nsub, Nbins]), np.zeros([Nsub, Nbins])
-    #     data_cbsub, data_pssub = np.zeros([Nsub, Nsubbins]), np.zeros([Nsub, Nsubbins])
-    #     data_cb100, data_ps100 = np.zeros(Nsub), np.zeros(Nsub)
-    #     profhit, profhitsub, profhit100 = 0, 0, 0
-
-    #     for isub in range(Nsub):
-    #         data_cb[isub,:] = self.stackdat['BG'][isub]['profcb']
-    #         data_ps[isub,:] = self.stackdat['BG'][isub]['profps']
-    #         data_cbsub[isub,:] = self.stackdat['BG'][isub]['profcbsub']
-    #         data_pssub[isub,:] = self.stackdat['BG'][isub]['profpssub']
-    #         data_cb100[isub] = self.stackdat['BG'][isub]['profcb100']
-    #         data_ps100[isub] = self.stackdat['BG'][isub]['profps100']
-    #         profhit = profhit + self.stackdat['BG'][isub]['profhit']
-    #         profhitsub = profhitsub + self.stackdat['BG'][isub]['profhitsub']
-    #         profhit100 = profhit100 + self.stackdat['BG'][isub]['profhit100']
-
-    #     self.stackdat['BG']['profcb'] = np.mean(data_cb, axis=0)
-    #     self.stackdat['BG']['profps'] = np.mean(data_ps, axis=0)
-    #     self.stackdat['BG']['profhit'] = profhit
-    #     self.stackdat['BG']['profcbsub'] = np.mean(data_cbsub, axis=0)
-    #     self.stackdat['BG']['profpssub'] = np.mean(data_pssub, axis=0)
-    #     self.stackdat['BG']['profcb100'] = np.mean(data_cb100, axis=0)
-    #     self.stackdat['BG']['profps100'] = np.mean(data_ps100, axis=0)
-
 
     def _get_BG_jackknife_profile(self):
         self.stackdat['BGjack'] = {}
@@ -1066,6 +1041,137 @@ class stacking:
                                         - self.stackdat['PSF']['profps100']
 
 
+    def _get_subsubbins(self, Nrebin=6):
+        # further combine Nrebin of rsubbins into one bin
+        rsubbins = self.stackdat['rsubbins'].copy()
+        rsubbinedges = self.stackdat['rsubbinedges'].copy()
+        self.stackdat['rsubbins0'] = rsubbins
+        self.stackdat['rsubbinedges0'] = rsubbinedges      
+        Nsub = len(rsubbins)
+
+        rsubbinedges = np.concatenate((rsubbinedges[:1],rsubbinedges[Nrebin:]))
+        rin = (2./3) * (rsubbinedges[1]**3 - rsubbinedges[0]**3)\
+        / (rsubbinedges[1]**2 - rsubbinedges[0]**2)
+
+        rsubbins = np.concatenate(([rin],rsubbins[Nrebin:]))
+
+        self.stackdat['rsubbins'] = rsubbins
+        self.stackdat['rsubbinedges'] = rsubbinedges
+
+        Nsubsub = len(rsubbins)
+
+        # mean profile
+        profcb,profps, profhit = np.zeros(Nsubsub), np.zeros(Nsubsub), np.zeros(Nsubsub)
+        profcb[1:] = self.stackdat['profcbsub'][Nrebin:]
+        profps[1:] = self.stackdat['profpssub'][Nrebin:]
+        profhit[1:] = self.stackdat['profhitsub'][Nrebin:]
+        cbin = self.stackdat['profcbsub'][:Nrebin]
+        psin = self.stackdat['profpssub'][:Nrebin]
+        hitin = self.stackdat['profhitsub'][:Nrebin]
+
+        if np.sum(hitin)!=0:
+            profcb[0] = np.sum(cbin*hitin) / np.sum(hitin)
+            profps[0] = np.sum(psin*hitin) / np.sum(hitin)
+            profhit[0] = np.sum(hitin)
+
+        self.stackdat['profcbsub'] = profcb
+        self.stackdat['profpssub'] = profps
+        self.stackdat['profhitsub'] = profhit
+
+        # substack profile
+        for isub in range(self.stackdat['Nsub']):
+            profcb,profps, profhit = np.zeros(Nsubsub), np.zeros(Nsubsub), np.zeros(Nsubsub)
+            profcb[1:] = self.stackdat['sub'][isub]['profcbsub'][Nrebin:]
+            profps[1:] = self.stackdat['sub'][isub]['profpssub'][Nrebin:]
+            profhit[1:] = self.stackdat['sub'][isub]['profhitsub'][Nrebin:]
+            cbin = self.stackdat['sub'][isub]['profcbsub'][:Nrebin]
+            psin = self.stackdat['sub'][isub]['profpssub'][:Nrebin]
+            hitin = self.stackdat['sub'][isub]['profhitsub'][:Nrebin]
+
+            if np.sum(hitin)!=0:
+                profcb[0] = np.sum(cbin*hitin) / np.sum(hitin)
+                profps[0] = np.sum(psin*hitin) / np.sum(hitin)
+                profhit[0] = np.sum(hitin)
+
+            self.stackdat['sub'][isub]['profcbsub'] = profcb
+            self.stackdat['sub'][isub]['profpssub'] = profps
+            self.stackdat['sub'][isub]['profhitsub'] = profhit
+
+        # mean BG profile
+        profcb,profps, profhit = np.zeros(Nsubsub), np.zeros(Nsubsub), np.zeros(Nsubsub)
+        profcb[1:] = self.stackdat['BG']['profcbsub'][Nrebin:]
+        profps[1:] = self.stackdat['BG']['profpssub'][Nrebin:]
+        profhit[1:] = self.stackdat['BG']['profhitsub'][Nrebin:]
+        cbin = self.stackdat['BG']['profcbsub'][:Nrebin]
+        psin = self.stackdat['BG']['profpssub'][:Nrebin]
+        hitin = self.stackdat['BG']['profhitsub'][:Nrebin]
+
+        if np.sum(hitin)!=0:
+            profcb[0] = np.sum(cbin*hitin) / np.sum(hitin)
+            profps[0] = np.sum(psin*hitin) / np.sum(hitin)
+            profhit[0] = np.sum(hitin)
+
+        self.stackdat['BG']['profcbsub'] = profcb
+        self.stackdat['BG']['profpssub'] = profps
+        self.stackdat['BG']['profhitsub'] = profhit
+
+        # substack profile
+        for isub in range(self.stackdat['Nsub']):
+            profcb,profps, profhit = np.zeros(Nsubsub), np.zeros(Nsubsub), np.zeros(Nsubsub)
+            profcb[1:] = self.stackdat['BG'][isub]['profcbsub'][Nrebin:]
+            profps[1:] = self.stackdat['BG'][isub]['profpssub'][Nrebin:]
+            profhit[1:] = self.stackdat['BG'][isub]['profhitsub'][Nrebin:]
+            cbin = self.stackdat['BG'][isub]['profcbsub'][:Nrebin]
+            psin = self.stackdat['BG'][isub]['profpssub'][:Nrebin]
+            hitin = self.stackdat['BG'][isub]['profhitsub'][:Nrebin]
+
+            if np.sum(hitin)!=0:
+                profcb[0] = np.sum(cbin*hitin) / np.sum(hitin)
+                profps[0] = np.sum(psin*hitin) / np.sum(hitin)
+                profhit[0] = np.sum(hitin)
+
+            self.stackdat['BG'][isub]['profcbsub'] = profcb
+            self.stackdat['BG'][isub]['profpssub'] = profps
+            self.stackdat['BG'][isub]['profhitsub'] = profhit
+
+        return
+
+    def _get_PSF_subsubbins(self, Nrebin=6):
+        # further combine Nrebin of rsubbins into one bin
+        
+        Nsub = len(self.stackdat['PSF']['profcbsub'])
+        Nsubsub = Nsub - Nrebin + 1
+        profcb,profps= np.zeros(Nsubsub), np.zeros(Nsubsub)
+        profcb[1:] = self.stackdat['PSF']['profcbsub'].copy()[Nrebin:]
+        profps[1:] = self.stackdat['PSF']['profpssub'].copy()[Nrebin:]
+
+        cbin = self.stackdat['PSF']['profcbsub'].copy()[:Nrebin]
+        psin = self.stackdat['PSF']['profpssub'].copy()[:Nrebin]  
+        rsubbinedges = self.stackdat['rsubbinedges0'][:Nrebin+1]
+        hitin = rsubbinedges[1:]**2 - rsubbinedges[:-1]**2
+        profcb[0] = np.sum(cbin*hitin) / np.sum(hitin)
+        profps[0] = np.sum(psin*hitin) / np.sum(hitin)
+
+        self.stackdat['PSF']['profcbsub'] = profcb
+        self.stackdat['PSF']['profpssub'] = profps
+        
+        covcb, covps = np.zeros([Nsubsub, Nsubsub]), np.zeros([Nsubsub, Nsubsub])
+        covcb[1:,1:] = self.stackdat['PSFcov']['profcbsub'].copy()[Nrebin:, Nrebin:]
+        covps[1:,1:] = self.stackdat['PSFcov']['profpssub'].copy()[Nrebin:, Nrebin:]
+        covcb[0,1:] = np.sum(self.stackdat['PSFcov']['profcbsub'].copy()[:Nrebin, Nrebin:], axis=0)
+        covcb[1:,0] = covcb[0,1:].copy()
+        covps[0,1:] = np.sum(self.stackdat['PSFcov']['profpssub'][:Nrebin, Nrebin:], axis=0)
+        covps[1:,0] = covps[0,1:].copy()
+        covcb[0,0] = np.sum(self.stackdat['PSFcov']['profcbsub'][:Nrebin, :Nrebin])
+        covps[0,0] = np.sum(self.stackdat['PSFcov']['profpssub'][:Nrebin, :Nrebin])
+        self.stackdat['PSFcov']['profcbsub'] = covcb
+        self.stackdat['PSFcov']['profpssub'] = covps
+        self.stackdat['PSFcov']['profcbsub_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
+        self.stackdat['PSFcov']['profpssub_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
+
+        return
 def run_stacking(inst, ifield, **kwargs):
     for m_min, m_max in zip(magbindict['m_min'], magbindict['m_max']):
         stacking(inst, ifield, m_min, m_max, **kwargs)

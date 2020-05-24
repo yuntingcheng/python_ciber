@@ -249,14 +249,21 @@ class gal_profile_model:
         '''
 
         # from MICECAT
-        R200_arr = [103.27, 70.31, 47.46, 34.06] #[arcsec]
+        R200_arr = [101.99, 70.55, 48.21, 34.70] #[arcsec]
+        R200_err = [23.97, 22.78, 21.36, 20.27] #[arcsec]
+        R200_Mpc_arr = [0.442, 0.346, 0.295, 0.260] #[Mpc]
+        R200_Mpc_err = [0.126, 0.133, 0.136, 0.135] #[Mpc]
         # from SIDES abundance matching
         # R200_arr = [98.90,62.83,42.48,29.34] #[arcsec]
         W19params = {}
         W19params['m_min'] = im + 16
         W19params['m_max'] = im + 17
         W19params['R200'] = R200_arr[im]
+        W19params['R200_err'] = R200_err[im]
         W19params['R200_unit'] = self.u.arcsec
+        W19params['R200_Mpc'] = R200_Mpc_arr[im]
+        W19params['R200_Mpc_err'] = R200_Mpc_err[im]
+
         W19params['sersic_params_def'] = '[Ie, n, xe]'
         
         if extendedness:

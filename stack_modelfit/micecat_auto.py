@@ -246,7 +246,7 @@ def radial_binning(rbins,rbinedges):
 
     return rsubbins, rsubbinedges
 
-def run_micecat_auto_fliter_test_cen(inst, icat, filt_order_arr=[0], mag_stack = [0,1],
+def run_micecat_auto_filter_test_cen(inst, icat, filt_order_arr=[0], mag_stack = [0,1],
                            savedir = './micecat_data/all_fields/', save_data = True):
     
     df = get_micecat_df_auto(icat)
@@ -393,7 +393,7 @@ def run_micecat_auto_fliter_test_cen(inst, icat, filt_order_arr=[0], mag_stack =
     
     return data_dict
 
-def run_micecat_auto_fliter_test(inst, icat, filt_order_arr=[0], mag_stack = [0,1],
+def run_micecat_auto_filter_test(inst, icat, filt_order_arr=[0], mag_stack = [0,1],
                                  Mhcut=np.inf, R200cut=np.inf, zcut=0,
                            savedir = './micecat_data/all_fields/', save_data = True):
 
@@ -591,8 +591,8 @@ def run_micecat_auto_batch(inst ,ibatch, istart=0, batch_size=20, return_data=Fa
     icat_arr = icat_arr.astype(int)
 
     for icat in icat_arr:
-        # data_dict = run_micecat_auto_fliter_test_cen(inst, icat, **kwargs)
-        data_dict = run_micecat_auto_fliter_test(inst, icat, **kwargs)
+        # data_dict = run_micecat_auto_filter_test_cen(inst, icat, **kwargs)
+        data_dict = run_micecat_auto_filter_test(inst, icat, **kwargs)
         if return_data:
             data_dicts.append(data_dict)
 
@@ -634,15 +634,19 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
         spfilt = np.where(filt_order_arr==filt_order)[0]
         spfilt0 = np.where(filt_order_arr==0)[0]
 
-        if len(spfilt)==0 or len(spfilt0)==0:
+        if len(spfilt)==0:
             continue
-        # if len(filt_order_arr)!=7 and run_type=='2h' and im>=2:###
-        #     continue###
 
-        spfilt, spfilt0 = spfilt[0], spfilt0[0]
+        if len(spfilt0)==0 and ratio:
+            continue
+        
+        spfilt = spfilt[0]
+        if ratio:
+            spfilt0 = spfilt0[0]
         if np.all(data_dict['data'][spfilt,im,:]==0):
             continue
         
+       
         icat_arr.append(icat)
 
         if not sub:
@@ -655,7 +659,8 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
             data = data_dict['datasub']
 
         data_all.append(data[spfilt,...])
-        data0_all.append(data[spfilt0,...])
+        if ratio:
+            data0_all.append(data[spfilt0,...])
 
     if len(icat_arr)==0:
         if not sub:
@@ -672,9 +677,9 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
 
     icat_arr = np.array(icat_arr)
     data_all = np.array(data_all)[:,im,:]
-    data0_all = np.array(data0_all)[:,im,:]
     
     if ratio:
+        data0_all = np.array(data0_all)[:,im,:]
         data_all = data_all / data0_all
 
     data_avg = np.mean(data_all, axis=0)
@@ -684,7 +689,8 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
         return rbins, data_avg, data_std, data_all, icat_arr
     return rbins, data_avg, data_std, data_all
 
-def micecat_profile_fit(inst, im, sub=True, filt_order=0, return_full=False):
+
+def micecat_profile_fit(inst, im, sub=True, filt_order=0, return_full=False, subsub=False):
     if im==0:
         rbins, mc_avg, _, _, _ = get_micecat_sim_auto(inst, 1,
                                                     filt_order=filt_order,
@@ -739,6 +745,25 @@ def micecat_profile_fit(inst, im, sub=True, filt_order=0, return_full=False):
         mc_avgsub_fit[0] = linfit(np.log10(rsubbins[0]))
         mc_avgsub_fit[1:-1] = mc_avg_fit[6:-6]
     
+    if subsub:
+        Nrebin = 6
+        savedir='./micecat_data/all_fields/'
+        fname  = 'filter_test_TM1_icat0.pkl'
+        with open(savedir + fname,"rb") as f:
+            data_dict = pickle.load(f)
+        rsubbinedges = data_dict['rsubbinedges']
+        rsubbinedges = np.concatenate((rsubbinedges[:1],rsubbinedges[Nrebin:]))
+        rin = (2./3) * (rsubbinedges[1]**3 - rsubbinedges[0]**3)\
+        / (rsubbinedges[1]**2 - rsubbinedges[0]**2)
+
+        mc_avgsubsub_fit = np.zeros(len(rsubbinedges)-1)
+        mc_avgsubsub_fit[1:] = mc_avgsub_fit[Nrebin:]
+        mc_avgsubsub_fit[0]=  linfit(np.log10(rin))
+        mc_avgsub_fit = mc_avgsubsub_fit
+        rsubsubbins = np.zeros_like(mc_avgsubsub_fit)
+        rsubsubbins[0] = rin
+        rsubsubbins[1:] = rsubbins[Nrebin:]
+        rsubbins = rsubsubbins
     if return_full:
         return rbins, mc_avg, mc_avg_fit, rsubbins, mc_avgsub, mc_avgsub_fit
     if sub:

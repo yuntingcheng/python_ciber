@@ -12,7 +12,7 @@ from micecat_auto import *
 class fit_stacking_mcmc:
     
     def __init__(self, inst, ifield, im, filt_order,
-     data_maps=None, loaddir=None, modify_cov=False):
+     data_maps=None, loaddir=None, modify_cov=False, subsub=False):
 
         self.inst = inst
         self.ifield = ifield
@@ -24,6 +24,7 @@ class fit_stacking_mcmc:
         self.data_maps = data_maps
         self.filt_order = filt_order
         self.modify_cov = modify_cov
+        self.subsub = subsub
 
         self._fit_data_preprocess(loaddir)
         
@@ -37,7 +38,8 @@ class fit_stacking_mcmc:
         stackdat = stacking(self.inst, self.ifield,
                             self.m_min, self.m_max,
                             filt_order=self.filt_order,loaddir=loaddir, 
-                            load_from_file=True, BGsub=False).stackdat
+                            load_from_file=True, BGsub=False,
+                            subsub=self.subsub).stackdat
         self.Nsrc = stackdat['Nsrc']
         self.Njk = stackdat['Nsub']
         self.rbins = stackdat['rbins']
@@ -80,8 +82,8 @@ class fit_stacking_mcmc:
     def _get_covsub_inv(self, Cov):
         
         if self.inst ==1 and self.im == 0:
-            # Nmodes = {4:14, 5:15, 6:11, 7:15, 8:11}
-            Nmodes = {4:15, 5:15, 6:12, 7:15, 8:15}
+            # Nmodes = {4:15, 5:15, 6:12, 7:15, 8:15}
+            Nmodes = {4:15, 5:15, 6:15, 7:15, 8:15}
         else:
             Nmodes = {4:15, 5:15, 6:15, 7:15, 8:15}
         
@@ -100,7 +102,7 @@ class fit_stacking_mcmc:
         _, mc_avg, mc_std, _ = get_micecat_sim_1h(self.inst, self.im, 
             Mhcut=1e14, R200cut=0, zcut=0.15, sub=False)
         _, mc_avg_sub, mc_std_sub, _ = get_micecat_sim_1h(self.inst, self.im,
-            Mhcut=1e14, R200cut=0, zcut=0.15, sub=True)
+            Mhcut=1e14, R200cut=0, zcut=0.15, sub=True, subsub=self.subsub)
         self.prof1h = mc_avg
         self.prof1h_sub = mc_avg_sub
         return
@@ -139,7 +141,7 @@ class fit_stacking_mcmc:
 
         rbins, mc_avg, mc_avg_fit, rsubbins, mc_avgsub, mc_avgsub_fit = \
         micecat_profile_fit(self.inst, self.im, filt_order=self.filt_order,
-         return_full=True)
+         return_full=True, subsub=self.subsub)
 
         self.prof2h = mc_avg_fit
         self.prof2h_sub = mc_avgsub_fit
@@ -308,6 +310,9 @@ class fit_stacking_mcmc:
             if savename is None:
                 savename = 'mcmc_3par_' + self.field + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
+                if self.subsub:
+                    savename = 'mcmc_3par_' + self.field + \
+                    '_m' + str(self.m_min) + '_' + str(self.m_max) + '_sub.npy'
                 
             np.save(savedir + savename, sampler.get_chain(), sampler)
             self.mcmc_savename = savedir + savename
@@ -355,6 +360,10 @@ class fit_stacking_mcmc:
             if savename is None:
                 savename = 'mcmc_2par_' + self.field + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
+                if self.subsub:
+                    savename = 'mcmc_2par_' + self.field + \
+                    '_m' + str(self.m_min) + '_' + str(self.m_max) + '_sub.npy'
+
                 
             np.save(savedir + savename, sampler.get_chain(), sampler)
             self.mcmc_savename = savedir + savename
