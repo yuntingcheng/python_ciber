@@ -107,8 +107,12 @@ def radial_prof(mapin, cenx=None, ceny=None, log=True, nbins=25, maskin=None,
         histrw = np.histogram(radmap, bins=rbinedges, weights=radmap*weight*maskin)[0]
         histmap = np.histogram(radmap, bins=rbinedges, weights=mapin*maskin)[0]
         histmap2 = np.histogram(radmap, bins=rbinedges, weights=mapin**2*maskin)[0]
+        
         rbins = histrw / histw
-        err = np.sqrt(histmap2/histN - (histmap/histN)**2) / np.sqrt(histN)
+        var = histmap2/histN - (histmap/histN)**2
+        err = np.zeros_like(prof)
+        sppos = np.where(var>0)[0]
+        err[sppos] = var[sppos] / np.sqrt(histN[sppos])
         Npix = histN.astype(int)
         
         profdat = {}
@@ -118,8 +122,7 @@ def radial_prof(mapin, cenx=None, ceny=None, log=True, nbins=25, maskin=None,
         profdat['err'] = err
         profdat['Npix'] = Npix
         
-        return profdat    
-
+        return profdat
 
 # def radial_prof(mapin, cenx=None, ceny=None, log=True, nbins=25, maskin=None,
 #                 weight=None, rbinedges=None, return_full=True):

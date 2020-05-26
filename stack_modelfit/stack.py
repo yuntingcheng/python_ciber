@@ -340,7 +340,7 @@ class stacking:
 
         return stackdat        
         
-    def _stackihl_PS_cliplim(self, Nsrc=1000):
+    def _stackihl_PS_cliplim(self, Nsrc=np.inf):
         inst = self.inst
         ifield = self.ifield
         m_min = self.m_min

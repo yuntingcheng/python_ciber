@@ -163,3 +163,66 @@ def run_psf_combine(inst, ifield):
         pickle.dump(profdat, f)
     
     return profdat
+
+
+
+def run_psf_synth_temp(inst, ifield, filt_order=3, savedata=True):
+
+    fname = mypaths['alldat'] + 'TM'+ str(inst) + \
+    '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
+    with open(fname, "rb") as f:
+        profdat = pickle.load(f)
+
+    data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+
+    if savedata:
+        fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+         '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
+        with open(fname, "wb") as f:
+            pickle.dump(profdat, f)
+    
+    mapin, strmask, strnum, mask_inst1, mask_inst2 = \
+    load_processed_images(data_maps, return_names=[(inst,ifield,'cbmap'), 
+                                       (inst,ifield,'strmask'), 
+                                       (inst,ifield,'strnum'),
+                                       (1,ifield,'mask_inst'),
+                                       (2,ifield,'mask_inst')])
+    
+    for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
+        if im !=3:
+            continue
+        stack_class = stacking(inst, ifield, m_min, m_max, filt_order=filt_order, 
+                            load_from_file=True,BGsub=False)
+
+        cliplim = stack_class._stackihl_PS_cliplim()
+
+        srcdat = ps_src_select(inst, ifield, m_min, m_max, 
+            [mask_inst1, mask_inst2], sample_type='jack_region')
+
+        stackdat = stack_class.stack_PS(srctype='s',cliplim=cliplim, 
+                                        srcdat=srcdat, verbose=False)
+        stack_class.stackdat = stackdat
+        stack_class._get_jackknife_profile()
+        stack_class._get_covariance()
+
+        profdat[im] = {}
+        profdat[im]['m_min'] = m_min
+        profdat[im]['m_max'] = m_max
+        profdat[im]['Nsrc'] = stackdat['Nsrc']
+        profdat[im]['profcb'] = stack_class.stackdat['profcb']
+        profdat[im]['profcb_err'] = np.sqrt(np.diag(stackdat['cov']['profcb']))
+        profdat[im]['profcbsub'] = stack_class.stackdat['profcbsub']
+        profdat[im]['profcbsub_err'] = np.sqrt(np.diag(stackdat['cov']['profcbsub']))
+        profdat[im]['cov'] = stackdat['cov']['profcb']
+        profdat[im]['covsub'] = stackdat['cov']['profcbsub']
+
+        if savedata:
+            fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+             '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
+            with open(fname, "wb") as f:
+                pickle.dump(profdat, f)
+        
+    if savedata:
+        return
+    
+    return profdat

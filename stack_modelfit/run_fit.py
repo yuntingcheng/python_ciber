@@ -915,7 +915,8 @@ def get_posterior_interval(samples, ci=68, return_hist=False):
         return param_mid, param_low, param_high, hist, bins, binedges
     return param_mid, param_low, param_high
 
-def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,chaindir=None):
+def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,
+    chaindir=None, subsub=False):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
 
@@ -925,6 +926,9 @@ def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,chaindir=None):
     elif ifield is None:
         savename = 'mcmc_3par_joint' + \
         '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+
+    if subsub:
+        savename = savename[:-4] + '_sub.npy'
 
     if chaindir is None:
         chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'
@@ -950,7 +954,8 @@ def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,chaindir=None):
                   'A2h': A2h, 'A2h_low': A2h_low, 'A2h_high': A2h_high}
     return fitparamdat
 
-def get_mcmc_fit_params_2par(inst, im, ifield=None,burn_in=150,chaindir=None):
+def get_mcmc_fit_params_2par(inst, im, ifield=None,
+    burn_in=150,chaindir=None, subsub=False):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
 
@@ -960,6 +965,9 @@ def get_mcmc_fit_params_2par(inst, im, ifield=None,burn_in=150,chaindir=None):
     elif ifield is None:
         savename = 'mcmc_2par_joint' + \
         '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+
+    if subsub:
+        savename = savename[:-4] + '_sub.npy'
 
     if chaindir is None:
         chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'
