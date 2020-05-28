@@ -189,8 +189,8 @@ def run_psf_synth_temp(inst, ifield, filt_order=3, savedata=True):
                                        (2,ifield,'mask_inst')])
     
     for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
-        if im !=3:
-            continue
+        # if im !=3:
+        #     continue
         stack_class = stacking(inst, ifield, m_min, m_max, filt_order=filt_order, 
                             load_from_file=True,BGsub=False)
 
@@ -215,7 +215,8 @@ def run_psf_synth_temp(inst, ifield, filt_order=3, savedata=True):
         profdat[im]['profcbsub_err'] = np.sqrt(np.diag(stackdat['cov']['profcbsub']))
         profdat[im]['cov'] = stackdat['cov']['profcb']
         profdat[im]['covsub'] = stackdat['cov']['profcbsub']
-
+        profdat[im]['sub'] = stackdat['sub']
+        
         if savedata:
             fname = mypaths['alldat'] + 'TM'+ str(inst) +\
              '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])

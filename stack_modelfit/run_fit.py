@@ -872,6 +872,22 @@ def get_mcmc_fit_params_2par(inst, im, ifield=None):
     return fitparamdat
 '''
 
+def get_mcmc_chains(inst, im, ifield=None, Npar=3, subsub=False, burn_in=0):
+    chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'
+    if ifield in [4,5,6,7,8]:
+        savename = 'mcmc_' + str(Npar) + 'par_' + fieldnamedict[ifield] + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+    elif ifield is None:
+        savename = 'mcmc_' + str(Npar) + 'par_joint' + \
+        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+
+    if subsub:
+        savename = savename[:-4] + '_sub.npy'
+    chains = np.load(chaindir + savename)
+    
+    return chains[burn_in:,...]
+
+
 def get_posterior_interval(samples, ci=68, return_hist=False):
     Nsamps = len(samples)
     N68 = Nsamps * 0.68
