@@ -87,6 +87,7 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
         profdat[im]['profcbsub_err'] = np.sqrt(np.diag(stackdat['cov']['profcbsub']))
         profdat[im]['cov'] = stackdat['cov']['profcb']
         profdat[im]['covsub'] = stackdat['cov']['profcbsub']
+        profdat[im]['sub'] = stackdat['sub']
 
         if savedata:
             fname = mypaths['alldat'] + 'TM'+ str(inst) +\
@@ -113,19 +114,30 @@ def run_psf_combine(inst, ifield):
         covc = np.zeros_like(profdat['out']['cov'])
         covcsub = np.zeros_like(profdat['out']['covsub'])
 
-        norm_in = 1 / profdat[im]['profcb'][0]
-        norm_mid = norm_in * profdat[im]['profcb'][8] / profdat['mid']['profcb'][8]
+        if ifield==5 and im==3:
+            prof_in = profdat[2]['profcb'].copy()
+            prof_in_sub = profdat[2]['profcbsub'].copy()
+            prof_in_cov = profdat[2]['cov'].copy()
+            prof_in_cov_sub = profdat[2]['covsub'].copy()
+        else:
+            prof_in = profdat[im]['profcb'].copy()
+            prof_in_sub = profdat[im]['profcbsub'].copy()
+            prof_in_cov = profdat[im]['cov'].copy()
+            prof_in_cov_sub = profdat[im]['covsub'].copy()
+
+        norm_in = 1 / prof_in[0]
+        norm_mid = norm_in * prof_in[8] / profdat['mid']['profcb'][8]
         norm_out = norm_mid * profdat['mid']['profcb'][10] / profdat['out']['profcb'][10]
 
-        profc[:9] = profdat[im]['profcb'][:9].copy() * norm_in
+        profc[:9] = prof_in[:9].copy() * norm_in
         profc[9:11] = profdat['mid']['profcb'][9:11].copy() * norm_mid
         profc[11:] = profdat['out']['profcb'][11:].copy() * norm_out
 
-        profcsub[:4] = profdat[im]['profcbsub'][:4].copy() * norm_in
+        profcsub[:4] = prof_in_sub[:4].copy() * norm_in
         profcsub[4:6] = profdat['mid']['profcbsub'][4:6].copy() * norm_mid
         profcsub[6:] = profdat['out']['profcbsub'][6:].copy() * norm_out
 
-        covc[:9,:9] = profdat[im]['cov'][:9,:9].copy() * norm_in**2
+        covc[:9,:9] = prof_in_cov[:9,:9].copy() * norm_in**2
         covc[9:11,9:11] = profdat['mid']['cov'][9:11,9:11].copy() * norm_mid**2
         covc[11:,11:] = profdat['out']['cov'][11:,11:].copy() * norm_out**2
 
@@ -137,7 +149,7 @@ def run_psf_combine(inst, ifield):
                 else:
                     covc_rho[i,j] = covc[i,j] / np.sqrt(covc[i,i]*covc[j,j])
 
-        covcsub[:4,:4] = profdat[im]['covsub'][:4,:4].copy() * norm_in**2
+        covcsub[:4,:4] = prof_in_cov_sub[:4,:4].copy() * norm_in**2
         covcsub[4:6,4:6] = profdat['mid']['covsub'][4:6,4:6].copy() * norm_mid**2
         covcsub[6:,6:] = profdat['out']['covsub'][6:,6:].copy() * norm_out**2
 
@@ -216,7 +228,7 @@ def run_psf_synth_temp(inst, ifield, filt_order=3, savedata=True):
         profdat[im]['cov'] = stackdat['cov']['profcb']
         profdat[im]['covsub'] = stackdat['cov']['profcbsub']
         profdat[im]['sub'] = stackdat['sub']
-        
+
         if savedata:
             fname = mypaths['alldat'] + 'TM'+ str(inst) +\
              '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])

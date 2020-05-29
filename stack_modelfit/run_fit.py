@@ -184,7 +184,7 @@ class fit_stacking_mcmc:
 
         return
 
-    def get_profgal_model(self, subbin=True, **kwargs):
+    def get_profgal_model(self, subbin=True, return_all=False, **kwargs):
         
         dx = self.dx
         
@@ -218,15 +218,50 @@ class fit_stacking_mcmc:
                                       return_full=False)
         profgal = radial_prof(modconv_map, rbinedges=self.rbinedges/0.7,
                                   return_full=False)
+        
+        if return_all:
+            return profgal / profgal[0], profgal_sub / profgal[0]
+
         if subbin:
             return profgal_sub / profgal[0]
         else:
             return profgal / profgal[0]
+    
+    def get_profgal_model_interp(self):
 
-    def get_profexcess_model(self, **kwargs):
+        print('Pre-computing model profiles for interpolation...')
+        xe2_arr = np.logspace(np.log10(0.0001),np.log10(1),100)
+        profgal_arr = []
+        profgal_sub_arr = []
+        for xe2 in xe2_arr:
+            profgal, profgal_sub = self.get_profgal_model(return_all=True, xe2=xe2)
+            profgal_arr.append(profgal)
+            profgal_sub_arr.append(profgal_sub)
+
+        profgal_arr = np.array(profgal_arr)
+        profgal_sub_arr = np.array(profgal_sub_arr)
+        tcks = [interpolate.splrep(xe2_arr, np.log10(profgal_arr[:,i])) \
+                for i in range(profgal_arr.shape[1])]
+        tcks_sub = [interpolate.splrep(xe2_arr, np.log10(profgal_sub_arr[:,i])) \
+                    for i in range(profgal_sub_arr.shape[1])]
         
-        profgal = self.get_profgal_model(subbin=False,**kwargs)
-        profgal_sub = self.get_profgal_model(**kwargs)
+        self.logprofgal_tcks = tcks
+        self.logprofgal_sub_tcks = tcks_sub
+        return
+
+    def get_profexcess_model(self, fast=False, **kwargs):
+        
+        if fast and 'xe2' in kwargs.keys():
+            if 'logprofgal_tcks' not in dir(self):
+                self.get_profgal_model_interp()
+            xe2 = kwargs['xe2']
+            profgal = 10**np.array([interpolate.splev([xe2], tck)[0]\
+             for tck in self.logprofgal_tcks])
+            profgal_sub = 10**np.array([interpolate.splev([xe2], tck)[0]\
+             for tck in self.logprofgal_sub_tcks])
+
+        else:
+            profgal, profgal_sub = self.get_profgal_model(return_all=True,**kwargs)
         
         if 'A1h' in kwargs.keys(): 
             A1h = kwargs['A1h']
@@ -264,7 +299,7 @@ class fit_stacking_mcmc:
         return modelprof
     
     def get_chi2(self, **kwargs):
-        modelprof = self.get_profexcess_model(**kwargs)
+        modelprof = self.get_profexcess_model(fast=True, **kwargs)
         D = modelprof['profex_sub'] + modelprof['prof1h_sub'] +\
         modelprof['prof2h_sub'] - self.profex_sub
         Covi = self.covsub_inv
@@ -293,6 +328,9 @@ class fit_stacking_mcmc:
     def run_mcmc(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
                 return_sampler=False, save_chain=True, savedir = None, savename=None,
                 moves=None):
+        
+        self.get_profgal_model_interp()
+        
         ndim = 3
         p01 = np.random.uniform(0.0001, 1, nwalkers)
         p02 = np.random.uniform(0.0, 200, nwalkers)
