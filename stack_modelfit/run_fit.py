@@ -330,7 +330,7 @@ class fit_stacking_mcmc:
                 moves=None):
         
         self.get_profgal_model_interp()
-        
+
         ndim = 3
         p01 = np.random.uniform(0.0001, 1, nwalkers)
         p02 = np.random.uniform(0.0, 200, nwalkers)
@@ -382,6 +382,9 @@ class fit_stacking_mcmc:
     def run_mcmc_2par(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
                 return_sampler=False, save_chain=True, savedir = None, savename=None,
                 moves=None):
+
+        self.get_profgal_model_interp()
+
         ndim = 2
         p01 = np.random.uniform(0.0001, 1, nwalkers)
         p02 = np.random.uniform(0.0, 200, nwalkers)
@@ -445,7 +448,13 @@ class joint_fit_mcmc:
         self.m_max = magbindict['m_max'][im]
         self.filt_order = filt_order
         self.subsub = subsub
-        self.param_fits = [fit_stacking_mcmc(inst, i, im, filt_order, subsub=subsub) for i in ifield_list]
+        
+        self.param_fits = []
+        for ifield in ifield_list:
+            fit_params = fit_stacking_mcmc(inst, ifield, im, filt_order,
+             subsub=subsub)
+            fit_params.get_profgal_model_interp()
+            self.param_fits.append(fit_params)
         
         self.dof_data = 0
         for i in range(self.Nfields):
