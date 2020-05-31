@@ -544,3 +544,13 @@ def image_smooth_gauss(image, mask=None, stddev=5, return_unmasked=False):
     im_conv[mask==0] = 0
     
     return im_conv
+
+def normalize_cov(cov):
+    cov_rho = np.zeros_like(cov)
+    for i in range(cov_rho.shape[0]):
+        for j in range(cov_rho.shape[0]):
+            if cov[i,i]==0 or cov[j,j]==0:
+                cov_rho[i,j] = cov[i,j]
+            else:
+                cov_rho[i,j] = cov[i,j] / np.sqrt(cov[i,i]*cov[j,j])
+    return cov_rho
