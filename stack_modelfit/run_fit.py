@@ -315,7 +315,7 @@ class fit_stacking_mcmc:
 
     def _log_prior(self, theta):
         xe2, A1h, A2h = theta
-        if 0.0001 < xe2 < 1 and 0.0 < A1h < 200 and 0.0 < A2h < 200:
+        if 0.0001 < xe2 < 1 and 0.0 < A1h < 50 and 0.0 < A2h < 200:
             return 0.
         return -np.inf
 
@@ -333,7 +333,7 @@ class fit_stacking_mcmc:
         
         ndim = 3
         p01 = np.random.uniform(0.0001, 1, nwalkers)
-        p02 = np.random.uniform(0.0, 200, nwalkers)
+        p02 = np.random.uniform(0.0, 50, nwalkers)
         p03 = np.random.uniform(0.0, 200, nwalkers)
         p0 = np.stack((p01, p02, p03), axis=1)
         
