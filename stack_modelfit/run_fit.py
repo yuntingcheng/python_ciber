@@ -328,9 +328,9 @@ class fit_stacking_mcmc:
     def run_mcmc(self, nwalkers=100, steps=500, progress=True, return_chain=False, 
                 return_sampler=False, save_chain=True, savedir = None, savename=None,
                 moves=None):
+        if 'logprofgal_tcks' not in dir(self):
+            self.get_profgal_model_interp()
         
-        self.get_profgal_model_interp()
-
         ndim = 3
         p01 = np.random.uniform(0.0001, 1, nwalkers)
         p02 = np.random.uniform(0.0, 200, nwalkers)
