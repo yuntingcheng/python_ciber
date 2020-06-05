@@ -12,7 +12,7 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         psfdat[ifield] = {}
 
         DCsubmap = stackmapdat[ifield]['DCsubmap'].copy()
-        rbawmask = stackmapdat[ifield]['rawmask'].copy()
+        rawmask = stackmapdat[ifield]['rawmask'].copy()
 
         psfdat[ifield]['DCsubmap'] = DCsubmap
         psfdat[ifield]['mask_inst'] = rawmask
@@ -117,6 +117,9 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         profsub_arr = []
         profsubhit_arr = []
         mapstack, maskstack = 0., 0.
+
+        if len(xs) < Nsub:
+            Nsub_single = True
 
         if Nsub_single:
             Nsub = len(xs)

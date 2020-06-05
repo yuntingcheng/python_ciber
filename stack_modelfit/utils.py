@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy
 import pandas as pd
 from scipy.io import loadmat
 import pickle
@@ -554,3 +555,24 @@ def normalize_cov(cov):
             else:
                 cov_rho[i,j] = cov[i,j] / np.sqrt(cov[i,i]*cov[j,j])
     return cov_rho
+
+def plot_atcr(listsamp, title=None, plot=False):
+    numbsamp = listsamp.shape[0]
+    four = scipy.fftpack.fft(listsamp - np.mean(listsamp, axis=0), axis=0)
+    atcr = scipy.fftpack.ifft(four * np.conjugate(four), axis=0).real
+    atcr /= np.amax(atcr, 0)
+    autocorr = atcr[:int(numbsamp/2), ...]
+    indexatcr = np.where(autocorr > 0.2)
+    timeatcr = np.argmax(indexatcr[0], axis=0)
+    numbsampatcr = autocorr.size
+    if plot:
+        figr, axis = plt.subplots(figsize=(6,4))
+        plt.title(title, fontsize=16)
+        axis.plot(np.arange(numbsampatcr), autocorr)
+        axis.set_xlabel(r'$\tau$', fontsize=16)
+        axis.set_ylabel(r'$\xi(\tau)$', fontsize=16)
+        axis.text(0.8, 0.8, r'$\tau_{exp} = %.3g$' % timeatcr, ha='center',
+                  va='center', transform=axis.transAxes, fontsize=16)
+        axis.axhline(0., ls='--', alpha=0.5)
+        plt.tight_layout()
+    return np.arange(numbsampatcr), autocorr

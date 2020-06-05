@@ -159,8 +159,8 @@ class stacking:
             ms = srcdat['sub'][isub]['m' + srctype + '_arr']
             rs = get_mask_radius_th(ifield, ms) # arcsec
 
-            print('stacking %s %d < m < %d, #%d subsample, %d sources, t = %.2f min'\
-              %(fieldnamedict[ifield], m_min, m_max,isub,\
+            print('stacking %s %d < m < %d, #%d / %d subsample, %d sources, t = %.2f min'\
+              %(fieldnamedict[ifield], m_min, m_max,isub, srcdat['Nsub'],\
                len(xls), (time.time()-start_time)/60))
 
             cbmapstacki, psmapstacki, maskstacki = np.zeros([2*dx+1, 2*dx+1]), \
