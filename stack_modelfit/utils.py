@@ -426,7 +426,11 @@ def load_processed_images(data_maps,
     get the images processed from image_reduction
     
     valid map_names:
-    
+    'name': name of the field
+    'cf_G1': G1 cal factor, (e-/s) / (ADU/fr)
+    'cf_G2': G1 cal factor, (nW/m2/sr) / (e-/s)
+    'cf': cal factor G1G2, (nW/m2/sr) / (ADU/fr)
+    'Nfr': number of frame used in this field
     'rawmap': line fit w/o linearization [ADU/fr]
     'rawmask': DC inst mask * negative pixel mask * ts mask
     'DCmap': DC map [ADU/fr]
@@ -441,6 +445,9 @@ def load_processed_images(data_maps,
     'srcmap': source map from PanSTARRS & 2MASS bright sources [nW/m2/sr]
     'cbmap': mean sub 'map' with mask_inst * strmask [nW/m2/sr]
     'psmap': mean sub 'srcmap' with mask_inst * strmask [nW/m2/sr]
+    'mean_cb': mean intensity in CIBER image after masking with strmask and mask_inst [nW/m2/sr]
+    'mean_ps': mean intensity in srcmap image after masking with strmask and mask_inst [nW/m2/sr]
+    'cbgradmap': a 2D gradient (1st order polynominal) fit to CIBER image
     
     Input:
     =======
@@ -460,8 +467,19 @@ def load_processed_images(data_maps,
 
     return_maps = []
     for inst,ifield,name in return_names:
-        
-        if name == 'cbmap':
+        if name == 'name':
+            mapi = fieldnamedict[ifield]
+        if name == 'cf':
+            mapi = cal_factor_dict['apf2nWpm2psr'][inst][ifield]
+        elif name =='cf_G1':
+            mapi = cal_factor_dict['apf2eps'][inst]
+        elif name == 'cf_G2':
+            G1G2 = cal_factor_dict['apf2nWpm2psr'][inst][ifield]
+            G1 = cal_factor_dict['apf2eps'][inst]
+            mapi =  G1G2 / G1
+        elif name == 'Nfr':
+            mapi = data_maps[inst].stackmapdat[ifield]['Nfr']
+        elif name == 'cbmap':
             cf = cal_factor_dict['apf2nWpm2psr'][inst][ifield]
             mapi = data_maps[inst].stackmapdat[ifield]['map'].copy()
             mask_inst = data_maps[inst].stackmapdat[ifield]['mask_inst'].copy()
@@ -477,15 +495,37 @@ def load_processed_images(data_maps,
         elif name == 'DCmap':
             mapi = data_maps[inst].DCtemplate
             
+        elif name == 'mean_cb':
+            cf = cal_factor_dict['apf2nWpm2psr'][inst][ifield]
+            mapi = data_maps[inst].stackmapdat[ifield]['map'].copy()
+            mask_inst = data_maps[inst].stackmapdat[ifield]['mask_inst'].copy()
+            strmask = data_maps[inst].stackmapdat[ifield]['strmask'].copy()
+            mapi = cf * np.mean(mapi[mask_inst*strmask==1])
+
+        elif name == 'mean_ps':
+            mapi = data_maps[inst].stackmapdat[ifield]['srcmap'].copy()
+            mask_inst = data_maps[inst].stackmapdat[ifield]['mask_inst'].copy()
+            strmask = data_maps[inst].stackmapdat[ifield]['strmask'].copy()
+            mapi = np.mean(mapi[mask_inst*strmask==1])
+
+        elif name == 'cbgradmap':
+            cf = cal_factor_dict['apf2nWpm2psr'][inst][ifield]
+            mapi = data_maps[inst].stackmapdat[ifield]['map'].copy()
+            mask_inst = data_maps[inst].stackmapdat[ifield]['mask_inst'].copy()
+            strmask = data_maps[inst].stackmapdat[ifield]['strmask'].copy()
+            _, grad = image_poly_filter(cf*mapi, strmask*mask_inst, degree=1, return_bg=True)
+            mapi = grad
+            
         else:
             mapi = data_maps[inst].stackmapdat[ifield][name].copy() 
-        
+            
         if rotate_TM2 and inst==2:
             mapi = np.rot90(mapi, k=3)
 
         return_maps.append(mapi)
 
     return return_maps
+
 
 def image_poly_filter(image, mask=None, degree=2, return_bg=False):
     '''
