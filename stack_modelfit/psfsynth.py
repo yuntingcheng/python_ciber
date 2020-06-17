@@ -344,6 +344,19 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, filt_order=3, savedata=True
         
     return profdat
 
+def run_psf_synth_mag_all(inst, ifield):
+
+    filt_order = filt_order_dict[inst]
+    run_psf_synth_2m_mag(inst, ifield, 4, 9, filt_order=filt_order)
+    run_psf_synth_2m_mag(inst, ifield, 9, 10, filt_order=filt_order)
+    run_psf_synth_ps_mag(inst, ifield, 12, 13, filt_order=filt_order)
+    run_psf_synth_ps_mag(inst, ifield, 13, 14, filt_order=filt_order)
+    run_psf_synth_ps_mag(inst, ifield, 14, 15, filt_order=filt_order)
+    run_psf_synth_ps_mag(inst, ifield, 15, 16, filt_order=filt_order)
+    
+    return
+
+
 # def run_psf_synth_temp(inst, ifield, filt_order=3, savedata=True):
 
 #     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
