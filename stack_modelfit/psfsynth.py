@@ -247,8 +247,11 @@ def run_psf_combine_old(inst, ifield, savedata=True, idx_comb=(9,10)):
     
     return profdat
 
-def run_psf_synth_2m_mag(inst, ifield, m_min, m_max, filt_order=3, savedata=True):
-    data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+def run_psf_synth_2m_mag(inst, ifield, m_min, m_max, data_maps=None,
+    filt_order=3, savedata=True):
+    
+    if data_maps is None:
+        data_maps = {1: image_reduction(1), 2: image_reduction(2)}
 
     cal = -cal_factor_dict['apf2nWpm2psr'][inst][ifield]
     
@@ -282,14 +285,16 @@ def run_psf_synth_2m_mag(inst, ifield, m_min, m_max, filt_order=3, savedata=True
 
     return profdat
 
-def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, filt_order=3, savedata=True):
+def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
+ filt_order=3, savedata=True, ):
 
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
     with open(fname, "rb") as f:
         profdat0 = pickle.load(f)
 
-    data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+    if data_maps is None:
+        data_maps = {1: image_reduction(1), 2: image_reduction(2)}
     
     profdat = {}
     profdat['rbins'] = profdat0['rbins']
@@ -346,14 +351,21 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, filt_order=3, savedata=True
 
 def run_psf_synth_mag_all(inst, ifield):
 
+    data_maps = {1: image_reduction(1), 2: image_reduction(2)}
     filt_order = filt_order_dict[inst]
-    run_psf_synth_2m_mag(inst, ifield, 4, 9, filt_order=filt_order)
-    run_psf_synth_2m_mag(inst, ifield, 9, 10, filt_order=filt_order)
-    run_psf_synth_ps_mag(inst, ifield, 12, 13, filt_order=filt_order)
-    run_psf_synth_ps_mag(inst, ifield, 13, 14, filt_order=filt_order)
-    run_psf_synth_ps_mag(inst, ifield, 14, 15, filt_order=filt_order)
-    run_psf_synth_ps_mag(inst, ifield, 15, 16, filt_order=filt_order)
-    
+    run_psf_synth_2m_mag(inst, ifield, 4, 9, filt_order=filt_order,
+     data_maps=data_maps)
+    run_psf_synth_2m_mag(inst, ifield, 9, 10, filt_order=filt_order,
+        data_maps=data_maps)
+    run_psf_synth_ps_mag(inst, ifield, 12, 13, filt_order=filt_order,
+        data_maps=data_maps)
+    run_psf_synth_ps_mag(inst, ifield, 13, 14, filt_order=filt_order,
+        data_maps=data_maps)
+    run_psf_synth_ps_mag(inst, ifield, 14, 15, filt_order=filt_order,
+        data_maps=data_maps)
+    run_psf_synth_ps_mag(inst, ifield, 15, 16, filt_order=filt_order,
+        data_maps=data_maps)
+
     return
 
 
