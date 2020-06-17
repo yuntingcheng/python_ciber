@@ -100,7 +100,75 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
     
     return profdat
 
-def run_psf_combine(inst, ifield, savedata=True, idx_comb=(9,10)):
+def run_psf_combine(inst, ifield, savedata=True):
+
+    profc = np.zeros(25)
+    profcsub = np.zeros(15)
+    covc = np.zeros([25,25])
+    covcsub = np.zeros([15,15])
+
+    m_min, m_max = 13, 14
+    if inst ==1 and ifield ==4:
+        m_min, m_max = 14,15
+    fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+     '/psfdata_synth_ps_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
+    with open(fname, "rb") as f:
+        profdat = pickle.load(f)
+
+    profc[:12] = profdat['profcb'][:12] / profdat['profcb'][0]
+    profcsub[:7] = profdat['profcbsub'][:7] / profdat['profcb'][0]
+    covc[:12,:12] = profdat['cov'][:12,:12] / profdat['profcb'][0]**2
+    covcsub[:7,:7] = profdat['covsub'][:7,:7] / profdat['profcb'][0]**2
+
+    m_min, m_max = 9, 10
+    fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+     '/psfdata_synth_2m_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
+    with open(fname, "rb") as f:
+        profdat = pickle.load(f)
+    slope_mid = np.polyfit(np.log10(profdat['rbins'][11:15]),
+                       np.log10(profdat['profcb'][11:15]),1)[0]
+    proffit = 10 ** (slope_mid * np.log10(profdat['rbins']))
+    proffitsub = 10 ** (slope_mid * np.log10(profdat['rsubbins']))
+    profc[11:14] = proffit[11:14] / proffit[11] * profc[11]
+    profcsub[6:9] = proffitsub[6:9] / proffitsub[6] * profcsub[6]
+
+    m_min, m_max = 4, 9
+    fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+     '/psfdata_synth_2m_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
+    with open(fname, "rb") as f:
+        profdat = pickle.load(f)
+    slope_out = np.polyfit(np.log10(profdat['rbins'][11:17]),
+                       np.log10(profdat['profcb'][11:17]),1)[0]
+    proffit = 10 ** (slope_out * np.log10(profdat['rbins']))
+    proffitsub = 10 ** (slope_out * np.log10(profdat['rsubbins']))
+
+    profc[13:] = proffit[13:] / proffit[13] * profc[13]
+    profcsub[8:] = proffitsub[8:] / proffitsub[8] * profcsub[8]
+
+
+    fname = mypaths['alldat'] + 'TM'+ str(inst) + \
+    '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
+    with open(fname, "rb") as f:
+        profdat = pickle.load(f)
+    
+    for im,(m_min,m_max) in enumerate(zip(magbindict['m_min'],magbindict['m_max'])):
+        profdat[im]['comb'] = {}
+        profdat[im]['comb']['profcb'] = profc
+        profdat[im]['comb']['profcb_err'] = np.sqrt(np.diag(covc))
+        profdat[im]['comb']['profcbsub'] = profcsub
+        profdat[im]['comb']['profcbsub_err'] = np.sqrt(np.diag(covcsub))
+        profdat[im]['comb']['cov'] = covc
+        profdat[im]['comb']['covsub'] = covcsub
+        profdat[im]['comb']['cov_rho'] = normalize_cov(covc)
+        profdat[im]['comb']['covsub_rho'] = normalize_cov(covcsub)
+
+    if savedata:
+        with open(fname, "wb") as f:
+            pickle.dump(profdat, f)
+    
+    return profdat
+
+def run_psf_combine_old(inst, ifield, savedata=True, idx_comb=(9,10)):
     
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
@@ -128,12 +196,9 @@ def run_psf_combine(inst, ifield, savedata=True, idx_comb=(9,10)):
             prof_in_cov_sub = profdat[im]['covsub'].copy()
 
         norm_in = 1 / prof_in[0]
-        # norm_mid = norm_in * prof_in[8] / profdat['mid']['profcb'][8]
         norm_mid = norm_in * prof_in[i1] / profdat['mid']['profcb'][i1]
         norm_out = norm_mid * profdat['mid']['profcb'][i2] / profdat['out']['profcb'][i2]
 
-        # profc[:9] = prof_in[:9].copy() * norm_in
-        # profc[9:11] = profdat['mid']['profcb'][9:11].copy() * norm_mid
         profc[:i1+1] = prof_in[:i1+1].copy() * norm_in
         profc[i1+1:i2+1] = profdat['mid']['profcb'][i1+1:i2+1].copy() * norm_mid
         profc[i2+1:] = profdat['out']['profcb'][i2+1:].copy() * norm_out
@@ -142,8 +207,6 @@ def run_psf_combine(inst, ifield, savedata=True, idx_comb=(9,10)):
         profcsub[4:6] = profdat['mid']['profcbsub'][4:6].copy() * norm_mid
         profcsub[6:] = profdat['out']['profcbsub'][6:].copy() * norm_out
 
-        # covc[:9,:9] = prof_in_cov[:9,:9].copy() * norm_in**2
-        # covc[9:11,9:11] = profdat['mid']['cov'][9:11,9:11].copy() * norm_mid**2
         covc[:i1+1,:i1+1] = prof_in_cov[:i1+1,:i1+1].copy() * norm_in**2
         covc[i1+1:i2+1,i1+1:i2+1] = profdat['mid']['cov'][i1+1:i2+1,10:i2+1].copy() * norm_mid**2
         covc[i2+1:,i2+1:] = profdat['out']['cov'][i2+1:,i2+1:].copy() * norm_out**2
