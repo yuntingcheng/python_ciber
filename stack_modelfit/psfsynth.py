@@ -360,7 +360,7 @@ def run_psf_synth_gaia_mag(inst, ifield, m_min, m_max, data_maps=None,
     cal = -cal_factor_dict['apf2nWpm2psr'][inst][ifield]
     
     psfdata_out = stack_psf(inst, data_maps[inst].stackmapdat,m_min=m_min, m_max=m_max,
-     ifield_arr=[ifield], Nsub_single=True, savedata=False, save_stackmap=False, catname='GAIA')
+     ifield_arr=[ifield], Nsub_single=False, savedata=False, save_stackmap=False, catname='GAIA')
 
     profdat = {}
     profdat['rbins'] = psfdata_out[ifield]['rbins']
