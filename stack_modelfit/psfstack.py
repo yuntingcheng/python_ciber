@@ -1,7 +1,8 @@
 from stack_ancillary import *
 
 def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
-    ifield_arr=[4,5,6,7,8], Nsub_single=True, savedata=True, save_stackmap=True):
+    ifield_arr=[4,5,6,7,8], Nsub_single=True, savedata=True,
+     save_stackmap=True, catname='2MASS'):
     print('Stack 2MASS stars for PSF ...')
 
     # get data & mask
@@ -17,15 +18,25 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         psfdat[ifield]['DCsubmap'] = DCsubmap
         psfdat[ifield]['mask_inst'] = rawmask
 
-        catdir = mypaths['2Mcatdat']
-        df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+        if catname == '2MASS':
+            catdir = mypaths['2Mcatdat']
+            df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+            xs = df['y'+str(inst)].values
+            ys = df['x'+str(inst)].values
+            ms = df['j'].values + 2.5*np.log10(1594./3631.) # convert to vega mag
+            sp = np.where((ms < 17) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
+            xs, ys, ms = xs[sp], ys[sp], ms[sp]
+            rs = -6.25 * ms + 110
+        elif catname == 'GAIA':
+            catdir = mypaths['GAIAcatdat']
+            df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+            xs = df['y'+str(inst)].values
+            ys = df['x'+str(inst)].values
+            ms = df['phot_g_mean_mag'].values
+            sp = np.where((ms < 17) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
+            xs, ys, ms = xs[sp], ys[sp], ms[sp]
+            rs = -6.25 * ms + 110
 
-        xs = df['y'+str(inst)].values
-        ys = df['x'+str(inst)].values
-        ms = df['j'].values + 2.5*np.log10(1594./3631.) # convert to vega mag
-        sp = np.where((ms < 17) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
-        xs, ys, ms = xs[sp], ys[sp], ms[sp]
-        rs = -6.25 * ms + 110
 
         strmask = np.ones([1024,1024])
         strnum = np.zeros([1024,1024])
@@ -101,16 +112,29 @@ def stack_psf(inst, stackmapdat, m_min=12, m_max=14, Nsub=10,
         strnum = psfdat[ifield]['strnum'].copy()
         mapin = mapin - np.mean(mapin[mask_inst*strmask==1])
 
-        catdir = mypaths['2Mcatdat']
-        df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
-
-        xs = df['y'+str(inst)].values
-        ys = df['x'+str(inst)].values
-        ms = df['j'].values + 2.5*np.log10(1594./3631.) # convert to vega mag
-        sp = np.where((ms>m_min) & (ms<m_max) &\
-         (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5))[0]
-        xs, ys, ms = xs[sp], ys[sp], ms[sp]
-        rs = -6.25 * ms + 110
+        if catname == '2MASS':
+            catdir = mypaths['2Mcatdat']
+            df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+            xs = df['y'+str(inst)].values
+            ys = df['x'+str(inst)].values
+            ms = df['j'].values + 2.5*np.log10(1594./3631.) # convert to vega mag
+            sp = np.where((ms>m_min) & (ms<m_max) &\
+             (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5))[0]
+            xs, ys, ms = xs[sp], ys[sp], ms[sp]
+            rs = -6.25 * ms + 110
+        elif catname == 'GAIA':
+            catdir = mypaths['GAIAcatdat']
+            df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+            df = df[df['parallax']==df['parallax']]
+            xs = df['y'+str(inst)].values
+            ys = df['x'+str(inst)].values
+            ms = df['phot_g_mean_mag'].values
+            parallax = df['parallax'].values
+            sp = np.where((ms>m_min) & (ms<m_max) &\
+             (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5) &\
+              (parallax > 1/5e3))[0]
+            xs, ys, ms = xs[sp], ys[sp], ms[sp]
+            rs = -6.25 * ms + 110
 
         prof_arr = []
         profhit_arr = []

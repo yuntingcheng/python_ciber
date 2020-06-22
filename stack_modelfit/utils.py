@@ -7,6 +7,10 @@ import pickle
 from ciber_info import *
 from utils_plotting import *
 from IPython.display import clear_output
+import astropy.io.fits as fits
+import astropy.wcs as wcs
+from astropy.coordinates import SkyCoord
+from astropy.coordinates import match_coordinates_sky
 from astropy import units as u
 from astropy import cosmology
 cosmo = cosmology.Planck15
@@ -616,3 +620,42 @@ def plot_atcr(listsamp, title=None, plot=False):
         axis.axhline(0., ls='--', alpha=0.5)
         plt.tight_layout()
     return np.arange(numbsampatcr), autocorr
+
+def catalog_add_xy_from_radec(field, df):
+    order = [c for c in df.columns]
+    # find the x, y solution with all quad
+    for inst in [1,2]:
+        hdrdir = mypaths['ciberdir'] + 'doc/20170617_Stacking/maps/astroutputs/inst' + str(inst) + '/'
+        xoff = [0,0,512,512]
+        yoff = [0,512,0,512]
+        for iquad,quad in enumerate(['A','B','C','D']):
+            hdulist = fits.open(hdrdir + field + '_' + quad + '_astr.fits')
+            wcs_hdr=wcs.WCS(hdulist[('primary',1)].header, hdulist)
+            hdulist.close()
+            src_coord = SkyCoord(ra=df['ra']*u.degree, dec=df['dec']*u.degree, frame='icrs')
+
+            x_arr, y_arr = wcs_hdr.all_world2pix(df['ra'],df['dec'],0)
+            df['x' + quad] = x_arr + xoff[iquad]
+            df['y' + quad] = y_arr + yoff[iquad]
+
+        df['meanx'] = (df['xA'] + df['xB'] + df['xC'] + df['xD']) / 4
+        df['meany'] = (df['yA'] + df['yB'] + df['yC'] + df['yD']) / 4
+
+        # assign the x, y with the nearest quad solution
+        df['x'+str(inst)] = df['xA'].copy()
+        df['y'+str(inst)] = df['yA'].copy()
+        bound = 511.5
+        df.loc[ (df['meanx'] < bound) & (df['meany'] > bound),'x'+str(inst)] = df['xB']
+        df.loc[ (df['meanx'] < bound) & (df['meany'] > bound),'y'+str(inst)] = df['yB']
+        
+        df.loc[ (df['meanx'] > bound) & (df['meany'] < bound),'x'+str(inst)] = df['xC']
+        df.loc[ (df['meanx'] > bound) & (df['meany'] < bound),'y'+str(inst)] = df['yC']
+
+        df.loc[ (df['meanx'] > bound) & (df['meany'] > bound),'x'+str(inst)] = df['xD']
+        df.loc[ (df['meanx'] > bound) & (df['meany'] > bound),'y'+str(inst)] = df['yD']
+
+    # write x, y to df
+    order = order[:2] + ['x1','y1','x2','y2'] + order[2:]
+    dfout = df[order].copy()
+    
+    return dfout
