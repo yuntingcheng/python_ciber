@@ -422,7 +422,8 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
     clipmax = Q3 + 3 * (Q3 - Q1)
     mask_inst[(cbmap > clipmax) & (mask_inst*strmask==1)] = 0
     mask_inst[(cbmap < clipmin) & (mask_inst*strmask==1)] = 0
-    
+    cbmap = cbmap - np.mean(cbmap[mask_inst*strmask==1])
+
     # get cliplim
     df = df[df['parallax']==df['parallax']]
     xs = df['y'+str(inst)].values
