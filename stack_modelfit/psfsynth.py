@@ -405,9 +405,9 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
     xs = df['y'+str(inst)].values
     ys = df['x'+str(inst)].values
     ms = df['phot_g_mean_mag'].values
-    sp = np.where((ms < 17) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
+    sp = np.where((ms < 20) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
     xs, ys, ms = xs[sp], ys[sp], ms[sp]
-    rs = -6.25 * ms + 110
+    rs = get_mask_radius_th(ifield, ms)
     
     strmask = np.ones([1024,1024])
     strnum = np.zeros([1024,1024])
@@ -434,7 +434,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
      (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5) &\
       (parallax > 1/5e3))[0]
     xs, ys, ms = xs[sp], ys[sp], ms[sp]
-    rs = -6.25 * ms + 110
+    rs = get_mask_radius_th(ifield, ms)
     
     nbins = 25
     dx = 1200
@@ -444,7 +444,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
               'CBmax': np.full((nbins), np.inf),
               'CBmin': np.full((nbins), -np.inf),
               }
-    if m_max <= 17:
+    if m_max <= 20:
         if len(ms)>1000:
             sp = np.arange(len(ms))
             np.random.shuffle(sp)
@@ -488,7 +488,6 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
             IQR = Q3 - Q1
             cliplim['CBmin'][ibin], cliplim['CBmax'][ibin]= Q1-3*IQR, Q3+3*IQR
     
-
     # stack
     stack_class = stacking_mock(inst)
     psfdata = {}
