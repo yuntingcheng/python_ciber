@@ -389,8 +389,6 @@ def run_psf_synth_gaia_mag(inst, ifield, m_min, m_max, data_maps=None,
 
     return profdat
 
-from stack_ancillary import *
-
 def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
     filt_order=3, Nsub_single=False, save_stackmap=False, savedata=True):
 
@@ -410,7 +408,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
     sp = np.where((ms < 17) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
     xs, ys, ms = xs[sp], ys[sp], ms[sp]
     rs = -6.25 * ms + 110
-        
+    
     strmask = np.ones([1024,1024])
     strnum = np.zeros([1024,1024])
     for i,(x,y,r) in enumerate(zip(xs, ys, rs)):
@@ -437,57 +435,59 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
     xs, ys, ms = xs[sp], ys[sp], ms[sp]
     rs = -6.25 * ms + 110
     
-    if len(ms)>1000:
-        sp = np.arange(len(ms))
-        np.random.shuffle(sp)
-        sp = sp[:1000]
-    else:
-        sp = np.arange(len(ms))
-    xs, ys, ms, rs = xs[sp], ys[sp], ms[sp], rs[sp]
-
     nbins = 25
     dx = 1200
     profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
     rbinedges, rbins = profile['rbinedges'], profile['rbins'] # subpix units
-
-    cbdata = {}
-    for i in range(len(rbins)):
-        cbdata[i] = np.array([])
-
-    for isrc in range(len(xs)):
-        radmap = make_radius_map(cbmap, xs[isrc], ys[isrc]) # large pix units
-        sp1 = np.where((radmap < rs[isrc]/7) & (strnum==1) & (mask_inst==1))
-        if len(sp1[0])==0:
-            continue
-
-        # unmasked radii and their CBmap values
-        ri = radmap[sp1]*10 # sub pix units
-        cbi = cbmap[sp1]
-
-        for ibin in range(len(rbins)):
-            spi = np.where((ri>rbinedges[ibin]) & (ri<rbinedges[ibin+1]))[0]
-            if len(spi)==0:
-                continue
-            cbdata[ibin] = np.append(cbdata[ibin], cbi[spi])
-
     cliplim = {'rbins': rbins*0.7, 'rbinedges': rbinedges*0.7,
               'CBmax': np.full((nbins), np.inf),
               'CBmin': np.full((nbins), -np.inf),
               }
+    if m_max <= 17:
+        if len(ms)>1000:
+            sp = np.arange(len(ms))
+            np.random.shuffle(sp)
+            sp = sp[:1000]
+        else:
+            sp = np.arange(len(ms))
+        x_arr, y_arr, m_arr, r_arr = xs[sp], ys[sp], ms[sp], rs[sp]
 
-    d = np.concatenate((cbdata[0],cbdata[1],cbdata[2],cbdata[3]))
-    Q1, Q3 = np.percentile(d, 25), np.percentile(d, 75)
-    IQR = Q3 - Q1
-    cliplim['CBmin'][:4], cliplim['CBmax'][:4]= Q1-3*IQR, Q3+3*IQR
 
-    for ibin in np.arange(4,nbins,1):
-        d = cbdata[ibin]
-        if len(d)==0:
-            continue
+        cbdata = {}
+        for i in range(len(rbins)):
+            cbdata[i] = np.array([])
+
+        for isrc in range(len(x_arr)):
+            radmap = make_radius_map(cbmap, x_arr[isrc], y_arr[isrc]) # large pix units
+
+            sp1 = np.where((radmap < r_arr[isrc]/7) & (strnum==1) & (mask_inst==1))
+            if len(sp1[0])==0:
+                continue
+            # unmasked radii and their CBmap values
+            ri = radmap[sp1]*10 # sub pix units
+            cbi = cbmap[sp1]
+
+            for ibin in range(len(rbins)):
+                spi = np.where((ri>rbinedges[ibin]) & (ri<rbinedges[ibin+1]))[0]
+                if len(spi)==0:
+                    continue
+                cbdata[ibin] = np.append(cbdata[ibin], cbi[spi])
+
+
+        d = np.concatenate((cbdata[0],cbdata[1],cbdata[2],cbdata[3]))
         Q1, Q3 = np.percentile(d, 25), np.percentile(d, 75)
         IQR = Q3 - Q1
-        cliplim['CBmin'][ibin], cliplim['CBmax'][ibin]= Q1-3*IQR, Q3+3*IQR
-
+        cliplim['CBmin'][:4], cliplim['CBmax'][:4]= Q1-3*IQR, Q3+3*IQR
+    
+        for ibin in np.arange(4,nbins,1):
+            d = cbdata[ibin]
+            if len(d)==0:
+                continue
+            Q1, Q3 = np.percentile(d, 25), np.percentile(d, 75)
+            IQR = Q3 - Q1
+            cliplim['CBmin'][ibin], cliplim['CBmax'][ibin]= Q1-3*IQR, Q3+3*IQR
+    
+    print(cliplim)
     # stack
     stack_class = stacking_mock(inst)
     psfdata = {}
@@ -591,6 +591,8 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
             pickle.dump(profdat, f)
 
     return profdat
+
+
 
 
 
