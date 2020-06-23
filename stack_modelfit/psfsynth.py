@@ -352,7 +352,7 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
     return profdat
 
 def run_psf_synth_gaia_mag(inst, ifield, m_min, m_max, data_maps=None,
-    filt_order=3, savedata=True):
+    savedata=True):
     
     if data_maps is None:
         data_maps = {1: image_reduction(1), 2: image_reduction(2)}
@@ -389,6 +389,211 @@ def run_psf_synth_gaia_mag(inst, ifield, m_min, m_max, data_maps=None,
 
     return profdat
 
+from stack_ancillary import *
+
+def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
+    filt_order=3, Nsub_single=False, save_stackmap=False, savedata=True):
+
+    if data_maps is None:
+        data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+        
+    cbmap, mask_inst= \
+    load_processed_images(data_maps, return_names=[(inst,ifield,'cbmap'), 
+                                       (inst,ifield,'mask_inst')])
+    
+    # get data & mask
+    catdir = mypaths['GAIAcatdat']
+    df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+    xs = df['y'+str(inst)].values
+    ys = df['x'+str(inst)].values
+    ms = df['phot_g_mean_mag'].values
+    sp = np.where((ms < 17) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
+    xs, ys, ms = xs[sp], ys[sp], ms[sp]
+    rs = -6.25 * ms + 110
+        
+    strmask = np.ones([1024,1024])
+    strnum = np.zeros([1024,1024])
+    for i,(x,y,r) in enumerate(zip(xs, ys, rs)):
+        radmap = make_radius_map(strmask, x, y)
+        strmask[radmap < r/7.] = 0
+        strnum[radmap < r/7.] += 1
+
+    Q1 = np.percentile(cbmap[(mask_inst*strmask==1)], 25)
+    Q3 = np.percentile(cbmap[(mask_inst*strmask==1)], 75)
+    clipmin = Q1 - 3 * (Q3 - Q1)
+    clipmax = Q3 + 3 * (Q3 - Q1)
+    mask_inst[(cbmap > clipmax) & (mask_inst*strmask==1)] = 0
+    mask_inst[(cbmap < clipmin) & (mask_inst*strmask==1)] = 0
+    
+    # get cliplim
+    df = df[df['parallax']==df['parallax']]
+    xs = df['y'+str(inst)].values
+    ys = df['x'+str(inst)].values
+    ms = df['phot_g_mean_mag'].values
+    parallax = df['parallax'].values
+    sp = np.where((ms>m_min) & (ms<m_max) &\
+     (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5) &\
+      (parallax > 1/5e3))[0]
+    xs, ys, ms = xs[sp], ys[sp], ms[sp]
+    rs = -6.25 * ms + 110
+    
+    if len(ms)>1000:
+        sp = np.arange(len(ms))
+        np.random.shuffle(sp)
+        sp = sp[:1000]
+    else:
+        sp = np.arange(len(ms))
+    xs, ys, ms, rs = xs[sp], ys[sp], ms[sp], rs[sp]
+
+    nbins = 25
+    dx = 1200
+    profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
+    rbinedges, rbins = profile['rbinedges'], profile['rbins'] # subpix units
+
+    cbdata = {}
+    for i in range(len(rbins)):
+        cbdata[i] = np.array([])
+
+    for isrc in range(len(xs)):
+        radmap = make_radius_map(cbmap, xs[isrc], ys[isrc]) # large pix units
+        sp1 = np.where((radmap < rs[isrc]/7) & (strnum==1) & (mask_inst==1))
+        if len(sp1[0])==0:
+            continue
+
+        # unmasked radii and their CBmap values
+        ri = radmap[sp1]*10 # sub pix units
+        cbi = cbmap[sp1]
+
+        for ibin in range(len(rbins)):
+            spi = np.where((ri>rbinedges[ibin]) & (ri<rbinedges[ibin+1]))[0]
+            if len(spi)==0:
+                continue
+            cbdata[ibin] = np.append(cbdata[ibin], cbi[spi])
+
+    cliplim = {'rbins': rbins*0.7, 'rbinedges': rbinedges*0.7,
+              'CBmax': np.full((nbins), np.inf),
+              'CBmin': np.full((nbins), -np.inf),
+              }
+
+    d = np.concatenate((cbdata[0],cbdata[1],cbdata[2],cbdata[3]))
+    Q1, Q3 = np.percentile(d, 25), np.percentile(d, 75)
+    IQR = Q3 - Q1
+    cliplim['CBmin'][:4], cliplim['CBmax'][:4]= Q1-3*IQR, Q3+3*IQR
+
+    for ibin in np.arange(4,nbins,1):
+        d = cbdata[ibin]
+        if len(d)==0:
+            continue
+        Q1, Q3 = np.percentile(d, 25), np.percentile(d, 75)
+        IQR = Q3 - Q1
+        cliplim['CBmin'][ibin], cliplim['CBmax'][ibin]= Q1-3*IQR, Q3+3*IQR
+
+    # stack
+    stack_class = stacking_mock(inst)
+    psfdata = {}
+
+    prof_arr = []
+    profhit_arr = []
+    profsub_arr = []
+    profsubhit_arr = []
+    mapstack, maskstack = 0., 0.
+
+    if len(xs) < Nsub:
+        Nsub_single = True
+
+    if Nsub_single:
+        Nsub = len(xs)
+
+    for isub in range(Nsub):
+        print('stack PSF %s %d/%d'%(fieldnamedict[ifield],isub,Nsub))
+        stack_class.xls = xs[isub::Nsub]
+        stack_class.yls = ys[isub::Nsub]
+        stack_class.ms = ms[isub::Nsub]
+        stack_class.rs = rs[isub::Nsub]
+
+        stackdat, stacki, maskstacki, mapstacki \
+        = stack_class.run_stacking(cbmap, mask_inst*strmask, strnum, 
+                                   mask_inst=mask_inst,return_all=True,
+                                    update_mask=False, verbose=True)
+        mapstack += mapstacki
+        maskstack += maskstacki
+
+        prof_arr.append(stackdat['prof'])
+        profhit_arr.append(stackdat['profhit'])
+        profsub_arr.append(stackdat['profsub'])
+        profsubhit_arr.append(stackdat['profhitsub'])
+
+    stack = np.zeros_like(mapstack)
+    sp = np.where(maskstack!=0)
+    stack[sp] = mapstack[sp] / maskstack[sp]
+    stack[maskstack==0] = 0
+
+    prof_arr = np.array(prof_arr)
+    profhit_arr = np.array(profhit_arr)
+    profsub_arr = np.array(profsub_arr)
+    profsubhit_arr = np.array(profsubhit_arr)
+
+    prof = (np.sum(prof_arr * profhit_arr, axis=0) / np.sum(profhit_arr, axis=0))
+    profsub = (np.sum(profsub_arr * profsubhit_arr, axis=0) / np.sum(profsubhit_arr, axis=0))  
+
+    profjack_arr = np.zeros_like(prof_arr)
+    profsubjack_arr = np.zeros_like(profsub_arr)
+
+    for isub in range(Nsub):
+        proftot = np.sum(prof_arr * profhit_arr, axis=0)
+        profi = prof_arr[isub] * profhit_arr[isub]
+        hittot = np.sum(profhit_arr, axis=0)
+        hiti = profhit_arr[isub]
+        profjack_arr[isub] = (proftot - profi) / (hittot - hiti)
+
+        proftot = np.sum(profsub_arr * profsubhit_arr, axis=0)
+        profi = profsub_arr[isub] * profsubhit_arr[isub]
+        hittot = np.sum(profsubhit_arr, axis=0)
+        hiti = profsubhit_arr[isub]    
+        profsubjack_arr[isub] = (proftot - profi) / (hittot - hiti)
+
+    cov = np.zeros([len(prof),len(prof)])
+    for i in range(len(prof)):
+        for j in range(len(prof)):
+            cov[i,j] = np.mean(profjack_arr[:,i]*profjack_arr[:,j]) \
+            - np.mean(profjack_arr[:,i])*np.mean(profjack_arr[:,j])
+    cov *= (Nsub-1)
+
+    covsub = np.zeros([len(profsub),len(profsub)])
+    for i in range(len(profsub)):
+        for j in range(len(profsub)):
+            covsub[i,j] = np.mean(profsubjack_arr[:,i]*profsubjack_arr[:,j]) \
+            - np.mean(profsubjack_arr[:,i])*np.mean(profsubjack_arr[:,j])
+    covsub *= (Nsub-1)
+
+    profdat = {}
+    profdat['Nsrc'] = len(xs)
+    profdat['m_min'] = m_min
+    profdat['m_max'] = m_max
+    profdat['rbins'] = stackdat['rbins'].copy()
+    profdat['rbinedges'] = stackdat['rbinedges'].copy()
+    profdat['rsubbins'] = stackdat['rsubbins'].copy()
+    profdat['rsubbinedges'] = stackdat['rsubbinedges'].copy()
+    profdat['profcb'] = prof
+    profdat['profcbsub'] = profsub
+    profdat['profhit'] = np.sum(profhit_arr,axis=0)
+    profdat['profcb_err'] = np.sqrt(np.diag(cov))
+    profdat['profcbsub_err'] = np.sqrt(np.diag(covsub))
+    profdat['cov'] = cov
+    profdat['covsub'] = covsub
+    if save_stackmap:
+        profdat['stackmap'] = stack
+
+    if savedata:
+        fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+         '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
+        with open(fname, "wb") as f:
+            pickle.dump(profdat, f)
+
+    return profdat
+
+
+
 def run_psf_synth_mag_all(inst, ifield):
 
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
@@ -413,69 +618,9 @@ def run_psf_synth_mag_all_gaia(inst, ifield, m_min_arr, m_max_arr):
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
     filt_order = filt_order_dict[inst]
     for m_min, m_max in zip(m_min_arr, m_max_arr):
-        run_psf_synth_gaia_mag(inst, ifield, m_min, m_max, filt_order=filt_order,
-         data_maps=data_maps)
+        # run_psf_synth_gaia_mag(inst, ifield, m_min, m_max, filt_order=filt_order,
+        #  data_maps=data_maps)
+        stack_gaia(inst, ifield, data_maps=data_maps, m_min=m_min, m_max=m_max,
+            filt_order=filt_order)
 
     return
-
-# def run_psf_synth_temp(inst, ifield, filt_order=3, savedata=True):
-
-#     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
-#     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
-#     with open(fname, "rb") as f:
-#         profdat = pickle.load(f)
-
-#     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
-
-#     if savedata:
-#         fname = mypaths['alldat'] + 'TM'+ str(inst) +\
-#          '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
-#         with open(fname, "wb") as f:
-#             pickle.dump(profdat, f)
-    
-#     mapin, strmask, strnum, mask_inst1, mask_inst2 = \
-#     load_processed_images(data_maps, return_names=[(inst,ifield,'cbmap'), 
-#                                        (inst,ifield,'strmask'), 
-#                                        (inst,ifield,'strnum'),
-#                                        (1,ifield,'mask_inst'),
-#                                        (2,ifield,'mask_inst')])
-    
-#     for im, (m_min, m_max) in enumerate(zip(magbindict['m_min'], magbindict['m_max'])):
-#         # if im !=3:
-#         #     continue
-#         stack_class = stacking(inst, ifield, m_min, m_max, filt_order=filt_order, 
-#                             load_from_file=True,BGsub=False)
-
-#         cliplim = stack_class._stackihl_PS_cliplim()
-
-#         srcdat = ps_src_select(inst, ifield, m_min, m_max, 
-#             [mask_inst1, mask_inst2], sample_type='jack_region')
-
-#         stackdat = stack_class.stack_PS(srctype='s',cliplim=cliplim, 
-#                                         srcdat=srcdat, verbose=False)
-#         stack_class.stackdat = stackdat
-#         stack_class._get_jackknife_profile()
-#         stack_class._get_covariance()
-
-#         profdat[im] = {}
-#         profdat[im]['m_min'] = m_min
-#         profdat[im]['m_max'] = m_max
-#         profdat[im]['Nsrc'] = stackdat['Nsrc']
-#         profdat[im]['profcb'] = stack_class.stackdat['profcb']
-#         profdat[im]['profcb_err'] = np.sqrt(np.diag(stackdat['cov']['profcb']))
-#         profdat[im]['profcbsub'] = stack_class.stackdat['profcbsub']
-#         profdat[im]['profcbsub_err'] = np.sqrt(np.diag(stackdat['cov']['profcbsub']))
-#         profdat[im]['cov'] = stackdat['cov']['profcb']
-#         profdat[im]['covsub'] = stackdat['cov']['profcbsub']
-#         profdat[im]['sub'] = stackdat['sub']
-
-#         if savedata:
-#             fname = mypaths['alldat'] + 'TM'+ str(inst) +\
-#              '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
-#             with open(fname, "wb") as f:
-#                 pickle.dump(profdat, f)
-        
-#     if savedata:
-#         return
-    
-#     return profdat
