@@ -487,7 +487,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
             IQR = Q3 - Q1
             cliplim['CBmin'][ibin], cliplim['CBmax'][ibin]= Q1-3*IQR, Q3+3*IQR
     
-    print(cliplim)
+
     # stack
     stack_class = stacking_mock(inst)
     psfdata = {}
@@ -591,10 +591,6 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
             pickle.dump(profdat, f)
 
     return profdat
-
-
-
-
 
 def run_psf_synth_mag_all(inst, ifield):
 
