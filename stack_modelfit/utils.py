@@ -398,30 +398,6 @@ def get_catalog(inst, ifield, im, src_type='g', return_cols=None):
 
     return cat_data
 
-# def load_processed_images(return_names=[(1,4,'cbmap'), (1,4,'psmap')]):
-#     '''
-#     get the images processed by stack_preprocess.m
-    
-#     Input:
-#     =======
-#     return_names: list of items (inst, ifield, map name)
-    
-#     Ouput:
-#     =======
-#     return_maps: list of map of the input return_names
-    
-#     '''
-#     img_names = {'rawmap':0, 'rawmask':1, 'DCsubmap':2, 'FF':3, 'FFunholy':4,
-#                 'map':5, 'cbmap':6, 'psmap':7, 'mask_inst':8, 'strmask':9, 'strnum':10}
-#     data = {}
-#     data[1] = loadmat(mypaths['alldat'] + 'TM' + str(1) + '/stackmapdatarr.mat')['data']
-#     data[2] = loadmat(mypaths['alldat'] + 'TM' + str(2) + '/stackmapdatarr.mat')['data']
-    
-#     return_maps = []
-#     for inst,ifield,name in return_names:
-#         mapi = data[inst][ifield-4][img_names[name]]
-#         return_maps.append(mapi)
-#     return return_maps
 
 def load_processed_images(data_maps, 
     return_names=[(1,4,'cbmap'), (1,4,'psmap')],
@@ -530,6 +506,14 @@ def load_processed_images(data_maps,
 
     return return_maps
 
+def pix_func_substack(dx = 50, Nsub = 10):
+    xx,yy = np.meshgrid(np.arange(2 * dx + 1), np.arange(2 * dx + 1))
+    xx, yy = abs(xx - dx), abs(yy - dx)
+    psf_pix = (Nsub - xx)*(Nsub - yy)
+    psf_pix[(xx >= Nsub)] = 0
+    psf_pix[(yy >= Nsub)] = 0
+    psf_pix = psf_pix / np.sum(psf_pix)
+    return psf_pix
 
 def image_poly_filter(image, mask=None, degree=2, return_bg=False):
     '''

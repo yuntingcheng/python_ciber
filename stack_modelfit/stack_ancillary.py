@@ -2,14 +2,15 @@ from mask import *
 from reduction import *
 from clusters import *
 import pandas as pd
+from scipy.spatial import cKDTree
 import time
 
-def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, 
-                  sample_type='jack_random', Nsrc_use=None, mask_clus=True, **kwargs):
+def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='jack_random',
+                  gaia_match=True, Nsrc_use=None, mask_clus=True, **kwargs):
 
     catdir = mypaths['PScatdat']
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
-
+    idx = np.arange(len(df))
     x1_arr, y1_arr = np.array(df['y1']), np.array(df['x1'])
     x2_arr, y2_arr = np.array(df['y2']), np.array(df['x2'])
 
@@ -30,7 +31,8 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
 
     x1_arr, y1_arr, x2_arr, y2_arr = x1_arr[sp], y1_arr[sp], x2_arr[sp], y2_arr[sp]
     m_arr, m0_arr, cls_arr, photz_arr = m_arr[sp], m0_arr[sp], cls_arr[sp], photz_arr[sp]
-
+    idx = idx[sp]
+    
     # count the center pix map
     centnum_map1, _, _ = np.histogram2d(x1_arr, y1_arr, np.arange(-0.5,1024.5,1))
     centnum_map2, _, _ = np.histogram2d(x2_arr, y2_arr, np.arange(-0.5,1024.5,1))
@@ -40,6 +42,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
     sp = np.append(sps,spg)
     x1_arr, y1_arr, x2_arr, y2_arr = x1_arr[sp], y1_arr[sp], x2_arr[sp], y2_arr[sp]
     m_arr, m0_arr, z_arr = m_arr[sp], m0_arr[sp], photz_arr[sp]
+    idx = idx[sp]
     cls_arr = np.ones(len(sp))
     cls_arr[:len(sps)] = -1
 
@@ -47,7 +50,8 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
     mask_inst1, mask_inst2 = mask_insts
     subm_arr, subm0_arr, subx1_arr, subx2_arr, suby1_arr, suby2_arr, \
     subz_arr, subcls_arr = [], [], [], [], [], [], [], []
-    for i, (x1, y1, x2, y2) in enumerate(zip(x1_arr, y1_arr, x2_arr, y2_arr)):
+    subidx_arr = []
+    for i, (x1, y1, x2, y2,idxi) in enumerate(zip(x1_arr, y1_arr, x2_arr, y2_arr,idx)):
         if centnum_map1[int(np.round(x1)), int(np.round(y1))]==1 and \
         centnum_map2[int(np.round(x2)), int(np.round(y2))]==1 and \
         mask_inst1[int(np.round(x1)), int(np.round(y1))]==1 and \
@@ -60,11 +64,13 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
             suby1_arr.append(y1)
             subx2_arr.append(x2)
             suby2_arr.append(y2)
+            subidx_arr.append(idxi)
     subm_arr, subm0_arr, subz_arr, subcls_arr = \
     np.array(subm_arr), np.array(subm0_arr), np.array(subz_arr), np.array(subcls_arr) 
     subx1_arr, suby1_arr, subx2_arr, suby2_arr = \
     np.array(subx1_arr), np.array(suby1_arr), np.array(subx2_arr), np.array(suby2_arr)
-
+    subidx_arr = np.array(subidx_arr)
+    
     randidx = np.arange(len(subm_arr))
     np.random.shuffle(randidx)
     if inst==1:
@@ -74,6 +80,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
 
     z_arr, m_arr, m0_arr, cls_arr =\
     subz_arr[randidx], subm_arr[randidx], subm0_arr[randidx], subcls_arr[randidx]
+    idx_arr = subidx_arr[randidx]
     
     # mask clusters
     if mask_clus:
@@ -82,7 +89,8 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
         clus_mask = maskz * maskmh
         subm_arr, subm0_arr, subx_arr, suby_arr, subz_arr, subcls_arr =\
         [], [], [], [], [], []
-        for i, (x,y,z) in enumerate(zip(x_arr, y_arr,z_arr)):
+        subidx_arr = []
+        for i, (x,y,z,idx) in enumerate(zip(x_arr, y_arr,z_arr,idx_arr)):
             if clus_mask[int(np.round(x)), int(np.round(y))]==1:
                 subm_arr.append(m_arr[i])
                 subm0_arr.append(m0_arr[i])
@@ -90,22 +98,42 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
                 subcls_arr.append(cls_arr[i])
                 subx_arr.append(x)
                 suby_arr.append(y)
+                subidx_arr.append(idx)
         x_arr, y_arr, z_arr = np.array(subx_arr), np.array(suby_arr), np.array(subz_arr)
         m_arr, m0_arr, cls_arr = np.array(subm_arr), np.array(subm0_arr), np.array(subcls_arr) 
-        
+        idx_arr = np.array(subidx_arr)
     
     xg_arr, yg_arr, mg_arr, mg0_arr =\
     x_arr[cls_arr==1], y_arr[cls_arr==1], m_arr[cls_arr==1], m0_arr[cls_arr==1]
     zg_arr = z_arr[cls_arr==1]
-
+    idxg_arr = idx_arr[cls_arr==1]
+    
     if mask_clus:
         sp = np.where(zg_arr>0.15)[0]
         xg_arr, yg_arr, zg_arr, mg_arr, mg0_arr = \
         xg_arr[sp], yg_arr[sp], zg_arr[sp], mg_arr[sp], mg0_arr[sp]
+        idxg_arr = idxg_arr[sp]
     
     xs_arr, ys_arr, ms_arr, ms0_arr =\
     x_arr[cls_arr==-1], y_arr[cls_arr==-1], m_arr[cls_arr==-1], m0_arr[cls_arr==-1]
-    
+    idxs_arr = idx_arr[cls_arr==-1]
+ 
+    if gaia_match:
+        dfg = pd.read_csv(mypaths['GAIAcatdat'] + fieldnamedict[ifield] + '.csv')
+        dfg = dfg[dfg['parallax']==dfg['parallax']]
+        catalogg = (dfg[['ra','dec']].values * np.pi/180).tolist()
+        psg = [[item[0], item[1]] for item in catalogg]
+        dfp = df.iloc[idxg_arr]
+        catalogp = (df[['ra','dec']].iloc[idxg_arr].values * np.pi/180).tolist()
+        psp = [[item[0], item[1]] for item in catalogp]
+        kdt = cKDTree(psg)
+        obj = kdt.query_ball_point(psp, (700 * u.mas).to(u.rad).value)
+        Nmatch = np.array([len(obj_i) for obj_i in obj])
+        xg_arr, yg_arr, mg_arr, mg0_arr =\
+        xg_arr[Nmatch==0], yg_arr[Nmatch==0], mg_arr[Nmatch==0], mg0_arr[Nmatch==0]
+        zg_arr = zg_arr[Nmatch==0]
+        idxg_arr = idxg_arr[Nmatch==0]
+        
     srcdat = {}
     srcdat['inst']= inst
     srcdat['ifield'] = ifield
@@ -119,11 +147,12 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
             sp = np.random.choice(srcdat['Ng'], Nsrc_use, replace=False)
             xg_arr, yg_arr = xg_arr[sp], yg_arr[sp]
             mg_arr, mg0_arr, zg_arr = mg_arr[sp], mg0_arr[sp], zg_arr[sp]
+            idxg_arr = idxg_arr[sp]
         if srcdat['Ns'] > Nsrc_use:
             sp = np.random.choice(srcdat['Ns'], Nsrc_use, replace=False)
             xs_arr, ys_arr = xs_arr[sp], ys_arr[sp]
             ms_arr, ms0_arr = ms_arr[sp], ms0_arr[sp]
-
+            idxs_arr = idxs_arr[sp]
 
     if sample_type == 'all':
         srcdat['xg_arr'], srcdat['yg_arr'] = xg_arr, yg_arr
@@ -132,6 +161,8 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
         srcdat['xs_arr'], srcdat['ys_arr'] = xs_arr, ys_arr
         srcdat['ms_arr'] = ms_arr
         srcdat['ms0_arr'] = ms0_arr
+        srcdat['idxg_arr'] = idxg_arr
+        srcdat['idxs_arr'] = idxs_arr
         
     elif sample_type == 'jack_random':
         srcdat['Nsub'] = Nsub
@@ -142,10 +173,12 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
             srcdat['sub'][i]['xg_arr'], srcdat['sub'][i]['yg_arr'] = xg_arr[spg], yg_arr[spg]
             srcdat['sub'][i]['mg_arr'], srcdat['sub'][i]['zg_arr'] = mg_arr[spg], zg_arr[spg]
             srcdat['sub'][i]['mg0_arr'] = mg0_arr[spg]
+            srcdat['sub'][i]['idxg_arr'] = idxg_arr[spg]
             sps = np.arange(i,len(xs_arr),Nsub)
             srcdat['sub'][i]['xs_arr'], srcdat['sub'][i]['ys_arr'] = xs_arr[sps], ys_arr[sps]
             srcdat['sub'][i]['ms_arr'] = ms_arr[sps]
             srcdat['sub'][i]['ms0_arr'] = ms0_arr[sps]
+            srcdat['sub'][i]['idxs_arr'] = idxs_arr[sps]
             srcdat['sub'][i]['Ng'], srcdat['sub'][i]['Ns'] = len(spg), len(sps)
     
     elif sample_type == 'jack_region':
@@ -164,15 +197,17 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
             srcdat['sub'][i]['xg_arr'], srcdat['sub'][i]['yg_arr'] = xg_arr[spg], yg_arr[spg]
             srcdat['sub'][i]['mg_arr'], srcdat['sub'][i]['zg_arr'] = mg_arr[spg], zg_arr[spg]
             srcdat['sub'][i]['mg0_arr'] = mg0_arr[spg]
+            srcdat['sub'][i]['idxg_arr'] = idxg_arr[spg]
             sps = np.where((xs_arr>=xmin) & (xs_arr<xmax) \
                            & (ys_arr>=ymin) & (ys_arr<ymax))[0]
             srcdat['sub'][i]['xs_arr'], srcdat['sub'][i]['ys_arr'] = xs_arr[sps], ys_arr[sps]
             srcdat['sub'][i]['ms_arr'] = ms_arr[sps]
             srcdat['sub'][i]['ms0_arr'] = ms0_arr[sps]
+            srcdat['sub'][i]['idxs_arr'] = idxs_arr[sps]
             srcdat['sub'][i]['Ng'], srcdat['sub'][i]['Ns'] = len(spg), len(sps)
             
     return srcdat
-    
+
 def tm_src_select(inst, ifield, m_min, m_max, mask_insts, band_select='I',
                   Nsub=64, sample_type='jack_random', Nsrc_use=None):
     catdir = mypaths['2Mcatdat']

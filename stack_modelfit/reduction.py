@@ -370,12 +370,3 @@ class image_reduction:
         mask[radmap < 1] = 0
 
         return mask
-
-    def _pix_func_substack(self,dx = 50, Nsub = 10):
-        xx,yy = np.meshgrid(np.arange(2 * dx + 1), np.arange(2 * dx + 1))
-        xx, yy = abs(xx - dx), abs(yy - dx)
-        psf_pix = (Nsub - xx)*(Nsub - yy)
-        psf_pix[(xx >= Nsub)] = 0
-        psf_pix[(yy >= Nsub)] = 0
-        psf_pix = psf_pix / np.sum(psf_pix)
-        return psf_pix

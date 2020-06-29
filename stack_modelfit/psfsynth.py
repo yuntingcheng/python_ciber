@@ -1,6 +1,7 @@
 from reduction import *
 from stack import * 
 from psfstack import *
+from scipy import interpolate
 
 def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
 
@@ -121,7 +122,7 @@ def run_psf_combine(inst, ifield, savedata=True):
     profcsub[:7] = profdat['profcbsub'][:7] / profdat['profcb'][0]
     covc[:12,:12] = profdat['cov'][:12,:12] / profdat['profcb'][0]**2
     covcsub[:7,:7] = profdat['covsub'][:7,:7] / profdat['profcb'][0]**2
-
+    
     m_min, m_max = 9, 10
     fname = mypaths['alldat'] + 'TM'+ str(inst) +\
      '/psfdata_synth_2m_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
@@ -146,8 +147,34 @@ def run_psf_combine(inst, ifield, savedata=True):
 
     profc[13:] = proffit[13:] / proffit[13] * profc[13]
     profcsub[8:] = proffitsub[8:] / proffitsub[8] * profcsub[8]
+    
+    # propagate systematic offset on 11th bin to outer radii
+    ferr =  covc[11,11]/profc[11]**2
+    covc[12:,12:] = ferr * (profc[12:,np.newaxis]@profc[12:,np.newaxis].T)
+    covcsub[6:,6:] = ferr * (profcsub[6:,np.newaxis]@profcsub[6:,np.newaxis].T)
+    
+    # systematic err from Gaia stack
+    sys_err = np.zeros_like(profc)
+    syssub_err = np.zeros_like(profcsub)
+    for im,(m_min, m_max) in enumerate(zip(np.arange(13,17), np.arange(14,18))):
+        fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+         '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
+        with open(fname, "rb") as f:
+            profdat = pickle.load(f)
+        sysi = np.abs((profdat['profcb']/profdat['profcb'][0]/profc) - 1)
+        snri = profdat['profcb']/profdat['profcb_err']
+        sys_err[(sysi>sys_err) & (snri>3)] = sysi[(sysi>sys_err) & (snri>3)]
+        
+        syssubi = np.abs((profdat['profcbsub']/profdat['profcb'][0]/profcsub) - 1)
+        snrsubi = profdat['profcbsub']/profdat['profcbsub_err']
+        syssub_err[(syssubi>syssub_err) & (snrsubi>3)] = syssubi[(syssubi>syssub_err) & (snrsubi>3)]
 
+    sys_err[11:] = sys_err[11]
+    syssub_err[6:] = syssub_err[6]
 
+    sys_err *= profc
+    syssub_err *= profcsub
+    
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
     with open(fname, "rb") as f:
@@ -156,19 +183,61 @@ def run_psf_combine(inst, ifield, savedata=True):
     for im,(m_min,m_max) in enumerate(zip(magbindict['m_min'],magbindict['m_max'])):
         profdat[im]['comb'] = {}
         profdat[im]['comb']['profcb'] = profc
-        profdat[im]['comb']['profcb_err'] = np.sqrt(np.diag(covc))
         profdat[im]['comb']['profcbsub'] = profcsub
-        profdat[im]['comb']['profcbsub_err'] = np.sqrt(np.diag(covcsub))
-        profdat[im]['comb']['cov'] = covc
-        profdat[im]['comb']['covsub'] = covcsub
+        profdat[im]['comb']['cov_sys'] = np.diag(sys_err**2)
+        profdat[im]['comb']['covsub_sys'] = np.diag(syssub_err**2)
+        profdat[im]['comb']['cov_stat'] = covc
+        profdat[im]['comb']['covsub_stat'] = covcsub
+        profdat[im]['comb']['cov'] = covc + np.diag(sys_err**2)
+        profdat[im]['comb']['covsub'] = covcsub + np.diag(syssub_err**2)
+        profdat[im]['comb']['profcb_err_stat'] = np.sqrt(np.diag(profdat[im]['comb']['cov_stat']))
+        profdat[im]['comb']['profcbsub_err_stat'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_stat']))
+        profdat[im]['comb']['profcb_err_sys'] = np.sqrt(np.diag(profdat[im]['comb']['cov_sys']))
+        profdat[im]['comb']['profcbsub_err_sys'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_sys']))
+        profdat[im]['comb']['profcb_err'] = np.sqrt(np.diag(profdat[im]['comb']['cov']))
+        profdat[im]['comb']['profcbsub_err'] = np.sqrt(np.diag(profdat[im]['comb']['covsub']))
         profdat[im]['comb']['cov_rho'] = normalize_cov(covc)
         profdat[im]['comb']['covsub_rho'] = normalize_cov(covcsub)
+        profdat[im]['comb']['log_slopes'] = (slope_mid, slope_out)
+        profdat[im]['comb']['r_connect'] = (profdat['rbins'][11],profdat['rbins'][13])
+        profdat[im]['comb']['r_connect_idx'] = (11,13)
+        profdat[im]['comb']['rsub_connect_idx'] = (6,8)
 
     if savedata:
         with open(fname, "wb") as f:
             pickle.dump(profdat, f)
     
     return profdat
+
+def psf_comb_interpolate(inst, ifield, im, r_arr):
+    r_arr = np.array(r_arr)
+    psf_interp = np.zeros_like(r_arr, dtype=float)
+    
+    # profdat = run_psf_combine(inst, ifield, savedata=False)
+    fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
+    with open(fname,"rb") as f:
+        profdat = pickle.load(f)
+
+    r1,r2 = profdat[im]['comb']['r_connect']
+    idx1, idx2 = profdat[im]['comb']['r_connect_idx']
+    rbins = profdat['rbins']
+    prof = profdat[im]['comb']['profcb']
+    slope_mid, slope_out = profdat[im]['comb']['log_slopes']
+    
+    tck = interpolate.splrep(np.log(rbins), np.log(prof), s=0)
+    psf_interp[(r_arr<=r1) & (r_arr>0)] = np.exp(interpolate.splev\
+                                                 (np.log(r_arr[(r_arr<=r1) & (r_arr>0)]), tck, der=0))
+    
+    norm_mid = prof[idx1] / 10**(slope_mid * np.log10(rbins[idx1]))
+    psf_interp[(r_arr>r1) & (r_arr<=r2)] = 10**(slope_mid * np.log10(r_arr[(r_arr>r1)\
+                                                   & (r_arr<=r2)])) * norm_mid
+    norm_out = prof[idx2] / 10**(slope_out * np.log10(rbins[idx2]))
+    psf_interp[r_arr>r2] = 10**(slope_out * np.log10(r_arr[r_arr>r2])) * norm_out
+    
+    psf_interp[r_arr==0] = np.max(psf_interp[r_arr!=0])
+    
+    return psf_interp
 
 def run_psf_combine_old(inst, ifield, savedata=True, idx_comb=(9,10)):
     
