@@ -213,7 +213,6 @@ def psf_comb_interpolate(inst, ifield, im, r_arr):
     r_arr = np.array(r_arr)
     psf_interp = np.zeros_like(r_arr, dtype=float)
     
-    # profdat = run_psf_combine(inst, ifield, savedata=False)
     fname = mypaths['alldat'] + 'TM'+ str(inst) +\
      '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
     with open(fname,"rb") as f:
@@ -420,44 +419,6 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
         
     return profdat
 
-def run_psf_synth_gaia_mag(inst, ifield, m_min, m_max, data_maps=None,
-    savedata=True):
-    
-    if data_maps is None:
-        data_maps = {1: image_reduction(1), 2: image_reduction(2)}
-
-    cal = -cal_factor_dict['apf2nWpm2psr'][inst][ifield]
-    
-    psfdata_out = stack_psf(inst, data_maps[inst].stackmapdat,m_min=m_min, m_max=m_max,
-     ifield_arr=[ifield], Nsub_single=False, savedata=False, save_stackmap=False, catname='GAIA')
-
-    profdat = {}
-    profdat['rbins'] = psfdata_out[ifield]['rbins']
-    profdat['rbinedges'] = psfdata_out[ifield]['rbinedges']
-    profdat['rsubbins'] = psfdata_out[ifield]['rsubbins']
-    profdat['rsubbinedges'] = psfdata_out[ifield]['rsubbinedges']
-    profdat['filt_order'] = filt_order
-
-    profdat['m_min'] = m_min
-    profdat['m_max'] = m_max
-    profdat['Nsrc'] = psfdata_out[ifield]['Nsrc']
-    profdat['profcb'] = psfdata_out[ifield]['prof']*cal
-    profdat['profcb_err'] = psfdata_out[ifield]['prof_err']*cal
-    profdat['profcbsub'] = psfdata_out[ifield]['profsub']*cal
-    profdat['profcbsub_err'] = psfdata_out[ifield]['profsub_err']*cal
-    profdat['cov'] = psfdata_out[ifield]['cov']*cal**2
-    profdat['covsub'] = psfdata_out[ifield]['covsub']*cal**2
-    
-    if savedata:
-        fname = mypaths['alldat'] + 'TM'+ str(inst) +\
-         '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
-        with open(fname, "wb") as f:
-            pickle.dump(profdat, f)
-
-        return profdat
-
-    return profdat
-
 def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
     filt_order=3, Nsub_single=False, save_stackmap=False, savedata=True):
 
@@ -583,7 +544,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
         stackdat, stacki, maskstacki, mapstacki \
         = stack_class.run_stacking(cbmap, mask_inst*strmask, strnum, 
                                    mask_inst=mask_inst,return_all=True,
-                                    update_mask=False, verbose=True)
+                                update_mask=False,cliplim=cliplim, verbose=True)
         mapstack += mapstacki
         maskstack += maskstacki
 

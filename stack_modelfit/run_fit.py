@@ -3,7 +3,8 @@ from scipy.signal import fftconvolve
 import pyfftw
 import emcee
 from multiprocessing import Pool
-from utils import * 
+from utils import *
+from psfsynth import * 
 from stack import *
 from clustering import *
 from micecat import *
@@ -107,35 +108,35 @@ class fit_stacking_mcmc:
         self.prof1h_sub = mc_avg_sub
         return
     
-    # def _get_model_2h(self):
+    def _get_model_2h_analytic(self):
 
-    #     if self.data_maps is None:
-    #         data_maps = {1: image_reduction(1), 2: image_reduction(2)}
-    #     else:
-    #         data_maps = self.data_maps
+        if self.data_maps is None:
+            data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+        else:
+            data_maps = self.data_maps
 
-    #     mask_inst1, mask_inst2 = \
-    #     load_processed_images(data_maps,
-    #                           return_names=[(1,self.ifield,'mask_inst'),
-    #                                         (2,self.ifield,'mask_inst')])
+        mask_inst1, mask_inst2 = \
+        load_processed_images(data_maps,
+                              return_names=[(1,self.ifield,'mask_inst'),
+                                            (2,self.ifield,'mask_inst')])
         
-    #     srcdat = ps_src_select(self.inst, self.ifield, self.m_min, self.m_max, 
-    #             [mask_inst1, mask_inst2], sample_type='all')
+        srcdat = ps_src_select(self.inst, self.ifield, self.m_min, self.m_max, 
+                [mask_inst1, mask_inst2], sample_type='all')
         
-    #     dx = self.dx
-    #     theta_arr = np.logspace(-1,3.2,100)
-    #     w_arr = wgI(srcdat['zg_arr'], theta_arr)
-    #     radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
-    #     tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
-    #     radmap[dx,dx] = radmap[dx,dx+1]
-    #     w_map = interpolate.splev(np.log(radmap),tck)
+        dx = self.dx
+        theta_arr = np.logspace(-1,3.2,100)
+        w_arr = wgI(srcdat['zg_arr'], theta_arr)
+        radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
+        tck = interpolate.splrep(np.log(theta_arr), w_arr, k=1)
+        radmap[dx,dx] = radmap[dx,dx+1]
+        w_map = interpolate.splev(np.log(radmap),tck)
         
-    #     self.prof2h = radial_prof(w_map, rbinedges=self.rbinedges/0.7,
-    #                               return_full=False)
-    #     self.prof2h_sub = radial_prof(w_map, rbinedges=self.rsubbinedges/0.7,
-    #                                   return_full=False)
+        self.prof2h = radial_prof(w_map, rbinedges=self.rbinedges/0.7,
+                                  return_full=False)
+        self.prof2h_sub = radial_prof(w_map, rbinedges=self.rsubbinedges/0.7,
+                                      return_full=False)
         
-    #     return
+        return
 
     def _get_model_2h(self):
 
@@ -150,19 +151,26 @@ class fit_stacking_mcmc:
      
     def _get_model_psf(self):
         
-        fname = mypaths['alldat'] + 'TM'+ str(self.inst) + '/psfdata.pkl'
+        # fname = mypaths['alldat'] + 'TM'+ str(self.inst) + '/psfdata.pkl'
+        # with open(fname,"rb") as f:
+        #     psfdata = pickle.load(f)
+
+        # spr = np.where(self.rbins<30)[0]
+        # tck = interpolate.splrep(np.log(self.rbins[spr]),
+        #                          np.log(psfdata[self.ifield]['prof'][spr]), k=1)
+        # radmap[dx,dx] = radmap[dx,dx+1]
+        # psfwin_map = np.exp(interpolate.splev(np.log(radmap),tck))
+        # psfwin_map[psfwin_map < 0] = 0
+        
+        fname = mypaths['alldat'] + 'TM'+ str(self.inst) +\
+         '/psfdata_synth_%s.pkl'%(fieldnamedict[self.ifield])
         with open(fname,"rb") as f:
             psfdata = pickle.load(f)
             
         dx = self.dx
         radmap = make_radius_map(np.zeros([2*dx+1, 2*dx+1]), dx, dx)*0.7
-        spr = np.where(self.rbins<30)[0]
-        tck = interpolate.splrep(np.log(self.rbins[spr]),
-                                 np.log(psfdata[self.ifield]['prof'][spr]), k=1)
-        radmap[dx,dx] = radmap[dx,dx+1]
-        psfwin_map = np.exp(interpolate.splev(np.log(radmap),tck))
-        psfwin_map[psfwin_map < 0] = 0
-        
+        psfwin_map = psf_comb_interpolate(self.inst, self.ifield, self.im, radmap)
+
         profpsf_arr = radial_prof(psfwin_map, return_full=False)
         profpsf_arr /= profpsf_arr[0]
 
@@ -193,11 +201,6 @@ class fit_stacking_mcmc:
         modeldat = gal_profile_model().Wang19_profile(radmap, self.im, **kwargs)
         modeldat['I_arr'] = np.pad(modeldat['I_arr'], 1100, 'constant')
         
-        # # conv model (fftconvolve)
-        # modconv_map = fftconvolve(self.psfwin_map, modeldat['I_arr'], 'same')
-        # modconv_map /= np.sum(modconv_map)
-        # modconv_map[modconv_map<0] = 0
-
         # conv model (pyFFTw)
         a = pyfftw.empty_aligned((2401,2401), dtype='complex64')
         fftmod = pyfftw.empty_aligned((2401,2401), dtype='complex64')
