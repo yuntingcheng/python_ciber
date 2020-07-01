@@ -502,7 +502,7 @@ def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False
     data_std = np.std(data_all, axis=0)
     
     if subsub:
-        Nrebin = 6
+        Nrebin = 7
         rsubsubbins, data_avg_sub, data_std_sub =\
         np.zeros(len(rbins) - Nrebin+1), np.zeros(len(rbins) - Nrebin+1), np.zeros(len(rbins) - Nrebin+1)
         rsubsubbins[1:] = rbins[Nrebin:]

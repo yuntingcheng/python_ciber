@@ -746,7 +746,7 @@ def micecat_profile_fit(inst, im, sub=True, filt_order=0, return_full=False, sub
         mc_avgsub_fit[1:-1] = mc_avg_fit[6:-6]
     
     if subsub:
-        Nrebin = 6
+        Nrebin = 7
         savedir='./micecat_data/all_fields/'
         fname  = 'filter_test_TM1_icat0.pkl'
         with open(savedir + fname,"rb") as f:

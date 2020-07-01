@@ -1041,7 +1041,7 @@ class stacking:
                                         - self.stackdat['PSF']['profps100']
 
 
-    def _get_subsubbins(self, Nrebin=6):
+    def _get_subsubbins(self, Nrebin=7):
         # further combine Nrebin of rsubbins into one bin
         rsubbins = self.stackdat['rsubbins'].copy()
         rsubbinedges = self.stackdat['rsubbinedges'].copy()
@@ -1136,7 +1136,7 @@ class stacking:
 
         return
 
-    def _get_PSF_subsubbins(self, Nrebin=6):
+    def _get_PSF_subsubbins(self, Nrebin=7):
         # further combine Nrebin of rsubbins into one bin
         
         Nsub = len(self.stackdat['PSF']['profcbsub'])
