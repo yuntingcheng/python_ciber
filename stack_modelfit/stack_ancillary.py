@@ -73,36 +73,47 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     
     randidx = np.arange(len(subm_arr))
     np.random.shuffle(randidx)
-    if inst==1:
-        x_arr, y_arr = subx1_arr[randidx], suby1_arr[randidx]
-    else:
-        x_arr, y_arr = subx2_arr[randidx], suby2_arr[randidx]
-
+    x1_arr, y1_arr = subx1_arr[randidx], suby1_arr[randidx]
+    x2_arr, y2_arr = subx2_arr[randidx], suby2_arr[randidx]
     z_arr, m_arr, m0_arr, cls_arr =\
     subz_arr[randidx], subm_arr[randidx], subm0_arr[randidx], subcls_arr[randidx]
     idx_arr = subidx_arr[randidx]
     
     # mask clusters
     if mask_clus:
-        maskmh = clusters(inst, ifield, lnMhrange=(14, np.inf)).cluster_mask()
-        maskz = clusters(inst, ifield, zrange=(0, 0.15)).cluster_mask()  
-        clus_mask = maskz * maskmh
-        subm_arr, subm0_arr, subx_arr, suby_arr, subz_arr, subcls_arr =\
-        [], [], [], [], [], []
+        maskmh = clusters(1, ifield, lnMhrange=(14, np.inf)).cluster_mask()
+        maskz = clusters(1, ifield, zrange=(0, 0.15)).cluster_mask()  
+        clus_mask1 = maskz * maskmh
+        
+        maskmh = clusters(2, ifield, lnMhrange=(14, np.inf)).cluster_mask()
+        maskz = clusters(2, ifield, zrange=(0, 0.15)).cluster_mask()  
+        clus_mask2 = maskz * maskmh
+        
+        subm_arr, subm0_arr, subx1_arr, suby1_arr, subx2_arr, suby2_arr, subz_arr, subcls_arr =\
+        [], [], [], [], [], [], [], []
         subidx_arr = []
-        for i, (x,y,z,idx) in enumerate(zip(x_arr, y_arr,z_arr,idx_arr)):
-            if clus_mask[int(np.round(x)), int(np.round(y))]==1:
+        for i, (x1,y1,x2,y2) in enumerate(zip(x1_arr,y1_arr,x2_arr,y2_arr)):
+            if (clus_mask1[int(np.round(x1)), int(np.round(y1))]==1) or \
+            (clus_mask2[int(np.round(x2)), int(np.round(y2))]==1):
                 subm_arr.append(m_arr[i])
                 subm0_arr.append(m0_arr[i])
                 subz_arr.append(z_arr[i])
                 subcls_arr.append(cls_arr[i])
-                subx_arr.append(x)
-                suby_arr.append(y)
-                subidx_arr.append(idx)
-        x_arr, y_arr, z_arr = np.array(subx_arr), np.array(suby_arr), np.array(subz_arr)
+                subx1_arr.append(x1)
+                suby1_arr.append(y1)
+                subx2_arr.append(x1)
+                suby2_arr.append(y1)
+                subidx_arr.append(idx_arr[i])
+        x1_arr, y1_arr, z_arr = np.array(subx1_arr), np.array(suby1_arr), np.array(subz_arr)        
+        x2_arr, y2_arr = np.array(subx2_arr), np.array(suby2_arr)
         m_arr, m0_arr, cls_arr = np.array(subm_arr), np.array(subm0_arr), np.array(subcls_arr) 
         idx_arr = np.array(subidx_arr)
     
+    if inst == 1:
+        x_arr, y_arr = x1_arr, y1_arr
+    else:
+        x_arr, y_arr = x2_arr, y2_arr
+        
     xg_arr, yg_arr, mg_arr, mg0_arr =\
     x_arr[cls_arr==1], y_arr[cls_arr==1], m_arr[cls_arr==1], m0_arr[cls_arr==1]
     zg_arr = z_arr[cls_arr==1]
@@ -117,7 +128,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     xs_arr, ys_arr, ms_arr, ms0_arr =\
     x_arr[cls_arr==-1], y_arr[cls_arr==-1], m_arr[cls_arr==-1], m0_arr[cls_arr==-1]
     idxs_arr = idx_arr[cls_arr==-1]
- 
+    
     if gaia_match:
         dfg = pd.read_csv(mypaths['GAIAcatdat'] + fieldnamedict[ifield] + '.csv')
         dfg = dfg[dfg['parallax']==dfg['parallax']]

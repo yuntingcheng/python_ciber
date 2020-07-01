@@ -6,9 +6,6 @@ def get_mask_radius_th(ifield, m_arr, inst=1, Ith=1):
     r_arr: arcsec
     '''
     m_arr = np.array(m_arr)
-    # fitpsfdat=loadmat(mypaths['ciberdir'] + 'doc/20170617_Stacking/psf_analytic/TM'\
-    #          + str(inst) + '/fitpsfdat.mat')['fitpsfdat'][0][ifield-1][7][0][0]
-    # beta, rc, norm  = float(fitpsfdat[0]), float(fitpsfdat[1]), float(fitpsfdat[4])
     beta, rc, norm = PSF_model_dict[inst][ifield]
 
     Nlarge = 100

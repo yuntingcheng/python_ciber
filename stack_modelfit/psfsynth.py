@@ -156,7 +156,7 @@ def run_psf_combine(inst, ifield, savedata=True):
     # systematic err from Gaia stack
     sys_err = np.zeros_like(profc)
     syssub_err = np.zeros_like(profcsub)
-    for im,(m_min, m_max) in enumerate(zip(np.arange(13,17), np.arange(14,18))):
+    for im,(m_min, m_max) in enumerate(zip(np.arange(14,17), np.arange(15,18))):
         fname = mypaths['alldat'] + 'TM'+ str(inst) +\
          '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
         with open(fname, "rb") as f:
