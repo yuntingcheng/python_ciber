@@ -58,7 +58,7 @@ class stacking:
     
     def _post_process(self):
         if self.subsub:
-            self._get_subsubbins(Nrebin=6)
+            self._get_subsubbins(Nrebin=7)
         self._get_jackknife_profile()
         self._get_covariance()
         if self.getBG:
@@ -68,7 +68,7 @@ class stacking:
         self._get_PSF_from_data()
         self._get_PSF_covariance_from_data()
         if self.subsub:
-            self._get_PSF_subsubbins(Nrebin=6)
+            self._get_PSF_subsubbins(Nrebin=7)
         self._get_ex_covariance()
         self._get_excess()
         
