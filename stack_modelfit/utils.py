@@ -12,6 +12,7 @@ import astropy.wcs as wcs
 from astropy.coordinates import SkyCoord
 from astropy.coordinates import match_coordinates_sky
 from astropy import units as u
+from astropy import constants as const
 from astropy import cosmology
 cosmo = cosmology.Planck15
 
