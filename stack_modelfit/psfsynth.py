@@ -197,7 +197,7 @@ def run_psf_combine(inst, ifield, savedata=True):
         profdat[im]['comb']['covsub_stack'] = covcsub_stack
         profdat[im]['comb']['cov_gaia_sys'] = cov_gaia_sys
         profdat[im]['comb']['covsub_gaia_sys'] = covsub_gaia_sys
-        profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_scaling']
+        profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_scaling'] + profdat[im]['comb']['cov_gaia_sys']
         profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_scaling']
         
         profdat[im]['comb']['profcb_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['cov_scaling']))
@@ -449,7 +449,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
     xs = df['y'+str(inst)].values
     ys = df['x'+str(inst)].values
     ms = df['phot_g_mean_mag'].values
-    sp = np.where((ms < 20) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
+    sp = np.where((ms < 21) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
     xs, ys, ms = xs[sp], ys[sp], ms[sp]
     rs = get_mask_radius_th(ifield, ms-1)
     
@@ -478,7 +478,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
      (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5) &\
       (parallax > 1/5e3))[0]
     xs, ys, ms = xs[sp], ys[sp], ms[sp]
-    rs = get_mask_radius_th(ifield, ms)
+    rs = get_mask_radius_th(ifield, ms-1)
     
     nbins = 25
     dx = 1200
@@ -660,8 +660,6 @@ def run_psf_synth_mag_all_gaia(inst, ifield, m_min_arr, m_max_arr):
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
     filt_order = filt_order_dict[inst]
     for m_min, m_max in zip(m_min_arr, m_max_arr):
-        # run_psf_synth_gaia_mag(inst, ifield, m_min, m_max, filt_order=filt_order,
-        #  data_maps=data_maps)
         stack_gaia(inst, ifield, data_maps=data_maps, m_min=m_min, m_max=m_max,
             filt_order=filt_order)
 
