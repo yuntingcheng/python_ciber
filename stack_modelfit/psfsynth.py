@@ -164,25 +164,23 @@ def run_psf_combine(inst, ifield, savedata=True):
     # systematic err from Gaia stack
     sys_err = np.zeros_like(profc)
     syssub_err = np.zeros_like(profcsub)
-    for im,(m_min, m_max) in enumerate(zip(np.arange(14,17), np.arange(15,18))):
+    for im,(m_min, m_max) in enumerate(zip(np.arange(17,20), np.arange(18,21))):
         fname = mypaths['alldat'] + 'TM'+ str(inst) +\
          '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
         sysi = np.abs((profdat['profcb']/profdat['profcb'][0]/profc) - 1)
-        snri = profdat['profcb']/profdat['profcb_err']
-        sys_err[(sysi>sys_err) & (snri>3)] = sysi[(sysi>sys_err) & (snri>3)]
+        sys_err[(sysi>sys_err)] = sysi[(sysi>sys_err)]
         
         syssubi = np.abs((profdat['profcbsub']/profdat['profcb'][0]/profcsub) - 1)
-        snrsubi = profdat['profcbsub']/profdat['profcbsub_err']
-        syssub_err[(syssubi>syssub_err) & (snrsubi>3)] = syssubi[(syssubi>syssub_err) & (snrsubi>3)]
+        syssub_err[(syssubi>syssub_err)] = syssubi[(syssubi>syssub_err)]
 
-    sys_err[11:] = sys_err[11]
-    syssub_err[6:] = syssub_err[6]
-
-    sys_err *= profc
-    syssub_err *= profcsub
+    sys_err[9:] = sys_err[9]
+    syssub_err[4:] = syssub_err[4]
     
+    cov_gaia_sys = sys_err**2 * (profc[:,np.newaxis]@profc[:,np.newaxis].T)
+    covsub_gaia_sys = syssub_err**2 * (profcsub[:,np.newaxis]@profcsub[:,np.newaxis].T)
+
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
     with open(fname, "rb") as f:
@@ -197,8 +195,8 @@ def run_psf_combine(inst, ifield, savedata=True):
         profdat[im]['comb']['covsub_scaling'] = covcsub_scaling
         profdat[im]['comb']['cov_stack'] = covc_stack
         profdat[im]['comb']['covsub_stack'] = covcsub_stack
-        profdat[im]['comb']['cov_gaia_sys'] = np.diag(sys_err**2)
-        profdat[im]['comb']['covsub_gaia_sys'] = np.diag(syssub_err**2)
+        profdat[im]['comb']['cov_gaia_sys'] = cov_gaia_sys
+        profdat[im]['comb']['covsub_gaia_sys'] = covsub_gaia_sys
         profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_scaling']
         profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_scaling']
         
@@ -453,7 +451,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
     ms = df['phot_g_mean_mag'].values
     sp = np.where((ms < 20) & (xs>-20) & (xs<1044) & (ys>-20) & (ys<1044))[0]
     xs, ys, ms = xs[sp], ys[sp], ms[sp]
-    rs = get_mask_radius_th(ifield, ms)
+    rs = get_mask_radius_th(ifield, ms-1)
     
     strmask = np.ones([1024,1024])
     strnum = np.zeros([1024,1024])
