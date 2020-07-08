@@ -114,9 +114,6 @@ def run_psf_combine(inst, ifield, savedata=True):
     fname = mypaths['alldat'] + 'TM'+ str(inst) +\
      '/psfdata_synth_ps_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
 
-    # fname = mypaths['alldat'] + 'TM'+ str(inst) +\
-    #  '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],15, 16)
-    
     with open(fname, "rb") as f:
         profdat = pickle.load(f)
 
@@ -157,9 +154,9 @@ def run_psf_combine(inst, ifield, savedata=True):
     ferr = covc_stack[0,0]/profc[0]**2
     covc_scaling = ferr * profc[:,np.newaxis]@profc[:,np.newaxis].T
     covcsub_scaling = ferr * (profcsub[:,np.newaxis]@profcsub[:,np.newaxis].T)
-    ferr =  covc_stack[11,11]/profc[11]**2
-    covc_scaling[12:,12:] += ferr * (profc[12:,np.newaxis]@profc[12:,np.newaxis].T)
-    covcsub_scaling[6:,6:] += ferr * (profcsub[6:,np.newaxis]@profcsub[6:,np.newaxis].T)
+    # ferr =  covc_stack[11,11]/profc[11]**2
+    # covc_scaling[12:,12:] += ferr * (profc[12:,np.newaxis]@profc[12:,np.newaxis].T)
+    # covcsub_scaling[6:,6:] += ferr * (profcsub[6:,np.newaxis]@profcsub[6:,np.newaxis].T)
     
     # systematic err from Gaia stack
     sys_err = np.zeros_like(profc)
@@ -197,8 +194,8 @@ def run_psf_combine(inst, ifield, savedata=True):
         profdat[im]['comb']['covsub_stack'] = covcsub_stack
         profdat[im]['comb']['cov_gaia_sys'] = cov_gaia_sys
         profdat[im]['comb']['covsub_gaia_sys'] = covsub_gaia_sys
-        profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_scaling'] + profdat[im]['comb']['cov_gaia_sys']
-        profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_scaling']
+        profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_gaia_sys'] + profdat[im]['comb']['cov_scaling']
+        profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_gaia_sys'] + profdat[im]['comb']['covsub_scaling']
         
         profdat[im]['comb']['profcb_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['cov_scaling']))
         profdat[im]['comb']['profcbsub_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_scaling']))
@@ -206,7 +203,6 @@ def run_psf_combine(inst, ifield, savedata=True):
         profdat[im]['comb']['profcbsub_err_stack'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_stack']))
         profdat[im]['comb']['profcb_err_gaia_sys'] = np.sqrt(np.diag(profdat[im]['comb']['cov_gaia_sys']))
         profdat[im]['comb']['profcbsub_err_gaia_sys'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_gaia_sys']))
-        
         profdat[im]['comb']['profcb_err'] = np.sqrt(np.diag(profdat[im]['comb']['cov']))
         profdat[im]['comb']['profcbsub_err'] = np.sqrt(np.diag(profdat[im]['comb']['covsub']))
         
