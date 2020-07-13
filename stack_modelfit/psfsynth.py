@@ -151,9 +151,10 @@ def run_psf_combine(inst, ifield, savedata=True):
     profcsub[8:] = proffitsub[8:] / proffitsub[8] * profcsub[8]
     
     # propagate systematic offset on 1st and 11th bin to outer radii
-    ferr = covc_stack[0,0]/profc[0]**2
-    covc_scaling = ferr * profc[:,np.newaxis]@profc[:,np.newaxis].T
-    covcsub_scaling = ferr * (profcsub[:,np.newaxis]@profcsub[:,np.newaxis].T)
+    sqrtvar = np.sqrt(covc_stack[0,0]/profc[0]**2) * profc[:,np.newaxis]
+    covc_scaling = sqrtvar@sqrtvar.T
+    sqrtvar = np.sqrt(covc_stack[0,0]/profc[0]**2) * profcsub[:,np.newaxis]
+    covcsub_scaling = sqrtvar@sqrtvar.T
     # ferr =  covc_stack[11,11]/profc[11]**2
     # covc_scaling[12:,12:] += ferr * (profc[12:,np.newaxis]@profc[12:,np.newaxis].T)
     # covcsub_scaling[6:,6:] += ferr * (profcsub[6:,np.newaxis]@profcsub[6:,np.newaxis].T)
@@ -175,8 +176,10 @@ def run_psf_combine(inst, ifield, savedata=True):
     sys_err[9:] = sys_err[9]
     syssub_err[4:] = syssub_err[4]
     
-    cov_gaia_sys = sys_err**2 * (profc[:,np.newaxis]@profc[:,np.newaxis].T)
-    covsub_gaia_sys = syssub_err**2 * (profcsub[:,np.newaxis]@profcsub[:,np.newaxis].T)
+    sqrtvar = sys_err * profc[:,np.newaxis]
+    cov_gaia_sys = sqrtvar@sqrtvar.T
+    sqrtvar = syssub_err * profcsub[:,np.newaxis]
+    covsub_gaia_sys = sqrtvar@sqrtvar.T
 
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
@@ -429,8 +432,9 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
         
     return profdat
 
-def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
-    filt_order=3, Nsub_single=False, save_stackmap=False, savedata=True):
+def stack_gaia(inst, ifield, data_maps=None, df=None, m_min=12, m_max=14, Nsub=10,
+    filt_order=3, Nsub_single=False, save_stackmap=False, 
+    savedata=True, savename=None):
 
     if data_maps is None:
         data_maps = {1: image_reduction(1), 2: image_reduction(2)}
@@ -440,8 +444,9 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
                                        (inst,ifield,'mask_inst')])
     
     # get data & mask
-    catdir = mypaths['GAIAcatdat']
-    df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+    if df is None:
+        catdir = mypaths['GAIAcatdat']
+        df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
     xs = df['y'+str(inst)].values
     ys = df['x'+str(inst)].values
     ms = df['phot_g_mean_mag'].values
@@ -625,8 +630,9 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, Nsub=10,
         profdat['stackmap'] = stack
 
     if savedata:
-        fname = mypaths['alldat'] + 'TM'+ str(inst) +\
-         '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
+        if savename is None:
+            savename = 'psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
+        fname = mypaths['alldat'] + 'TM'+ str(inst) + '/'+ savename
         with open(fname, "wb") as f:
             pickle.dump(profdat, f)
 
