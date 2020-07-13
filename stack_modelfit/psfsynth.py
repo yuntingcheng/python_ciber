@@ -432,7 +432,8 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
         
     return profdat
 
-def stack_gaia(inst, ifield, data_maps=None, df=None, m_min=12, m_max=14, Nsub=10,
+def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, 
+    target_filter=None, Nsub=10,
     filt_order=3, Nsub_single=False, save_stackmap=False, 
     savedata=True, savename=None):
 
@@ -444,9 +445,12 @@ def stack_gaia(inst, ifield, data_maps=None, df=None, m_min=12, m_max=14, Nsub=1
                                        (inst,ifield,'mask_inst')])
     
     # get data & mask
-    if df is None:
-        catdir = mypaths['GAIAcatdat']
-        df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+    catdir = mypaths['GAIAcatdat']
+    # df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
+    
+    df = pd.read_csv(catdir + fieldnamedict[ifield] + '_raw.csv')#####
+    df = catalog_add_xy_from_radec(fieldnamedict[ifield], df)####
+    
     xs = df['y'+str(inst)].values
     ys = df['x'+str(inst)].values
     ms = df['phot_g_mean_mag'].values
@@ -479,6 +483,24 @@ def stack_gaia(inst, ifield, data_maps=None, df=None, m_min=12, m_max=14, Nsub=1
      (xs>-0.5) & (xs<1023.5) & (ys>-0.5) & (ys<1023.5) &\
       (parallax > 1/5e3))[0]
     xs, ys, ms = xs[sp], ys[sp], ms[sp]
+    
+    if target_filter is not None:
+        if target_filter == 'parallax_over_error':
+            poe = df['parallax_over_error'].values
+            poe = pos[sp]
+            sp = np.where(poe > 2)[0]
+            xs, ys, ms = xs[sp], ys[sp], ms[sp]
+        elif target_filter == 'astrometric_excess_noise':
+            aen = df['astrometric_excess_noise'].values
+            aen = aen[sp]
+            sp = np.where(aen == 0)[0]
+            xs, ys, ms = xs[sp], ys[sp], ms[sp]
+        elif target_filter == 'astrometric_gof_al':
+            aga = df['astrometric_gof_al'].values
+            aga = aga[sp]
+            sp = np.where(aga < 3)[0]
+            xs, ys, ms = xs[sp], ys[sp], ms[sp]
+
     rs = get_mask_radius_th(ifield, ms-1)
     
     nbins = 25
