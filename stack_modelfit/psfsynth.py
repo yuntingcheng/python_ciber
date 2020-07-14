@@ -449,7 +449,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
     # df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
     
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '_raw.csv')#####
-    df = catalog_add_xy_from_radec(fieldnamedict[ifield], df)####
+    # df = catalog_add_xy_from_radec(fieldnamedict[ifield], df)####
     
     xs = df['y'+str(inst)].values
     ys = df['x'+str(inst)].values
@@ -511,7 +511,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
               'CBmax': np.full((nbins), np.inf),
               'CBmin': np.full((nbins), -np.inf),
               }
-    if m_max <= 20:
+    if m_max <= 21:
         if len(ms)>1000:
             sp = np.arange(len(ms))
             np.random.shuffle(sp)
