@@ -487,7 +487,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
     if target_filter is not None:
         if target_filter == 'parallax_over_error':
             poe = df['parallax_over_error'].values
-            poe = pos[sp]
+            poe = poe[sp]
             sp = np.where(poe > 2)[0]
             xs, ys, ms = xs[sp], ys[sp], ms[sp]
         elif target_filter == 'astrometric_excess_noise':
