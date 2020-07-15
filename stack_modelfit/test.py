@@ -24,6 +24,11 @@ def run_gaia_test_stack(m_min, m_max, target_filter=None):
                               m_min=m_min, m_max=m_max, filt_order=filt_order,
                                savename=savename)
     
+        savename='psfdata_synth_gaia_%s_%d_%d_a.pkl'%(fieldnamedict[ifield],m_min, m_max)
+        profdatp = stack_gaia(inst, ifield, data_maps=data_maps, target_filter='radec_err',
+                              m_min=m_min, m_max=m_max, filt_order=filt_order,
+                               savename=savename)
+
     elif target_filter == 'astrometric_gof_al':
         savename='psfdata_synth_gaia_%s_%d_%d_g.pkl'%(fieldnamedict[ifield],m_min, m_max)
         profdatg = stack_gaia(inst, ifield, data_maps=data_maps, target_filter='astrometric_gof_al',
@@ -39,4 +44,10 @@ def run_gaia_test_stack(m_min, m_max, target_filter=None):
         profdatp = stack_gaia(inst, ifield, data_maps=data_maps, target_filter='parallax_over_error',
                               m_min=m_min, m_max=m_max, filt_order=filt_order,
                                savename=savename)
+    elif target_filter == 'radec_err':
+        savename='psfdata_synth_gaia_%s_%d_%d_a.pkl'%(fieldnamedict[ifield],m_min, m_max)
+        profdatp = stack_gaia(inst, ifield, data_maps=data_maps, target_filter='radec_err',
+                              m_min=m_min, m_max=m_max, filt_order=filt_order,
+                               savename=savename)
+
     

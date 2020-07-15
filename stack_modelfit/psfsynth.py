@@ -500,6 +500,15 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
             aga = aga[sp]
             sp = np.where(aga < 3)[0]
             xs, ys, ms = xs[sp], ys[sp], ms[sp]
+        elif target_filter == 'radec_err':
+            raerr = df['ra_error'].values
+            decerr = df['dec_error'].values
+            raerr, decerr = raerr[sp], decerr[sp]
+            poserr = np.sqrt(raerr**2 + decerr**2)
+            sp = np.where(poserr < np.percentile(poserr,75))[0]
+            print(len(xs))
+            xs, ys, ms = xs[sp], ys[sp], ms[sp]
+            print(len(xs))
 
     rs = get_mask_radius_th(ifield, ms-1)
     
