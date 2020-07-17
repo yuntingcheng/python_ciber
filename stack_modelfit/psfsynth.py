@@ -435,7 +435,7 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
 def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, 
     target_filter=None, Nsub=10,
     filt_order=3, Nsub_single=False, save_stackmap=False, 
-    savedata=True, savename=None):
+    savedata=True, savename=None, **kwargs):
 
     if data_maps is None:
         data_maps = {1: image_reduction(1), 2: image_reduction(2)}
@@ -488,7 +488,11 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
         if target_filter == 'parallax_over_error':
             poe = df['parallax_over_error'].values
             poe = poe[sp]
-            sp = np.where(poe > 2)[0]
+            if 'parallax_over_error_th' in kwargs.keys():
+                parallax_over_error_th = kwargs['parallax_over_error_th']
+            else:
+                parallax_over_error_th = 2
+            sp = np.where(poe > parallax_over_error_th)[0]
             xs, ys, ms = xs[sp], ys[sp], ms[sp]
         elif target_filter == 'astrometric_excess_noise':
             aen = df['astrometric_excess_noise'].values
@@ -506,12 +510,10 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
             raerr, decerr = raerr[sp], decerr[sp]
             poserr = np.sqrt(raerr**2 + decerr**2)
             sp = np.where(poserr < np.percentile(poserr,75))[0]
-            print(len(xs))
             xs, ys, ms = xs[sp], ys[sp], ms[sp]
-            print(len(xs))
 
     rs = get_mask_radius_th(ifield, ms-1)
-    
+
     nbins = 25
     dx = 1200
     profile = radial_prof(np.ones([2*dx+1,2*dx+1]), dx, dx)
