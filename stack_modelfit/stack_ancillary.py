@@ -151,7 +151,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
         catalogg = (dfg[['ra','dec']].values * np.pi/180).tolist()
         psg = [[item[0], item[1]] for item in catalogg]
         dfp = df.iloc[idxs_arr]
-        catalogp = (df[['ra','dec']].iloc[idx_arr].values * np.pi/180).tolist()
+        catalogp = (df[['ra','dec']].iloc[idxs_arr].values * np.pi/180).tolist()
         psp = [[item[0], item[1]] for item in catalogp]
         kdt = cKDTree(psg)
         obj = kdt.query_ball_point(psp, (1. * u.arcsec).to(u.rad).value)
