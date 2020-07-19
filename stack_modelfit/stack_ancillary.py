@@ -144,6 +144,21 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
         xg_arr[Nmatch==0], yg_arr[Nmatch==0], mg_arr[Nmatch==0], mg0_arr[Nmatch==0]
         zg_arr = zg_arr[Nmatch==0]
         idxg_arr = idxg_arr[Nmatch==0]
+
+        dfg = pd.read_csv(mypaths['GAIAcatdat'] + fieldnamedict[ifield] + '.csv')
+        dfg = dfg[(dfg['parallax']==dfg['parallax']) \
+        & (dfg['astrometric_excess_noise']==0)]
+        catalogg = (dfg[['ra','dec']].values * np.pi/180).tolist()
+        psg = [[item[0], item[1]] for item in catalogg]
+        dfp = df.iloc[idxs_arr]
+        catalogp = (df[['ra','dec']].iloc[idx_arr].values * np.pi/180).tolist()
+        psp = [[item[0], item[1]] for item in catalogp]
+        kdt = cKDTree(psg)
+        obj = kdt.query_ball_point(psp, (1. * u.arcsec).to(u.rad).value)
+        Nmatch = np.array([len(obj_i) for obj_i in obj])
+        xs_arr, ys_arr, ms_arr, ms0_arr =\
+        xs_arr[Nmatch>0], ys_arr[Nmatch>0], ms_arr[Nmatch>0], ms0_arr[Nmatch>0]
+        idxs_arr = idxs_arr[Nmatch>0]
         
     srcdat = {}
     srcdat['inst']= inst
