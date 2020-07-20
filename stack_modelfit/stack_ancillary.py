@@ -3,10 +3,12 @@ from reduction import *
 from clusters import *
 import pandas as pd
 from scipy.spatial import cKDTree
+from sklearn import svm
 import time
 
 def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='jack_random',
-                  gaia_match=True, Nsrc_use=None, mask_clus=True, **kwargs):
+                  gaia_match=True, Nsrc_use=None, mask_clus=True, 
+                  filter_star_svm=False, **kwargs):
 
     catdir = mypaths['PScatdat']
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
@@ -78,7 +80,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     z_arr, m_arr, m0_arr, cls_arr =\
     subz_arr[randidx], subm_arr[randidx], subm0_arr[randidx], subcls_arr[randidx]
     idx_arr = subidx_arr[randidx]
-    
+
     # mask clusters
     if mask_clus:
         maskmh = clusters(1, ifield, lnMhrange=(14, np.inf)).cluster_mask()
@@ -159,7 +161,47 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
         xs_arr, ys_arr, ms_arr, ms0_arr =\
         xs_arr[Nmatch>0], ys_arr[Nmatch>0], ms_arr[Nmatch>0], ms0_arr[Nmatch>0]
         idxs_arr = idxs_arr[Nmatch>0]
+    
+    if filter_star_svm:
+        dfs = df.iloc[idxs_arr]
+        dfg = df.iloc[idxg_arr]
         
+        sps = np.where((dfs['gMeanPSFMag']>0) & (dfs['rMeanPSFMag']>0)\
+                       & (dfs['iMeanPSFMag']>0) & (dfs['zMeanPSFMag']>0)\
+                       & (dfs['yMeanPSFMag']>0))[0]
+        Xs0 = dfs.iloc[sps][['gMeanPSFMag','rMeanPSFMag','iMeanPSFMag',
+                             'zMeanPSFMag','yMeanPSFMag']].values
+        xs_arr, ys_arr, ms_arr, ms0_arr =\
+        xs_arr[sps], ys_arr[sps], ms_arr[sps], ms0_arr[sps]
+        idxs_arr = idxs_arr[sps]
+        
+        spg = np.where((dfg['gMeanPSFMag']>0) & (dfg['rMeanPSFMag']>0)\
+                       & (dfg['iMeanPSFMag']>0) & (dfg['zMeanPSFMag']>0)\
+                       & (dfg['yMeanPSFMag']>0))[0]
+        Xg0 = dfg.iloc[spg][['gMeanPSFMag','rMeanPSFMag','iMeanPSFMag',
+                               'zMeanPSFMag','yMeanPSFMag']].values 
+        xg_arr, yg_arr, mg_arr, mg0_arr, zg_arr =\
+        xg_arr[spg], yg_arr[spg], mg_arr[spg], mg0_arr[spg], zg_arr[spg]
+        idxg_arr = idxg_arr[spg]        
+        
+        X0 = np.append(Xs0, Xg0, axis=0)
+        X = []
+        for i in range(5):
+            for j in range(5):
+                if i>=j:
+                    continue
+                X.append(X0[:,i] - X0[:,j])
+        X = np.array(X).T
+        y = np.ones(X.shape[0])
+        y[:len(Xs0)] = 0
+        clf = svm.SVC(C=0.5,kernel='linear',gamma='auto')
+        clf.fit(X,y)
+        ypred = clf.predict(X)
+        spsvm = np.where(ypred[:len(Xs0)]==0)[0]
+        xs_arr, ys_arr, ms_arr, ms0_arr =\
+        xs_arr[spsvm], ys_arr[spsvm], ms_arr[spsvm], ms0_arr[spsvm]
+        idxs_arr = idxs_arr[spsvm]
+
     srcdat = {}
     srcdat['inst']= inst
     srcdat['ifield'] = ifield

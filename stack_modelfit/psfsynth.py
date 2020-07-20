@@ -369,7 +369,7 @@ def run_psf_synth_2m_mag(inst, ifield, m_min, m_max, data_maps=None,
     return profdat
 
 def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
- filt_order=3, savedata=True, gaia_match=False):
+ filt_order=3, savedata=True, gaia_match=False, filter_star_svm=False):
 
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
@@ -402,11 +402,12 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
 
     srcdat = ps_src_select(inst, ifield, m_min, m_max, 
         [mask_inst1, mask_inst2], sample_type='jack_region',
-         gaia_match=gaia_match)
+         gaia_match=gaia_match, filter_star_svm=filter_star_svm)
     if srcdat['Ns'] < srcdat['Nsub']:
         srcdat = ps_src_select(inst, ifield, m_min, m_max, 
             [mask_inst1, mask_inst2], sample_type='jack_random',
-            Nsub=srcdat['Ns'], gaia_match=gaia_match)                
+            Nsub=srcdat['Ns'], gaia_match=gaia_match,
+             filter_star_svm=filter_star_svm)               
 
     stackdat = stack_class.stack_PS(srctype='s',cliplim=cliplim, 
                                     srcdat=srcdat, verbose=False)
@@ -432,6 +433,10 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
             fname = mypaths['alldat'] + 'TM'+ str(inst) +\
              '/psfdata_synth_ps_%s_%d_%d_gaia_match.pkl'\
              %(fieldnamedict[ifield],m_min, m_max)
+            if filter_star_svm:
+                fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+                 '/psfdata_synth_ps_%s_%d_%d_gaia_match_svm.pkl'\
+                 %(fieldnamedict[ifield],m_min, m_max)
          
         with open(fname, "wb") as f:
             pickle.dump(profdat, f)
@@ -677,7 +682,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
 
     return profdat
 
-def run_psf_synth_mag_all(inst, ifield):
+def run_psf_synth_mag_all(inst, ifield, **kwargs):
 
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
     filt_order = filt_order_dict[inst]
@@ -694,13 +699,13 @@ def run_psf_synth_mag_all(inst, ifield):
     # run_psf_synth_ps_mag(inst, ifield, 15, 16, filt_order=filt_order,
     #     data_maps=data_maps)
     run_psf_synth_ps_mag(inst, ifield, 16, 17, filt_order=filt_order,
-        data_maps=data_maps, gaia_match=True)
+        data_maps=data_maps, **kwargs)
     run_psf_synth_ps_mag(inst, ifield, 17, 18, filt_order=filt_order,
-        data_maps=data_maps, gaia_match=True)
+        data_maps=data_maps, **kwargs)
     run_psf_synth_ps_mag(inst, ifield, 18, 19, filt_order=filt_order,
-        data_maps=data_maps, gaia_match=True)
+        data_maps=data_maps, **kwargs)
     run_psf_synth_ps_mag(inst, ifield, 19, 20, filt_order=filt_order,
-        data_maps=data_maps, gaia_match=True)    
+        data_maps=data_maps, **kwargs)  
 
     return
 
