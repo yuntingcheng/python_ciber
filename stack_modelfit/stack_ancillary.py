@@ -39,15 +39,16 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     centnum_map1, _, _ = np.histogram2d(x1_arr, y1_arr, np.arange(-0.5,1024.5,1))
     centnum_map2, _, _ = np.histogram2d(x2_arr, y2_arr, np.arange(-0.5,1024.5,1))
 
-    spg = np.where((m_arr<=m_max) & (m_arr>m_min) & (cls_arr==1) & (photz_arr>=0))[0]
-    sps = np.where((m_arr<=m_max) & (m_arr>m_min) & (cls_arr==-1))[0]
+    spg = np.where((m_arr<20) & (m_arr>=16) & (cls_arr==1) & (photz_arr>=0))[0]
+    sps = np.where((m_arr<20) & (m_arr>=16) & (cls_arr==-1))[0]
+
     sp = np.append(sps,spg)
     x1_arr, y1_arr, x2_arr, y2_arr = x1_arr[sp], y1_arr[sp], x2_arr[sp], y2_arr[sp]
     m_arr, m0_arr, z_arr = m_arr[sp], m0_arr[sp], photz_arr[sp]
     idx = idx[sp]
     cls_arr = np.ones(len(sp))
     cls_arr[:len(sps)] = -1
-
+        
     # select sources not coexist with others in the same pixel 
     mask_inst1, mask_inst2 = mask_insts
     subm_arr, subm0_arr, subx1_arr, subx2_arr, suby1_arr, suby2_arr, \
@@ -72,7 +73,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     subx1_arr, suby1_arr, subx2_arr, suby2_arr = \
     np.array(subx1_arr), np.array(suby1_arr), np.array(subx2_arr), np.array(suby2_arr)
     subidx_arr = np.array(subidx_arr)
-    
+        
     randidx = np.arange(len(subm_arr))
     np.random.shuffle(randidx)
     x1_arr, y1_arr = subx1_arr[randidx], suby1_arr[randidx]
@@ -80,7 +81,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     z_arr, m_arr, m0_arr, cls_arr =\
     subz_arr[randidx], subm_arr[randidx], subm0_arr[randidx], subcls_arr[randidx]
     idx_arr = subidx_arr[randidx]
-
+    
     # mask clusters
     if mask_clus:
         maskmh = clusters(1, ifield, lnMhrange=(14, np.inf)).cluster_mask()
@@ -120,7 +121,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     x_arr[cls_arr==1], y_arr[cls_arr==1], m_arr[cls_arr==1], m0_arr[cls_arr==1]
     zg_arr = z_arr[cls_arr==1]
     idxg_arr = idx_arr[cls_arr==1]
-    
+
     if mask_clus:
         sp = np.where(zg_arr>0.15)[0]
         xg_arr, yg_arr, zg_arr, mg_arr, mg0_arr = \
@@ -130,7 +131,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     xs_arr, ys_arr, ms_arr, ms0_arr =\
     x_arr[cls_arr==-1], y_arr[cls_arr==-1], m_arr[cls_arr==-1], m0_arr[cls_arr==-1]
     idxs_arr = idx_arr[cls_arr==-1]
-    
+        
     if gaia_match:
         dfg = pd.read_csv(mypaths['GAIAcatdat'] + fieldnamedict[ifield] + '.csv')
         dfg = dfg[dfg['parallax']==dfg['parallax']]
@@ -179,11 +180,11 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
                        & (dfg['iMeanPSFMag']>0) & (dfg['zMeanPSFMag']>0)\
                        & (dfg['yMeanPSFMag']>0))[0]
         Xg0 = dfg.iloc[spg][['gMeanPSFMag','rMeanPSFMag','iMeanPSFMag',
-                               'zMeanPSFMag','yMeanPSFMag']].values 
+                               'zMeanPSFMag','yMeanPSFMag']].values
         xg_arr, yg_arr, mg_arr, mg0_arr, zg_arr =\
         xg_arr[spg], yg_arr[spg], mg_arr[spg], mg0_arr[spg], zg_arr[spg]
         idxg_arr = idxg_arr[spg]        
-        
+
         X0 = np.append(Xs0, Xg0, axis=0)
         X = []
         for i in range(5):
@@ -194,13 +195,36 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
         X = np.array(X).T
         y = np.ones(X.shape[0])
         y[:len(Xs0)] = 0
+        
+        Xs0_train = Xs0[np.where((ms_arr>=19) & (ms_arr<20))[0],:]
+        Xg0_train = Xg0[np.where((mg_arr>=19) & (mg_arr<20))[0],:]
+        X0_train = np.append(Xs0_train, Xg0_train, axis=0)
+        X_train = []
+        for i in range(5):
+            for j in range(5):
+                if i>=j:
+                    continue
+                X_train.append(X0_train[:,i] - X0_train[:,j])
+        X_train = np.array(X_train).T
+        y_train = np.ones(X_train.shape[0])
+        y_train[:len(Xs0_train)] = 0
         clf = svm.SVC(C=0.5,kernel='linear',gamma='auto')
-        clf.fit(X,y)
+        clf.fit(X_train,y_train)
+        
         ypred = clf.predict(X)
         spsvm = np.where(ypred[:len(Xs0)]==0)[0]
         xs_arr, ys_arr, ms_arr, ms0_arr =\
         xs_arr[spsvm], ys_arr[spsvm], ms_arr[spsvm], ms0_arr[spsvm]
         idxs_arr = idxs_arr[spsvm]
+    
+    sps = np.where((ms_arr>=m_min) & (ms_arr<m_max))[0]
+    spg = np.where((mg_arr>=m_min) & (mg_arr<m_max))[0]
+    xs_arr, ys_arr, ms_arr, ms0_arr =\
+    xs_arr[sps], ys_arr[sps], ms_arr[sps], ms0_arr[sps]
+    idxs_arr = idxs_arr[sps]
+    xg_arr, yg_arr, mg_arr, mg0_arr, zg_arr =\
+    xg_arr[spg], yg_arr[spg], mg_arr[spg], mg0_arr[spg], zg_arr[spg]
+    idxg_arr = idxg_arr[spg]
 
     srcdat = {}
     srcdat['inst']= inst
