@@ -138,7 +138,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
         catalogp = (df[['ra','dec']].iloc[idxg_arr].values * np.pi/180).tolist()
         psp = [[item[0], item[1]] for item in catalogp]
         kdt = cKDTree(psg)
-        obj = kdt.query_ball_point(psp, (700 * u.mas).to(u.rad).value)
+        obj = kdt.query_ball_point(psp, (0.7 * u.arcsec).to(u.rad).value)
         Nmatch = np.array([len(obj_i) for obj_i in obj])
         xg_arr, yg_arr, mg_arr, mg0_arr =\
         xg_arr[Nmatch==0], yg_arr[Nmatch==0], mg_arr[Nmatch==0], mg0_arr[Nmatch==0]
@@ -154,7 +154,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
         catalogp = (df[['ra','dec']].iloc[idxs_arr].values * np.pi/180).tolist()
         psp = [[item[0], item[1]] for item in catalogp]
         kdt = cKDTree(psg)
-        obj = kdt.query_ball_point(psp, (1. * u.arcsec).to(u.rad).value)
+        obj = kdt.query_ball_point(psp, (0.7 * u.arcsec).to(u.rad).value)
         Nmatch = np.array([len(obj_i) for obj_i in obj])
         xs_arr, ys_arr, ms_arr, ms0_arr =\
         xs_arr[Nmatch>0], ys_arr[Nmatch>0], ms_arr[Nmatch>0], ms0_arr[Nmatch>0]
