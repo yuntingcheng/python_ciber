@@ -664,7 +664,7 @@ class stacking_mock:
 
     def run_stacking(self, mapin, mask, num, mask_inst=None,
                      dx=1200, return_profile = True, return_all=False,
-                      update_mask=True,cliplim=None, verbose=True):
+                      update_mask=True, unmask=True, cliplim=None, verbose=True):
         
         self.dx = dx
         Nsub = self.Nsub
@@ -691,34 +691,36 @@ class stacking_mock:
                           %(i, len(self.xls), i/len(self.xls)*100))
             
             # unmask source
-            radmap = make_radius_map(mapin, xl, yl)
             maski = mask*mask_inst
             m = mapin * maski
-            sp1 = np.where((radmap < r / self.pixsize) & (num==1) & (mask_inst==1))
-            m[sp1] = mapin[sp1]
-            maski[sp1] = 1
-            unmaskpix = np.zeros_like(mask)
-            unmaskpix[sp1] = 1
-            if len(sp1[0]) > 0 and cliplim is not None:
-                for ibin in range(Nbins):
-                    if cliplim['CBmax'][ibin] == np.inf:
-                        continue
-                    spi = np.where((unmaskpix==1) & \
-                                   (radmap*10>=rbinedges[ibin]) & \
-                                   (radmap*10 < rbinedges[ibin+1]) & \
-                                   (mapin > cliplim['CBmax'][ibin]))
-                    m[spi] = 0
-                    maski[spi] = 0
-                    spi = np.where((unmaskpix==1) & \
-                                   (radmap*10>=rbinedges[ibin]) & \
-                                   (radmap*10 < rbinedges[ibin+1]) & \
-                                   (mapin < cliplim['CBmin'][ibin]))
-                    m[spi] = 0
-                    maski[spi] = 0
+
+            if unmask:
+                radmap = make_radius_map(mapin, xl, yl)
+                sp1 = np.where((radmap < r / self.pixsize) & (num==1) & (mask_inst==1))
+                m[sp1] = mapin[sp1]
+                maski[sp1] = 1
+                unmaskpix = np.zeros_like(mask)
+                unmaskpix[sp1] = 1
+                if len(sp1[0]) > 0 and cliplim is not None:
+                    for ibin in range(Nbins):
+                        if cliplim['CBmax'][ibin] == np.inf:
+                            continue
+                        spi = np.where((unmaskpix==1) & \
+                                       (radmap*10>=rbinedges[ibin]) & \
+                                       (radmap*10 < rbinedges[ibin+1]) & \
+                                       (mapin > cliplim['CBmax'][ibin]))
+                        m[spi] = 0
+                        maski[spi] = 0
+                        spi = np.where((unmaskpix==1) & \
+                                       (radmap*10>=rbinedges[ibin]) & \
+                                       (radmap*10 < rbinedges[ibin+1]) & \
+                                       (mapin < cliplim['CBmin'][ibin]))
+                        m[spi] = 0
+                        maski[spi] = 0
 
             m = self._image_finegrid(m)
             k = self._image_finegrid(maski)
-            
+                
             # zero padding
             m = np.pad(m, ((dx,dx),(dx,dx)), 'constant')
             k = np.pad(k, ((dx,dx),(dx,dx)), 'constant')
