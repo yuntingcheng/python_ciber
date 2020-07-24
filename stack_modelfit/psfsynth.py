@@ -369,7 +369,8 @@ def run_psf_synth_2m_mag(inst, ifield, m_min, m_max, data_maps=None,
     return profdat
 
 def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
- filt_order=3, savedata=True, gaia_match=False, filter_star_svm=False):
+ filt_order=3, savedata=True, gaia_match=False, 
+ filter_star_svm=False, N_neighbor_mask=0):
 
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
@@ -402,12 +403,14 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
 
     srcdat = ps_src_select(inst, ifield, m_min, m_max, 
         [mask_inst1, mask_inst2], sample_type='jack_region',
-         gaia_match=gaia_match, filter_star_svm=filter_star_svm)
+         gaia_match=gaia_match, filter_star_svm=filter_star_svm,
+         N_neighbor_mask=N_neighbor_mask)
     if srcdat['Ns'] < srcdat['Nsub']:
         srcdat = ps_src_select(inst, ifield, m_min, m_max, 
             [mask_inst1, mask_inst2], sample_type='jack_random',
             Nsub=srcdat['Ns'], gaia_match=gaia_match,
-             filter_star_svm=filter_star_svm)               
+             filter_star_svm=filter_star_svm,
+             N_neighbor_mask=N_neighbor_mask)               
 
     stackdat = stack_class.stack_PS(srctype='s',cliplim=cliplim, 
                                     srcdat=srcdat, verbose=False)
@@ -437,6 +440,11 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
                 fname = mypaths['alldat'] + 'TM'+ str(inst) +\
                  '/psfdata_synth_ps_%s_%d_%d_gaia_match_svm.pkl'\
                  %(fieldnamedict[ifield],m_min, m_max)
+                if N_neighbor_mask!=0:
+                    fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+                     '/psfdata_synth_ps_%s_%d_%d_gaia_match_svm_Nneighbor%d.pkl'\
+                     %(fieldnamedict[ifield],m_min, m_max,N_neighbor_mask)
+
          
         with open(fname, "wb") as f:
             pickle.dump(profdat, f)

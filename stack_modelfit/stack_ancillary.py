@@ -8,7 +8,7 @@ import time
 
 def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='jack_random',
                   gaia_match=True, Nsrc_use=None, mask_clus=True, 
-                  filter_star_svm=False, **kwargs):
+                  filter_star_svm=False,N_neighbor_mask=0, **kwargs):
 
     catdir = mypaths['PScatdat']
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
@@ -38,6 +38,43 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     # count the center pix map
     centnum_map1, _, _ = np.histogram2d(x1_arr, y1_arr, np.arange(-0.5,1024.5,1))
     centnum_map2, _, _ = np.histogram2d(x2_arr, y2_arr, np.arange(-0.5,1024.5,1))
+
+    if N_neighbor_mask!=0:
+        centnum_map10 = centnum_map1.copy()
+        centnum_map20 = centnum_map2.copy()
+        N = centnum_map1.shape[0]
+        for i in np.arange(N_neighbor_mask+1):
+            if i!=0:
+                centnum_map1[i:,:] = centnum_map1[i:,:] + centnum_map10[:N-i,:]
+                centnum_map1[:,i:] = centnum_map1[:,i:] + centnum_map10[:,:N-i]
+                centnum_map1[:,:N-i] = centnum_map1[:,:N-i] + centnum_map10[:,i:]
+                centnum_map1[:N-i,:] = centnum_map1[:N-i,:] + centnum_map10[i:,:]
+                centnum_map2[i:,:] = centnum_map2[i:,:] + centnum_map20[:N-i,:]
+                centnum_map2[:,i:] = centnum_map2[:,i:] + centnum_map20[:,:N-i]
+                centnum_map2[:,:N-i] = centnum_map2[:,:N-i] + centnum_map20[:,i:]
+                centnum_map2[:N-i,:] = centnum_map2[:N-i,:] + centnum_map20[i:,:]
+
+            for j in np.arange(N_neighbor_mask+1):
+                if i==0 or j==0:
+                    continue
+
+                centnum_map1[:N-i,:N-j] = centnum_map1[:N-i,:N-j] + centnum_map10[i:,j:]
+                centnum_map1[i:,:N-j] = centnum_map1[i:,:N-j] + centnum_map10[:N-i,j:]
+                centnum_map1[:N-i,j:] = centnum_map1[:N-i,j:] + centnum_map10[i:,:N-j]
+                centnum_map1[i:,j:] = centnum_map1[i:,j:] + centnum_map10[:N-i,:N-j]
+                centnum_map2[:N-i,:N-j] = centnum_map2[:N-i,:N-j] + centnum_map20[i:,j:]
+                centnum_map2[i:,:N-j] = centnum_map2[i:,:N-j] + centnum_map20[:N-i,j:]
+                centnum_map2[:N-i,j:] = centnum_map2[:N-i,j:] + centnum_map20[i:,:N-j]
+                centnum_map2[i:,j:] = centnum_map2[i:,j:] + centnum_map20[:N-i,:N-j]
+
+            centnum_map1[i,:] += 1
+            centnum_map1[N-i-1,:] += 1
+            centnum_map1[:,i] += 1
+            centnum_map1[:,N-i-1] += 1
+            centnum_map2[i,:] += 1
+            centnum_map2[N-i-1,:] += 1
+            centnum_map2[:,i] += 1
+            centnum_map2[:,N-i-1] += 1
 
     spg = np.where((m_arr<20) & (m_arr>=16) & (cls_arr==1) & (photz_arr>=0))[0]
     sps = np.where((m_arr<20) & (m_arr>=16) & (cls_arr==-1))[0]
