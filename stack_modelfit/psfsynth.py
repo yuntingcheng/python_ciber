@@ -465,11 +465,7 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
     
     # get data & mask
     catdir = mypaths['GAIAcatdat']
-    # df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
-    
-    df = pd.read_csv(catdir + fieldnamedict[ifield] + '_raw.csv')#####
-    # df = catalog_add_xy_from_radec(fieldnamedict[ifield], df)####
-    
+    df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')   
     xs = df['y'+str(inst)].values
     ys = df['x'+str(inst)].values
     ms = df['phot_g_mean_mag'].values
