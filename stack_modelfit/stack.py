@@ -10,8 +10,9 @@ class stacking:
         self.field = fieldnamedict[ifield]
         self.m_min = m_min
         self.m_max = m_max
-        self.filt_order = filt_order if filt_order is not None \
+        filt_order = filt_order if filt_order is not None \
                                         else filt_order_dict[inst]
+        self.filt_order = filt_order
         self.getBG = getBG
         self.BGsub = BGsub
         self.subsub = subsub
