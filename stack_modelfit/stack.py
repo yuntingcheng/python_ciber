@@ -2,7 +2,7 @@ from stack_ancillary import *
 
 class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
-        savename=None, load_from_file=False, loaddir=None, filt_order=2,
+        savename=None, load_from_file=False, loaddir=None, filt_order=None,
          run_nonuniform_BG=False, getBG=True, BGsub=True, all_src=False,
          subsub=False, uniform_jack=False, savemaps=False):
         self.inst = inst
@@ -10,7 +10,8 @@ class stacking:
         self.field = fieldnamedict[ifield]
         self.m_min = m_min
         self.m_max = m_max
-        self.filt_order = filt_order
+        self.filt_order = filt_order if filt_order is not None \
+                                        else filt_order_dict[inst]
         self.getBG = getBG
         self.BGsub = BGsub
         self.subsub = subsub
