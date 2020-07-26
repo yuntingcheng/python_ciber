@@ -3,7 +3,7 @@ from stack import *
 from psfstack import *
 from scipy import interpolate
 
-def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
+def run_psf_synth(inst, ifield, filt_order=None, savedata=True):
 
     # fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     # '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
@@ -11,6 +11,9 @@ def run_psf_synth(inst, ifield, filt_order=3, savedata=True):
     #     profdat = pickle.load(f)
 
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+
+    filt_order = filt_order if filt_order is not None \
+                                    else filt_order_dict[inst]
 
     cal = -cal_factor_dict['apf2nWpm2psr'][inst][ifield]
     
@@ -119,7 +122,8 @@ def run_psf_combine(inst, ifield, savedata=True):
 
     profc[:12] = profdat['profcb'][:12] / profdat['profcb'][0]
     profcsub[:7] = profdat['profcbsub'][:7] / profdat['profcb'][0]
-    
+    hit = profdat['profhit']
+
     covc_stack = np.zeros([25,25])
     covcsub_stack = np.zeros([15,15])
     covc_stack[:12,:12] = profdat['cov'][:12,:12] / profdat['profcb'][0]**2
@@ -190,6 +194,7 @@ def run_psf_combine(inst, ifield, savedata=True):
         profdat[im]['comb'] = {}
         profdat[im]['comb']['profcb'] = profc
         profdat[im]['comb']['profcbsub'] = profcsub
+        profdat[im]['comb']['hit'] = hit
 
         profdat[im]['comb']['cov_scaling'] = covc_scaling
         profdat[im]['comb']['covsub_scaling'] = covcsub_scaling
@@ -369,7 +374,7 @@ def run_psf_synth_2m_mag(inst, ifield, m_min, m_max, data_maps=None,
     return profdat
 
 def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
- filt_order=3, savedata=True, gaia_match=False, 
+ filt_order=None, savedata=True, gaia_match=False, 
  filter_star_svm=False, N_neighbor_mask=0):
 
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
@@ -379,7 +384,10 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
 
     if data_maps is None:
         data_maps = {1: image_reduction(1), 2: image_reduction(2)}
-    
+
+    filt_order = filt_order if filt_order is not None \
+                                    else filt_order_dict[inst]
+
     profdat = {}
     profdat['rbins'] = profdat0['rbins']
     profdat['rbinedges'] = profdat0['rbinedges']
@@ -455,12 +463,15 @@ def run_psf_synth_ps_mag(inst, ifield, m_min, m_max, data_maps=None,
 
 def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14, 
     target_filter=None, Nsub=10,
-    filt_order=3, Nsub_single=False, save_stackmap=False, 
+    filt_order=None, Nsub_single=False, save_stackmap=False, 
     savedata=True, savename=None, **kwargs):
 
     if data_maps is None:
         data_maps = {1: image_reduction(1), 2: image_reduction(2)}
-        
+
+    filt_order = filt_order if filt_order is not None \
+                                    else filt_order_dict[inst]
+ 
     cbmap, mask_inst= \
     load_processed_images(data_maps, return_names=[(inst,ifield,'cbmap'), 
                                        (inst,ifield,'mask_inst')])

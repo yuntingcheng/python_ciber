@@ -1063,7 +1063,7 @@ class stacking:
         Nsubsub = len(rsubbins)
 
         # mean profile
-        profcb,profps, profhit = np.zeros(Nsubsub), np.zeros(Nsubsub), np.zeros(Nsubsub)
+        profcb, profps, profhit = np.zeros(Nsubsub), np.zeros(Nsubsub), np.zeros(Nsubsub)
         profcb[1:] = self.stackdat['profcbsub'][Nrebin:]
         profps[1:] = self.stackdat['profpssub'][Nrebin:]
         profhit[1:] = self.stackdat['profhitsub'][Nrebin:]
