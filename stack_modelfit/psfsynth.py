@@ -202,8 +202,10 @@ def run_psf_combine(inst, ifield, savedata=True):
         profdat[im]['comb']['covsub_stack'] = covcsub_stack
         profdat[im]['comb']['cov_gaia_sys'] = cov_gaia_sys
         profdat[im]['comb']['covsub_gaia_sys'] = covsub_gaia_sys
-        profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_gaia_sys'] + profdat[im]['comb']['cov_scaling']
-        profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_gaia_sys'] + profdat[im]['comb']['covsub_scaling']
+        # profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_gaia_sys'] + profdat[im]['comb']['cov_scaling']
+        # profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_gaia_sys'] + profdat[im]['comb']['covsub_scaling']
+        profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_stack']
+        profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_stack']
         
         profdat[im]['comb']['profcb_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['cov_scaling']))
         profdat[im]['comb']['profcbsub_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_scaling']))
@@ -256,84 +258,84 @@ def psf_comb_interpolate(inst, ifield, im, r_arr):
     
     return psf_interp
 
-def run_psf_combine_old(inst, ifield, savedata=True, idx_comb=(9,10)):
+# def run_psf_combine_old(inst, ifield, savedata=True, idx_comb=(9,10)):
     
-    fname = mypaths['alldat'] + 'TM'+ str(inst) + \
-    '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
-    with open(fname, "rb") as f:
-        profdat = pickle.load(f)
+#     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
+#     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
+#     with open(fname, "rb") as f:
+#         profdat = pickle.load(f)
 
-    i1, i2 = idx_comb
+#     i1, i2 = idx_comb
 
-    for im,(m_min,m_max) in enumerate(zip(magbindict['m_min'],magbindict['m_max'])):
+#     for im,(m_min,m_max) in enumerate(zip(magbindict['m_min'],magbindict['m_max'])):
 
-        profc = np.zeros_like(profdat['out']['profcb'])
-        profcsub = np.zeros_like(profdat['out']['profcbsub'])
-        covc = np.zeros_like(profdat['out']['cov'])
-        covcsub = np.zeros_like(profdat['out']['covsub'])
+#         profc = np.zeros_like(profdat['out']['profcb'])
+#         profcsub = np.zeros_like(profdat['out']['profcbsub'])
+#         covc = np.zeros_like(profdat['out']['cov'])
+#         covcsub = np.zeros_like(profdat['out']['covsub'])
 
-        if ifield==5 and im==3:
-            prof_in = profdat[2]['profcb'].copy()
-            prof_in_sub = profdat[2]['profcbsub'].copy()
-            prof_in_cov = profdat[2]['cov'].copy()
-            prof_in_cov_sub = profdat[2]['covsub'].copy()
-        else:
-            prof_in = profdat[im]['profcb'].copy()
-            prof_in_sub = profdat[im]['profcbsub'].copy()
-            prof_in_cov = profdat[im]['cov'].copy()
-            prof_in_cov_sub = profdat[im]['covsub'].copy()
+#         if ifield==5 and im==3:
+#             prof_in = profdat[2]['profcb'].copy()
+#             prof_in_sub = profdat[2]['profcbsub'].copy()
+#             prof_in_cov = profdat[2]['cov'].copy()
+#             prof_in_cov_sub = profdat[2]['covsub'].copy()
+#         else:
+#             prof_in = profdat[im]['profcb'].copy()
+#             prof_in_sub = profdat[im]['profcbsub'].copy()
+#             prof_in_cov = profdat[im]['cov'].copy()
+#             prof_in_cov_sub = profdat[im]['covsub'].copy()
 
-        norm_in = 1 / prof_in[0]
-        norm_mid = norm_in * prof_in[i1] / profdat['mid']['profcb'][i1]
-        norm_out = norm_mid * profdat['mid']['profcb'][i2] / profdat['out']['profcb'][i2]
+#         norm_in = 1 / prof_in[0]
+#         norm_mid = norm_in * prof_in[i1] / profdat['mid']['profcb'][i1]
+#         norm_out = norm_mid * profdat['mid']['profcb'][i2] / profdat['out']['profcb'][i2]
 
-        profc[:i1+1] = prof_in[:i1+1].copy() * norm_in
-        profc[i1+1:i2+1] = profdat['mid']['profcb'][i1+1:i2+1].copy() * norm_mid
-        profc[i2+1:] = profdat['out']['profcb'][i2+1:].copy() * norm_out
+#         profc[:i1+1] = prof_in[:i1+1].copy() * norm_in
+#         profc[i1+1:i2+1] = profdat['mid']['profcb'][i1+1:i2+1].copy() * norm_mid
+#         profc[i2+1:] = profdat['out']['profcb'][i2+1:].copy() * norm_out
 
-        profcsub[:4] = prof_in_sub[:4].copy() * norm_in
-        profcsub[4:6] = profdat['mid']['profcbsub'][4:6].copy() * norm_mid
-        profcsub[6:] = profdat['out']['profcbsub'][6:].copy() * norm_out
+#         profcsub[:4] = prof_in_sub[:4].copy() * norm_in
+#         profcsub[4:6] = profdat['mid']['profcbsub'][4:6].copy() * norm_mid
+#         profcsub[6:] = profdat['out']['profcbsub'][6:].copy() * norm_out
 
-        covc[:i1+1,:i1+1] = prof_in_cov[:i1+1,:i1+1].copy() * norm_in**2
-        covc[i1+1:i2+1,i1+1:i2+1] = profdat['mid']['cov'][i1+1:i2+1,10:i2+1].copy() * norm_mid**2
-        covc[i2+1:,i2+1:] = profdat['out']['cov'][i2+1:,i2+1:].copy() * norm_out**2
+#         covc[:i1+1,:i1+1] = prof_in_cov[:i1+1,:i1+1].copy() * norm_in**2
+#         covc[i1+1:i2+1,i1+1:i2+1] = profdat['mid']['cov'][i1+1:i2+1,10:i2+1].copy() * norm_mid**2
+#         covc[i2+1:,i2+1:] = profdat['out']['cov'][i2+1:,i2+1:].copy() * norm_out**2
 
-        covc_rho = np.zeros_like(covc)
-        for i in range(covc_rho.shape[0]):
-            for j in range(covc_rho.shape[0]):
-                if covc[i,i]==0 or covc[j,j]==0:
-                    covc_rho[i,j] = covc[i,j]
-                else:
-                    covc_rho[i,j] = covc[i,j] / np.sqrt(covc[i,i]*covc[j,j])
+#         covc_rho = np.zeros_like(covc)
+#         for i in range(covc_rho.shape[0]):
+#             for j in range(covc_rho.shape[0]):
+#                 if covc[i,i]==0 or covc[j,j]==0:
+#                     covc_rho[i,j] = covc[i,j]
+#                 else:
+#                     covc_rho[i,j] = covc[i,j] / np.sqrt(covc[i,i]*covc[j,j])
 
-        covcsub[:4,:4] = prof_in_cov_sub[:4,:4].copy() * norm_in**2
-        covcsub[4:6,4:6] = profdat['mid']['covsub'][4:6,4:6].copy() * norm_mid**2
-        covcsub[6:,6:] = profdat['out']['covsub'][6:,6:].copy() * norm_out**2
+#         covcsub[:4,:4] = prof_in_cov_sub[:4,:4].copy() * norm_in**2
+#         covcsub[4:6,4:6] = profdat['mid']['covsub'][4:6,4:6].copy() * norm_mid**2
+#         covcsub[6:,6:] = profdat['out']['covsub'][6:,6:].copy() * norm_out**2
 
-        covcsub_rho = np.zeros_like(covcsub)
-        for i in range(covcsub_rho.shape[0]):
-            for j in range(covcsub_rho.shape[0]):
-                if covcsub[i,i]==0 or covcsub[j,j]==0:
-                    covcsub_rho[i,j] = covcsub[i,j]
-                else:
-                    covcsub_rho[i,j] = covcsub[i,j] / np.sqrt(covcsub[i,i]*covcsub[j,j])
+#         covcsub_rho = np.zeros_like(covcsub)
+#         for i in range(covcsub_rho.shape[0]):
+#             for j in range(covcsub_rho.shape[0]):
+#                 if covcsub[i,i]==0 or covcsub[j,j]==0:
+#                     covcsub_rho[i,j] = covcsub[i,j]
+#                 else:
+#                     covcsub_rho[i,j] = covcsub[i,j] / np.sqrt(covcsub[i,i]*covcsub[j,j])
 
-        profdat[im]['comb'] = {}
-        profdat[im]['comb']['profcb'] = profc
-        profdat[im]['comb']['profcb_err'] = np.sqrt(np.diag(covc))
-        profdat[im]['comb']['profcbsub'] = profcsub
-        profdat[im]['comb']['profcbsub_err'] = np.sqrt(np.diag(covcsub))
-        profdat[im]['comb']['cov'] = covc
-        profdat[im]['comb']['covsub'] = covcsub
-        profdat[im]['comb']['cov_rho'] = covc_rho
-        profdat[im]['comb']['covsub_rho'] = covcsub_rho
+#         profdat[im]['comb'] = {}
+#         profdat[im]['comb']['profcb'] = profc
+#         profdat[im]['comb']['profcb_err'] = np.sqrt(np.diag(covc))
+#         profdat[im]['comb']['profcbsub'] = profcsub
+#         profdat[im]['comb']['profcbsub_err'] = np.sqrt(np.diag(covcsub))
+#         profdat[im]['comb']['cov'] = covc
+#         profdat[im]['comb']['covsub'] = covcsub
+#         profdat[im]['comb']['cov_rho'] = covc_rho
+#         profdat[im]['comb']['covsub_rho'] = covcsub_rho
 
-    if savedata:
-        with open(fname, "wb") as f:
-            pickle.dump(profdat, f)
+#     if savedata:
+#         with open(fname, "wb") as f:
+#             pickle.dump(profdat, f)
     
-    return profdat
+#     return profdat
 
 def run_psf_synth_2m_mag(inst, ifield, m_min, m_max, data_maps=None,
     filt_order=3, savedata=True):

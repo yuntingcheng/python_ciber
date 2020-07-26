@@ -122,7 +122,6 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
     subz_arr[randidx], subm_arr[randidx], subm0_arr[randidx], subcls_arr[randidx]
     idx_arr = subidx_arr[randidx]
     
-    print(len(x1_arr),np.min(m_arr))
     # mask clusters
     if mask_clus:
         maskmh = clusters(1, ifield, lnMhrange=(14, np.inf)).cluster_mask()
