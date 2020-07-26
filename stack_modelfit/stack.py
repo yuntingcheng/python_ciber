@@ -362,7 +362,7 @@ class stacking:
                                            (2,ifield,'mask_inst')])
 
         srcdat = ps_src_select(inst, ifield, m_min, m_max, 
-            [mask_inst1, mask_inst2], sample_type='all')
+            [mask_inst1, mask_inst2], sample_type='all',gaia_match=False)
 
         x_arr = np.append(srcdat['xg_arr'],srcdat['xs_arr'])
         y_arr = np.append(srcdat['yg_arr'],srcdat['ys_arr'])
@@ -965,27 +965,6 @@ class stacking:
             = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
             self.stackdat['PSFcov']['profpssub_rho'] \
             = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
-
-        # import json
-        # loaddir = mypaths['alldat']+'TM' + str(self.inst) + '/'
-        # with open(loaddir + self.field + '_datafit.json') as json_file:
-        #     data_all = json.load(json_file)
-        # im = self.stackdat['m_min'] - 16
-        # data = data_all[im]
-        # self.stackdat['PSFcov']['profcb'] = np.array(data['covpsfcbfull'])
-        # self.stackdat['PSFcov']['profps'] = np.array(data['covpsfpsfull'])
-        # self.stackdat['PSFcov']['profcbsub'] = np.array(data['covpsfcb'])
-        # self.stackdat['PSFcov']['profpssub'] = np.array(data['covpsfps'])
-        # self.stackdat['PSFcov']['profcb100'] = np.array(data['covpsfcb100'])
-        # self.stackdat['PSFcov']['profps100'] = np.array(data['covpsfps100'])
-        # self.stackdat['PSFcov']['profcb_rho'] \
-        # = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
-        # self.stackdat['PSFcov']['profps_rho'] \
-        # = self._normalize_cov(self.stackdat['PSFcov']['profps'])
-        # self.stackdat['PSFcov']['profcbsub_rho'] \
-        # = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
-        # self.stackdat['PSFcov']['profpssub_rho'] \
-        # = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
 
 
     def _get_ex_covariance(self):

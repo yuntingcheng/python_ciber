@@ -6,9 +6,9 @@ from scipy.spatial import cKDTree
 from sklearn import svm
 import time
 
-def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='jack_random',
-                  gaia_match=True, Nsrc_use=None, mask_clus=True, 
-                  filter_star_svm=False,N_neighbor_mask=0, **kwargs):
+def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, 
+    sample_type='jack_random', gaia_match=True, Nsrc_use=None, 
+    mask_clus=True, filter_star_svm=False, N_neighbor_mask=0, **kwargs):
 
     catdir = mypaths['PScatdat']
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
@@ -78,7 +78,10 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
 
     spg = np.where((m_arr<20) & (m_arr>=16) & (cls_arr==1) & (photz_arr>=0))[0]
     sps = np.where((m_arr<20) & (m_arr>=16) & (cls_arr==-1))[0]
-
+    if m_min < 16:
+        spg = np.where((m_arr<20) & (m_arr>=m_min) & (cls_arr==1) & (photz_arr>=0))[0]
+        sps = np.where((m_arr<20) & (m_arr>=m_min) & (cls_arr==-1))[0]
+        
     sp = np.append(sps,spg)
     x1_arr, y1_arr, x2_arr, y2_arr = x1_arr[sp], y1_arr[sp], x2_arr[sp], y2_arr[sp]
     m_arr, m0_arr, z_arr = m_arr[sp], m0_arr[sp], photz_arr[sp]
@@ -119,6 +122,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     subz_arr[randidx], subm_arr[randidx], subm0_arr[randidx], subcls_arr[randidx]
     idx_arr = subidx_arr[randidx]
     
+    print(len(x1_arr),np.min(m_arr))
     # mask clusters
     if mask_clus:
         maskmh = clusters(1, ifield, lnMhrange=(14, np.inf)).cluster_mask()
@@ -158,7 +162,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     x_arr[cls_arr==1], y_arr[cls_arr==1], m_arr[cls_arr==1], m0_arr[cls_arr==1]
     zg_arr = z_arr[cls_arr==1]
     idxg_arr = idx_arr[cls_arr==1]
-
+    
     if mask_clus:
         sp = np.where(zg_arr>0.15)[0]
         xg_arr, yg_arr, zg_arr, mg_arr, mg0_arr = \
@@ -168,7 +172,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     xs_arr, ys_arr, ms_arr, ms0_arr =\
     x_arr[cls_arr==-1], y_arr[cls_arr==-1], m_arr[cls_arr==-1], m0_arr[cls_arr==-1]
     idxs_arr = idx_arr[cls_arr==-1]
-        
+    
     if gaia_match:
         dfg = pd.read_csv(mypaths['GAIAcatdat'] + fieldnamedict[ifield] + '.csv')
         dfg = dfg[dfg['parallax']==dfg['parallax']]
@@ -262,7 +266,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, sample_type='
     xg_arr, yg_arr, mg_arr, mg0_arr, zg_arr =\
     xg_arr[spg], yg_arr[spg], mg_arr[spg], mg0_arr[spg], zg_arr[spg]
     idxg_arr = idxg_arr[spg]
-
+    
     srcdat = {}
     srcdat['inst']= inst
     srcdat['ifield'] = ifield
