@@ -12,7 +12,7 @@ from micecat_auto import *
 
 class fit_stacking_mcmc:
     
-    def __init__(self, inst, ifield, im, filt_order,
+    def __init__(self, inst, ifield, im, filt_order=None,
      data_maps=None, loaddir=None, modify_cov=False, subsub=False):
 
         self.inst = inst
@@ -23,6 +23,8 @@ class fit_stacking_mcmc:
         self.m_max = magbindict['m_max'][im]
         self.dx = 1200
         self.data_maps = data_maps
+        self.filt_order = filt_order if filt_order is not None \
+                                        else filt_order_dict[inst]
         self.filt_order = filt_order
         self.modify_cov = modify_cov
         self.subsub = subsub
@@ -386,7 +388,8 @@ class fit_stacking_mcmc:
                 return_sampler=False, save_chain=True, savedir = None, savename=None,
                 moves=None):
 
-        self.get_profgal_model_interp()
+        if 'logprofgal_tcks' not in dir(self):
+            self.get_profgal_model_interp()
 
         ndim = 2
         p01 = np.random.uniform(0.0001, 1, nwalkers)

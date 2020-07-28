@@ -128,7 +128,7 @@ def run_psf_combine(inst, ifield, savedata=True):
     covcsub_stack = np.zeros([15,15])
     covc_stack[:12,:12] = profdat['cov'][:12,:12] / profdat['profcb'][0]**2
     covcsub_stack[:7,:7] = profdat['covsub'][:7,:7] / profdat['profcb'][0]**2
-    
+
     m_min, m_max = 9, 10
     fname = mypaths['alldat'] + 'TM'+ str(inst) +\
      '/psfdata_synth_2m_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
@@ -153,37 +153,43 @@ def run_psf_combine(inst, ifield, savedata=True):
 
     profc[13:] = proffit[13:] / proffit[13] * profc[13]
     profcsub[8:] = proffitsub[8:] / proffitsub[8] * profcsub[8]
-    
-    # propagate systematic offset on 1st and 11th bin to outer radii
-    sqrtvar = np.sqrt(covc_stack[0,0]/profc[0]**2) * profc[:,np.newaxis]
-    covc_scaling = sqrtvar@sqrtvar.T
-    sqrtvar = np.sqrt(covc_stack[0,0]/profc[0]**2) * profcsub[:,np.newaxis]
-    covcsub_scaling = sqrtvar@sqrtvar.T
-    # ferr =  covc_stack[11,11]/profc[11]**2
-    # covc_scaling[12:,12:] += ferr * (profc[12:,np.newaxis]@profc[12:,np.newaxis].T)
-    # covcsub_scaling[6:,6:] += ferr * (profcsub[6:,np.newaxis]@profcsub[6:,np.newaxis].T)
-    
-    # systematic err from Gaia stack
-    sys_err = np.zeros_like(profc)
-    syssub_err = np.zeros_like(profcsub)
-    for im,(m_min, m_max) in enumerate(zip(np.arange(17,20), np.arange(18,21))):
-        fname = mypaths['alldat'] + 'TM'+ str(inst) +\
-         '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
-        with open(fname, "rb") as f:
-            profdat = pickle.load(f)
-        sysi = np.abs((profdat['profcb']/profdat['profcb'][0]/profc) - 1)
-        sys_err[(sysi>sys_err)] = sysi[(sysi>sys_err)]
-        
-        syssubi = np.abs((profdat['profcbsub']/profdat['profcb'][0]/profcsub) - 1)
-        syssub_err[(syssubi>syssub_err)] = syssubi[(syssubi>syssub_err)]
 
-    sys_err[9:] = sys_err[9]
-    syssub_err[4:] = syssub_err[4]
+    # propagate systematic offset on 11th bin to outer radii
+    for i in range(12,len(profc)):
+        covc_stack[i,i] = covc_stack[11,11]/profc[11]**2 * profc[i]**2
+    for i in range(7,len(profcsub)):
+        covcsub_stack[i,i] = covcsub_stack[6,6]/profcsub[6]**2 * profcsub[i]**2
     
-    sqrtvar = sys_err * profc[:,np.newaxis]
-    cov_gaia_sys = sqrtvar@sqrtvar.T
-    sqrtvar = syssub_err * profcsub[:,np.newaxis]
-    covsub_gaia_sys = sqrtvar@sqrtvar.T
+    # # propagate systematic offset on 1st and 11th bin to outer radii
+    # sqrtvar = np.sqrt(covc_stack[0,0]/profc[0]**2) * profc[:,np.newaxis]
+    # covc_scaling = sqrtvar@sqrtvar.T
+    # sqrtvar = np.sqrt(covc_stack[0,0]/profc[0]**2) * profcsub[:,np.newaxis]
+    # covcsub_scaling = sqrtvar@sqrtvar.T
+    # # ferr =  covc_stack[11,11]/profc[11]**2
+    # # covc_scaling[12:,12:] += ferr * (profc[12:,np.newaxis]@profc[12:,np.newaxis].T)
+    # # covcsub_scaling[6:,6:] += ferr * (profcsub[6:,np.newaxis]@profcsub[6:,np.newaxis].T)
+    
+    # # systematic err from Gaia stack
+    # sys_err = np.zeros_like(profc)
+    # syssub_err = np.zeros_like(profcsub)
+    # for im,(m_min, m_max) in enumerate(zip(np.arange(17,20), np.arange(18,21))):
+    #     fname = mypaths['alldat'] + 'TM'+ str(inst) +\
+    #      '/psfdata_synth_gaia_%s_%d_%d.pkl'%(fieldnamedict[ifield],m_min, m_max)
+    #     with open(fname, "rb") as f:
+    #         profdat = pickle.load(f)
+    #     sysi = np.abs((profdat['profcb']/profdat['profcb'][0]/profc) - 1)
+    #     sys_err[(sysi>sys_err)] = sysi[(sysi>sys_err)]
+        
+    #     syssubi = np.abs((profdat['profcbsub']/profdat['profcb'][0]/profcsub) - 1)
+    #     syssub_err[(syssubi>syssub_err)] = syssubi[(syssubi>syssub_err)]
+
+    # sys_err[9:] = sys_err[9]
+    # syssub_err[4:] = syssub_err[4]
+    
+    # sqrtvar = sys_err * profc[:,np.newaxis]
+    # cov_gaia_sys = sqrtvar@sqrtvar.T
+    # sqrtvar = syssub_err * profcsub[:,np.newaxis]
+    # covsub_gaia_sys = sqrtvar@sqrtvar.T
 
     fname = mypaths['alldat'] + 'TM'+ str(inst) + \
     '/psfdata_synth_%s.pkl'%(fieldnamedict[ifield])
@@ -196,23 +202,23 @@ def run_psf_combine(inst, ifield, savedata=True):
         profdat[im]['comb']['profcbsub'] = profcsub
         profdat[im]['comb']['hit'] = hit
 
-        profdat[im]['comb']['cov_scaling'] = covc_scaling
-        profdat[im]['comb']['covsub_scaling'] = covcsub_scaling
+        # profdat[im]['comb']['cov_scaling'] = covc_scaling
+        # profdat[im]['comb']['covsub_scaling'] = covcsub_scaling
         profdat[im]['comb']['cov_stack'] = covc_stack
         profdat[im]['comb']['covsub_stack'] = covcsub_stack
-        profdat[im]['comb']['cov_gaia_sys'] = cov_gaia_sys
-        profdat[im]['comb']['covsub_gaia_sys'] = covsub_gaia_sys
-        # profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_gaia_sys'] + profdat[im]['comb']['cov_scaling']
-        # profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_gaia_sys'] + profdat[im]['comb']['covsub_scaling']
+        # profdat[im]['comb']['cov_gaia_sys'] = cov_gaia_sys
+        # profdat[im]['comb']['covsub_gaia_sys'] = covsub_gaia_sys
+        # # profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_gaia_sys'] + profdat[im]['comb']['cov_scaling']
+        # # profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_gaia_sys'] + profdat[im]['comb']['covsub_scaling']
         profdat[im]['comb']['cov'] = profdat[im]['comb']['cov_stack']
         profdat[im]['comb']['covsub'] = profdat[im]['comb']['covsub_stack']
         
-        profdat[im]['comb']['profcb_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['cov_scaling']))
-        profdat[im]['comb']['profcbsub_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_scaling']))
-        profdat[im]['comb']['profcb_err_stack'] = np.sqrt(np.diag(profdat[im]['comb']['cov_stack']))
-        profdat[im]['comb']['profcbsub_err_stack'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_stack']))
-        profdat[im]['comb']['profcb_err_gaia_sys'] = np.sqrt(np.diag(profdat[im]['comb']['cov_gaia_sys']))
-        profdat[im]['comb']['profcbsub_err_gaia_sys'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_gaia_sys']))
+        # profdat[im]['comb']['profcb_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['cov_scaling']))
+        # profdat[im]['comb']['profcbsub_err_scaling'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_scaling']))
+        # profdat[im]['comb']['profcb_err_stack'] = np.sqrt(np.diag(profdat[im]['comb']['cov_stack']))
+        # profdat[im]['comb']['profcbsub_err_stack'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_stack']))
+        # profdat[im]['comb']['profcb_err_gaia_sys'] = np.sqrt(np.diag(profdat[im]['comb']['cov_gaia_sys']))
+        # profdat[im]['comb']['profcbsub_err_gaia_sys'] = np.sqrt(np.diag(profdat[im]['comb']['covsub_gaia_sys']))
         profdat[im]['comb']['profcb_err'] = np.sqrt(np.diag(profdat[im]['comb']['cov']))
         profdat[im]['comb']['profcbsub_err'] = np.sqrt(np.diag(profdat[im]['comb']['covsub']))
         

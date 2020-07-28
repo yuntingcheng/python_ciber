@@ -130,71 +130,6 @@ def radial_prof(mapin, cenx=None, ceny=None, log=True, nbins=25, maskin=None,
         
         return profdat
 
-# def radial_prof(mapin, cenx=None, ceny=None, log=True, nbins=25, maskin=None,
-#                 weight=None, rbinedges=None, return_full=True):
-    
-#     if cenx is None:
-#         cenx = mapin.shape[0]//2
-#     if ceny is None:
-#         ceny = mapin.shape[1]//2
-
-#     radmap = make_radius_map(mapin,  cenx, ceny)
-    
-#     if weight is None:
-#         weight = np.ones(mapin.shape)
-        
-#     if maskin is None:
-#         maskin = np.ones(mapin.shape)
-        
-#     if rbinedges is None:
-        
-#         if log:
-#             rbinedges = np.logspace(0, np.log10(np.max(radmap)), nbins+1)
-#             rbinedges[-1] *= 1.01
-#         else:
-#             rbinedges = np.linspace(0, np.max(radmap), nbins+1)
-            
-#         rbinedges[-1] *= 1.01
-#     else:
-#         nbins = len(rbinedges) - 1
-
-#     rbins = np.zeros(nbins)
-#     prof = np.zeros(nbins)
-#     err = np.zeros(nbins)
-#     Npix = np.zeros(nbins)
-    
-#     for i in range(nbins):
-#         sp = np.where((radmap < rbinedges[i+1]) & (radmap >= rbinedges[i]) &\
-#                       (maskin != 0) & (~np.isnan(mapin)) & (~np.isnan(weight)))
-#         Npixi = np.sum(sp)
-        
-#         if Npixi==0:
-#             rbins[i] = np.mean(rbinedges[i:i+2])
-#             prof[i] = 0
-#             err[i] = 0
-#             Npix[i] = 0
-#             continue
-            
-#         mapi = mapin[sp]
-#         wi = weight[sp]
-#         wi = wi/np.nansum(wi)
-#         ri = radmap[sp]
-#         rbins[i] = np.nansum(ri*wi) / np.nansum(wi)
-#         prof[i] = np.nansum(mapi*wi) / np.nansum(wi)
-#         err[i] = np.nanstd(mapi) / np.sqrt(Npixi)
-#         Npix[i] = Npixi
-        
-#     if not return_full:
-#         return prof
-#     else:
-#         profdat = {}
-#         profdat['rbinedges'] = rbinedges
-#         profdat['rbins'] = rbins
-#         profdat['prof'] = prof
-#         profdat['err'] = err
-#         profdat['Npix'] = Npix
-#         return profdat
-
 def profile_radial_binning(prof, w):
     prof15 = np.zeros(15)
     prof25 = prof
@@ -584,6 +519,48 @@ def normalize_cov(cov):
             else:
                 cov_rho[i,j] = cov[i,j] / np.sqrt(cov[i,i]*cov[j,j])
     return cov_rho
+
+def profile_cov_normalize(prof, cov, hit, Nsubbin_head=6, Nsubbin_tail=6):
+    p = prof / prof[0]
+    c = np.zeros_like(cov)
+    
+    for i in range(c.shape[0]):
+        for j in range(c.shape[0]):
+            c[i][j] = prof[i]*prof[j]/prof[0]**2*(cov[i][j]/prof[i]/prof[j] \
+                                                  - cov[i][0]/prof[i]/prof[0] \
+                                        - cov[j][0]/prof[j]/prof[0] + cov[0][0]/prof[0]**2)
+    c[0][0] = 0. # sometimes numerical issue make c[0][0] slightly != 0
+    Nsub = len(p) - Nsubbin_head - Nsubbin_tail + 2
+    psub = np.zeros([Nsub])
+    csub = np.zeros([Nsub,Nsub])
+    
+    pin = p[:Nsubbin_head]
+    hitin = hit[:Nsubbin_head]
+    win = hitin / np.sum(hitin)
+    pout = p[-Nsubbin_tail:]
+    hitout = hit[-Nsubbin_tail:]
+    wout = hitout / np.sum(hitout)
+    
+    psub[0] = np.sum(pin * win)
+    psub[-1] = np.sum(pout * wout)
+    psub[1:-1] = p[Nsubbin_head:-Nsubbin_tail]
+    
+    w = np.ones_like(p)
+    w[:Nsubbin_head] = win
+    w[-Nsubbin_tail:] = wout
+    wmat = w.reshape(-1,1)@w.reshape(1,-1)
+    cw = c * wmat
+    csub[0,0] = np.sum(cw[:Nsubbin_head,:Nsubbin_head])
+    csub[-1,-1] = np.sum(cw[-Nsubbin_tail:,-Nsubbin_tail:])
+    csub[0,-1] = np.sum(cw[:Nsubbin_head,-Nsubbin_tail:])
+    csub[-1,0] = csub[0,-1]
+    csub[0,1:-1]= np.sum(cw[:Nsubbin_head,Nsubbin_head:-Nsubbin_tail],axis=0)
+    csub[-1,1:-1]= np.sum(cw[-Nsubbin_tail:,Nsubbin_head:-Nsubbin_tail],axis=0)
+    csub[1:-1,0]= csub[0,1:-1]
+    csub[1:-1,-1]= csub[-1,1:-1]
+    csub[1:-1,1:-1] = cw[Nsubbin_head:-Nsubbin_tail,Nsubbin_head:-Nsubbin_tail]
+    
+    return p, c, psub, csub
 
 def plot_atcr(listsamp, title=None, plot=False):
     numbsamp = listsamp.shape[0]
