@@ -457,7 +457,7 @@ class joint_fit_mcmc:
         
         self.param_fits = []
         for ifield in ifield_list:
-            fit_params = fit_stacking_mcmc(inst, ifield, im, filt_order,
+            fit_params = fit_stacking_mcmc(inst, ifield, im, self.filt_order,
              subsub=subsub)
             if fast:
                 fit_params.get_profgal_model_interp()
