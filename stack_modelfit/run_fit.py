@@ -61,7 +61,7 @@ class fit_stacking_mcmc:
         n, p = self.Njk, len(self.rsubbins)
         self.covsub_inv_debias = (n - p - 2) / (n - 1)
 
-        self.cov_inv = np.linalg.inv(self.cov)
+        # self.cov_inv = np.linalg.inv(self.cov)
         self.covsub_inv, self.covsub_inv_Nmode \
         = self._get_covsub_inv(self.covsub)
         self.dof_data = len(self.profcb_sub)

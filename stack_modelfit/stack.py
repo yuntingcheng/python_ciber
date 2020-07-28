@@ -1035,7 +1035,6 @@ class stacking:
         = self._normalize_cov(self.stackdat['excov']['profcb'])
         self.stackdat['excov']['profcbsub_rho'] \
         = self._normalize_cov(self.stackdat['excov']['profcbsub'])
-        
 
     def _get_subsubbins(self, Nrebin=7):
         # further combine Nrebin of rsubbins into one bin
