@@ -25,7 +25,6 @@ class fit_stacking_mcmc:
         self.data_maps = data_maps
         self.filt_order = filt_order if filt_order is not None \
                                         else filt_order_dict[inst]
-        self.filt_order = filt_order
         self.modify_cov = modify_cov
         self.subsub = subsub
 
