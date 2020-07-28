@@ -442,7 +442,7 @@ class joint_fit_mcmc:
     
     # joint fit the params 
     
-    def __init__(self, inst, im, filt_order, fast=True,
+    def __init__(self, inst, im, filt_order=None, fast=True,
      ifield_list = [4,5,6,7,8], subsub=False):
         self.inst = inst
         self.ifield_list = ifield_list
@@ -451,7 +451,8 @@ class joint_fit_mcmc:
         self.im = im
         self.m_min = magbindict['m_min'][im]
         self.m_max = magbindict['m_max'][im]
-        self.filt_order = filt_order
+        self.filt_order = filt_order if filt_order is not None \
+                                        else filt_order_dict[inst]
         self.subsub = subsub
         
         self.param_fits = []
