@@ -4,6 +4,7 @@ class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
         savename=None, load_from_file=False, loaddir=None, filt_order=None,
          run_nonuniform_BG=False, getBG=True, BGsub=True, all_src=False,
+         Mabs_min=None, Mabs_max=None,
          subsub=False, uniform_jack=False, savemaps=False):
         self.inst = inst
         self.ifield = ifield
@@ -17,6 +18,8 @@ class stacking:
         self.BGsub = BGsub
         self.subsub = subsub
         self.uniform_jack = uniform_jack
+        self.Mabs_min=Mabs_min
+        self.Mabs_max=Mabs_max
         self.savemaps = savemaps
         self.data_maps = None
 
@@ -28,6 +31,10 @@ class stacking:
             if uniform_jack:
                 savename = loaddir + 'stackdat_TM%d_%s_%d_%d_filt%d_unijack'\
                 %(inst, self.field, m_min, m_max, filt_order)
+            if Mabs_min is not None:
+                savename = loaddir + 'stackdat_TM%d_%s_%d_%d_filt%d_Mabs%d_%d'\
+                %(inst, self.field, m_min, m_max, filt_order, Mabs_min, Mabs_max)
+
 
         if all_src:
             # This has no z & Mh cut
@@ -105,12 +112,14 @@ class stacking:
         
         if srcdat is None:
             srcdat = ps_src_select(inst, ifield, m_min, m_max, 
-                [mask_inst1, mask_inst2], sample_type=sample_type)
+                [mask_inst1, mask_inst2], sample_type=sample_type,
+                Mabs_min=self.Mabs_min, Mabs_max=self.Mabs_max)
 
             if srcdat['N' + srctype] < 64:
                 srcdat = ps_src_select(inst, ifield, m_min, m_max, 
                     [mask_inst1, mask_inst2], sample_type='jack_random',
-                    Nsub=srcdat['N' + srctype])                
+                    Nsub=srcdat['N' + srctype],
+                    Mabs_min=self.Mabs_min, Mabs_max=self.Mabs_max)             
         if cliplim is None:
             cliplim = self._stackihl_PS_cliplim()
 
@@ -889,25 +898,21 @@ class stacking:
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
 
-        im = self.m_min-16
-        if im in profdat:
-            self.stackdat['PSF']['Nsrc'] = profdat[self.m_min-16]['Nsrc']
-            psfdat = profdat[im]['comb']
-            self.stackdat['PSF']['profcb'] = psfdat['profcb']*scalecb
-            self.stackdat['PSF']['profps'] = psfdat['profcb']*scaleps
-            self.stackdat['PSF']['profcbsub'] = psfdat['profcbsub']*scalecb
-            self.stackdat['PSF']['profpssub'] = psfdat['profcbsub']*scaleps
-            self.stackdat['PSF']['profcb100'] = psfdat['profcbsub'][-1]*scalecb
-            self.stackdat['PSF']['profps100'] = psfdat['profcbsub'][-1]*scaleps
-            self.stackdat['PSF']['profhit'] = psfdat['hit']
-        else:
-            # this is for running PSF stack only (run_psf_synth)
-            self.stackdat['PSF']['profcb'] = self.stackdat['profcb']
-            self.stackdat['PSF']['profps'] = self.stackdat['profcb']
-            self.stackdat['PSF']['profcbsub'] = self.stackdat['profcbsub']
-            self.stackdat['PSF']['profpssub'] = self.stackdat['profcbsub']
-            self.stackdat['PSF']['profcb100'] = self.stackdat['profcbsub'][-1]
-            self.stackdat['PSF']['profps100'] = self.stackdat['profcbsub'][-1]
+        psfdat = profdat[im]['comb']
+        self.stackdat['PSF']['profcb'] = psfdat['profcb']*scalecb
+        self.stackdat['PSF']['profps'] = psfdat['profcb']*scaleps
+        self.stackdat['PSF']['profcbsub'] = psfdat['profcbsub']*scalecb
+        self.stackdat['PSF']['profpssub'] = psfdat['profcbsub']*scaleps
+        self.stackdat['PSF']['profcb100'] = psfdat['profcbsub'][-1]*scalecb
+        self.stackdat['PSF']['profps100'] = psfdat['profcbsub'][-1]*scaleps
+        self.stackdat['PSF']['profhit'] = psfdat['hit']
+        # # this is for running PSF stack only (run_psf_synth)
+        # self.stackdat['PSF']['profcb'] = self.stackdat['profcb']
+        # self.stackdat['PSF']['profps'] = self.stackdat['profcb']
+        # self.stackdat['PSF']['profcbsub'] = self.stackdat['profcbsub']
+        # self.stackdat['PSF']['profpssub'] = self.stackdat['profcbsub']
+        # self.stackdat['PSF']['profcb100'] = self.stackdat['profcbsub'][-1]
+        # self.stackdat['PSF']['profps100'] = self.stackdat['profcbsub'][-1]
 
 
     def _get_PSF_covariance_from_data(self):
@@ -920,39 +925,36 @@ class stacking:
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
 
-        im = self.m_min-16
-        if im in profdat:
-            psfdat = profdat[self.m_min-16]['comb']
-            self.stackdat['PSFcov']['profcb'] = psfdat['cov']*scalecb**2
-            self.stackdat['PSFcov']['profps'] = psfdat['cov']*scalecb**2
-            self.stackdat['PSFcov']['profcbsub'] = psfdat['covsub']*scalecb**2
-            self.stackdat['PSFcov']['profpssub'] = psfdat['covsub']*scalecb**2
-            self.stackdat['PSFcov']['profcb100'] = psfdat['covsub'][-1,-1]*scalecb**2
-            self.stackdat['PSFcov']['profps100'] = psfdat['covsub'][-1,-1]*scalecb**2
-            self.stackdat['PSFcov']['profcb_rho'] \
-            = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
-            self.stackdat['PSFcov']['profps_rho'] \
-            = self._normalize_cov(self.stackdat['PSFcov']['profps'])
-            self.stackdat['PSFcov']['profcbsub_rho'] \
-            = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
-            self.stackdat['PSFcov']['profpssub_rho'] \
-            = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
-        else:
-            # this is for running PSF stack only (run_psf_synth)
-            self.stackdat['PSFcov']['profcb'] = self.stackdat['cov']['profcb']
-            self.stackdat['PSFcov']['profps'] = self.stackdat['cov']['profcb']
-            self.stackdat['PSFcov']['profcbsub'] = self.stackdat['cov']['profcbsub']
-            self.stackdat['PSFcov']['profpssub'] = self.stackdat['cov']['profcbsub']
-            self.stackdat['PSFcov']['profcb100'] = self.stackdat['cov']['profcbsub'][-1,-1]
-            self.stackdat['PSFcov']['profps100'] = self.stackdat['cov']['profcbsub'][-1,-1]
-            self.stackdat['PSFcov']['profcb_rho'] \
-            = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
-            self.stackdat['PSFcov']['profps_rho'] \
-            = self._normalize_cov(self.stackdat['PSFcov']['profps'])
-            self.stackdat['PSFcov']['profcbsub_rho'] \
-            = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
-            self.stackdat['PSFcov']['profpssub_rho'] \
-            = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
+        psfdat = profdat[0]['comb']
+        self.stackdat['PSFcov']['profcb'] = psfdat['cov']*scalecb**2
+        self.stackdat['PSFcov']['profps'] = psfdat['cov']*scalecb**2
+        self.stackdat['PSFcov']['profcbsub'] = psfdat['covsub']*scalecb**2
+        self.stackdat['PSFcov']['profpssub'] = psfdat['covsub']*scalecb**2
+        self.stackdat['PSFcov']['profcb100'] = psfdat['covsub'][-1,-1]*scalecb**2
+        self.stackdat['PSFcov']['profps100'] = psfdat['covsub'][-1,-1]*scalecb**2
+        self.stackdat['PSFcov']['profcb_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
+        self.stackdat['PSFcov']['profps_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profps'])
+        self.stackdat['PSFcov']['profcbsub_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
+        self.stackdat['PSFcov']['profpssub_rho'] \
+        = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
+        # # this is for running PSF stack only (run_psf_synth)
+        # self.stackdat['PSFcov']['profcb'] = self.stackdat['cov']['profcb']
+        # self.stackdat['PSFcov']['profps'] = self.stackdat['cov']['profcb']
+        # self.stackdat['PSFcov']['profcbsub'] = self.stackdat['cov']['profcbsub']
+        # self.stackdat['PSFcov']['profpssub'] = self.stackdat['cov']['profcbsub']
+        # self.stackdat['PSFcov']['profcb100'] = self.stackdat['cov']['profcbsub'][-1,-1]
+        # self.stackdat['PSFcov']['profps100'] = self.stackdat['cov']['profcbsub'][-1,-1]
+        # self.stackdat['PSFcov']['profcb_rho'] \
+        # = self._normalize_cov(self.stackdat['PSFcov']['profcb'])
+        # self.stackdat['PSFcov']['profps_rho'] \
+        # = self._normalize_cov(self.stackdat['PSFcov']['profps'])
+        # self.stackdat['PSFcov']['profcbsub_rho'] \
+        # = self._normalize_cov(self.stackdat['PSFcov']['profcbsub'])
+        # self.stackdat['PSFcov']['profpssub_rho'] \
+        # = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
 
     def _get_excess(self):
         self.stackdat['ex'] = {}
@@ -1167,7 +1169,13 @@ class stacking:
         = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
 
         return
-def run_stacking(inst, ifield, **kwargs):
-    for m_min, m_max in zip(magbindict['m_min'], magbindict['m_max']):
-        stacking(inst, ifield, m_min, m_max, **kwargs)
-    return
+        
+def run_stacking(inst, ifield, m_min=None, m_max=None,**kwargs):
+
+    if m_min is not None:
+        stacking(inst, ifield, m_min=m_min, m_max=m_max, **kwargs)
+        return
+    else:
+        for m_min, m_max in zip(magbindict['m_min'], magbindict['m_max']):
+            stacking(inst, ifield, m_min, m_max, **kwargs)
+        return
