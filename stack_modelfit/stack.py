@@ -37,8 +37,8 @@ class stacking:
                 savename = loaddir + 'stackdat_TM%d_%s_%d_%d_filt%d_Mabs%d_%d'\
                 %(inst, self.field, m_min, m_max, filt_order, Mabs_min, Mabs_max)
                 if z_min is not None:
-                savename = loaddir + 'stackdat_TM%d_%s_%d_%d_filt%d_Mabs%d_%d_z%.2f_%.2f'\
-                %(inst, self.field, m_min, m_max, filt_order, Mabs_min, Mabs_max, z_min, z_max)
+                    savename = loaddir + 'stackdat_TM%d_%s_%d_%d_filt%d_Mabs%d_%d_z%.2f_%.2f'\
+                    %(inst, self.field, m_min, m_max, filt_order, Mabs_min, Mabs_max, z_min, z_max)
                     
 
 
