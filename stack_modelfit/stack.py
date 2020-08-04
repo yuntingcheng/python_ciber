@@ -4,7 +4,7 @@ class stacking:
     def __init__(self, inst, ifield, m_min, m_max, srctype='g', 
         savename=None, load_from_file=False, loaddir=None, filt_order=None,
          run_nonuniform_BG=False, getBG=True, BGsub=True, all_src=False,
-         Mabs_min=None, Mabs_max=None,
+         z_min=None, z_max=None, Mabs_min=None, Mabs_max=None,
          subsub=False, uniform_jack=False, savemaps=False):
         self.inst = inst
         self.ifield = ifield
@@ -20,6 +20,8 @@ class stacking:
         self.uniform_jack = uniform_jack
         self.Mabs_min=Mabs_min
         self.Mabs_max=Mabs_max
+        self.z_min=z_min
+        self.z_max=z_max
         self.savemaps = savemaps
         self.data_maps = None
 
@@ -113,13 +115,15 @@ class stacking:
         if srcdat is None:
             srcdat = ps_src_select(inst, ifield, m_min, m_max, 
                 [mask_inst1, mask_inst2], sample_type=sample_type,
-                Mabs_min=self.Mabs_min, Mabs_max=self.Mabs_max)
+                Mabs_min=self.Mabs_min, Mabs_max=self.Mabs_max,
+                z_min=self.z_min, z_max=self.z_max)
 
             if srcdat['N' + srctype] < 64:
                 srcdat = ps_src_select(inst, ifield, m_min, m_max, 
                     [mask_inst1, mask_inst2], sample_type='jack_random',
                     Nsub=srcdat['N' + srctype],
-                    Mabs_min=self.Mabs_min, Mabs_max=self.Mabs_max)             
+                    Mabs_min=self.Mabs_min, Mabs_max=self.Mabs_max,
+                    z_min=self.z_min, z_max=self.z_max)            
         if cliplim is None:
             cliplim = self._stackihl_PS_cliplim()
 
@@ -1169,7 +1173,7 @@ class stacking:
         = self._normalize_cov(self.stackdat['PSFcov']['profpssub'])
 
         return
-        
+
 def run_stacking(inst, ifield, m_min=None, m_max=None,**kwargs):
 
     if m_min is not None:

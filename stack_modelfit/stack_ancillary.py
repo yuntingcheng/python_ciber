@@ -9,7 +9,7 @@ import time
 def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, 
     sample_type='jack_random', gaia_match=True, Nsrc_use=None, 
     mask_clus=True, filter_star_svm=False, N_neighbor_mask=0,
-    Mabs_min=None, Mabs_max=None, **kwargs):
+    z_min=None, z_max=None, Mabs_min=None, Mabs_max=None, **kwargs):
 
     catdir = mypaths['PScatdat']
     df = pd.read_csv(catdir + fieldnamedict[ifield] + '.csv')
@@ -274,7 +274,13 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
         xg_arr, yg_arr, mg_arr, mg0_arr, zg_arr =\
         xg_arr[spg], yg_arr[spg], mg_arr[spg], mg0_arr[spg], zg_arr[spg]
         idxg_arr = idxg_arr[spg]
-        
+
+    if z_min is not None:
+        spg = np.where((zg_arr>=z_min) & (zg_arr<z_max))[0]
+        xg_arr, yg_arr, mg_arr, mg0_arr, zg_arr =\
+        xg_arr[spg], yg_arr[spg], mg_arr[spg], mg0_arr[spg], zg_arr[spg]
+        idxg_arr = idxg_arr[spg]
+
     srcdat = {}
     srcdat['inst']= inst
     srcdat['ifield'] = ifield
