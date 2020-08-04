@@ -902,7 +902,7 @@ class stacking:
         with open(fname, "rb") as f:
             profdat = pickle.load(f)
 
-        psfdat = profdat[im]['comb']
+        psfdat = profdat[0]['comb']
         self.stackdat['PSF']['profcb'] = psfdat['profcb']*scalecb
         self.stackdat['PSF']['profps'] = psfdat['profcb']*scaleps
         self.stackdat['PSF']['profcbsub'] = psfdat['profcbsub']*scalecb
