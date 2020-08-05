@@ -12,15 +12,15 @@ from micecat_auto import *
 
 class fit_stacking_mcmc:
     
-    def __init__(self, inst, ifield, im, filt_order=None,
-     data_maps=None, loaddir=None, modify_cov=False, subsub=False):
+    def __init__(self, inst, ifield, im, m_min=None, m_max=None, filt_order=None,
+     data_maps=None, loaddir=None, modify_cov=False, subsub=False, **kwargs):
 
         self.inst = inst
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
         self.im = im
-        self.m_min = magbindict['m_min'][im]
-        self.m_max = magbindict['m_max'][im]
+        self.m_min = m_min if m_min is not None else magbindict['m_min'][im]
+        self.m_max = m_max if m_max is not None else magbindict['m_max'][im]
         self.dx = 1200
         self.data_maps = data_maps
         self.filt_order = filt_order if filt_order is not None \
@@ -28,20 +28,20 @@ class fit_stacking_mcmc:
         self.modify_cov = modify_cov
         self.subsub = subsub
 
-        self._fit_data_preprocess(loaddir)
+        self._fit_data_preprocess(loaddir,**kwargs)
         
-    def _fit_data_preprocess(self,loaddir):
-        self._load_data(loaddir)
+    def _fit_data_preprocess(self,loaddir,**kwargs):
+        self._load_data(loaddir,**kwargs)
         self._get_model_1h()
         self._get_model_2h()
         self._get_model_psf()
 
-    def _load_data(self, loaddir):
+    def _load_data(self, loaddir,**kwargs):
         stackdat = stacking(self.inst, self.ifield,
                             self.m_min, self.m_max,
                             filt_order=self.filt_order,loaddir=loaddir, 
                             load_from_file=True, BGsub=False,
-                            subsub=self.subsub).stackdat
+                            subsub=self.subsub, **kwargs).stackdat
         self.Nsrc = stackdat['Nsrc']
         self.Njk = stackdat['Nsub']
         self.rbins = stackdat['rbins']
@@ -442,23 +442,25 @@ class joint_fit_mcmc:
     
     # joint fit the params 
     
-    def __init__(self, inst, im, filt_order=None, fast=True,
-     ifield_list = [4,5,6,7,8], subsub=False):
+    def __init__(self, inst, im, m_min=None, m_max=None, 
+        filt_order=None, fast=True, ifield_list = [4,5,6,7,8],
+         subsub=False, **kwargs):
         self.inst = inst
         self.ifield_list = ifield_list
         self.Nfields = len(ifield_list)
         self.field_list = [fieldnamedict[i] for i in ifield_list]
         self.im = im
-        self.m_min = magbindict['m_min'][im]
-        self.m_max = magbindict['m_max'][im]
+        self.m_min = m_min if m_min is not None else magbindict['m_min'][im]
+        self.m_max = m_max if m_max is not None else magbindict['m_max'][im]
         self.filt_order = filt_order if filt_order is not None \
                                         else filt_order_dict[inst]
         self.subsub = subsub
         
         self.param_fits = []
         for ifield in ifield_list:
-            fit_params = fit_stacking_mcmc(inst, ifield, im, self.filt_order,
-             subsub=subsub)
+            fit_params = fit_stacking_mcmc(inst, ifield, im, 
+                m_min=self.m_min, m_max=self.m_max, 
+                filt_order=self.filt_order,subsub=subsub,**kwargs)
             if fast:
                 fit_params.get_profgal_model_interp()
             self.param_fits.append(fit_params)

@@ -52,7 +52,6 @@ class stacking:
 
 
         self.savename = savename
-        
         if load_from_file:
             stackdat = np.load(savename + '.npy' ,allow_pickle='TRUE').item()
             self.stackdat = stackdat
