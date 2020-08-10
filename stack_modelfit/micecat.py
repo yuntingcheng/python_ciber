@@ -525,6 +525,22 @@ def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False
         
     return rbins, data_avg, data_std, data_all
 
+def micecat_1h_combine_mags(inst, ifield, im_arr=[1,2,3],wi_arr=None,loaddir=None):
+    if wi_arr is None:
+        wi_arr = np.ones_like(im_arr)
+    wi_arr = np.array(wi_arr)/np.sum(wi_arr)
+    prof1h, prof1h_sub = 0,0
+    for _,(im,wi) in enumerate(zip(im_arr,wi_arr)):
+        _, mc_avg, mc_std, _ = get_micecat_sim_1h(inst, im, 
+            Mhcut=1e14, R200cut=0, zcut=0.15, sub=False)
+        _, mc_avg_sub, mc_std_sub, _ = get_micecat_sim_1h(inst, im,
+            Mhcut=1e14, R200cut=0, zcut=0.15, sub=True, subsub=False)
+        prof1h = prof1h + mc_avg*wi
+        prof1h_sub = prof1h_sub + mc_avg_sub*wi
+
+    return prof1h, prof1h_sub
+
+
 def get_micecat_sim_cen(inst, im, sub=False, 
     filt_order=None, ratio=False, return_icat=False):
     '''

@@ -7,8 +7,8 @@ from sklearn import svm
 import time
 
 def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64, 
-    sample_type='jack_random', gaia_match=True, Nsrc_use=None, 
-    mask_clus=True, filter_star_svm=False, N_neighbor_mask=0,
+    sample_type='jack_random', gaia_match=True, gaia_filter_galcat=False,
+    Nsrc_use=None, mask_clus=True, filter_star_svm=False, N_neighbor_mask=0,
     z_min=None, z_max=None, Mabs_min=None, Mabs_max=None, **kwargs):
 
     catdir = mypaths['PScatdat']
@@ -192,6 +192,8 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
         dfg = pd.read_csv(mypaths['GAIAcatdat'] + fieldnamedict[ifield] + '.csv')
         dfg = dfg[(dfg['parallax']==dfg['parallax']) \
         & (dfg['astrometric_excess_noise']==0)]
+        if gaia_filter_galcat:
+            dfg = dfg[dfg['pgal']!=dfg['pgal']]
         catalogg = (dfg[['ra','dec']].values * np.pi/180).tolist()
         psg = [[item[0], item[1]] for item in catalogg]
         dfp = df.iloc[idxs_arr]

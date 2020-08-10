@@ -770,3 +770,16 @@ def micecat_profile_fit(inst, im, sub=True, filt_order=0, return_full=False, sub
         return rsubbins, mc_avgsub_fit
     else:
         return rbins, mc_avg_fit
+
+def micecat_2h_combine_mags(inst, ifield, im_arr=[1,2,3],wi_arr=None,loaddir=None):
+    if wi_arr is None:
+        wi_arr = np.ones_like(im_arr)
+    wi_arr = np.array(wi_arr)/np.sum(wi_arr)
+    prof2h, prof2h_sub = 0,0
+    for _,(im,wi) in enumerate(zip(im_arr,wi_arr)):
+        _, _, mc_avg_fit, _, _, mc_avgsub_fit = \
+        micecat_profile_fit(inst, im, return_full=True, subsub=False)
+        prof2h = prof2h + mc_avg_fit*wi
+        prof2h_sub = prof2h_sub + mc_avgsub_fit*wi 
+        
+    return prof2h, prof2h_sub

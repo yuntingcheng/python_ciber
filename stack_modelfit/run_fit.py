@@ -18,9 +18,16 @@ class fit_stacking_mcmc:
         self.inst = inst
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
-        self.im = im
-        self.m_min = m_min if m_min is not None else magbindict['m_min'][im]
-        self.m_max = m_max if m_max is not None else magbindict['m_max'][im]
+        if im == 'all':
+            self.im = 3
+            self.m_min = 17
+            self.m_max = 20
+            self.allmag = True
+        else:
+            self.im = im
+            self.m_min = m_min if m_min is not None else magbindict['m_min'][im]
+            self.m_max = m_max if m_max is not None else magbindict['m_max'][im]
+            self.allmag = False
         self.dx = 1200
         self.data_maps = data_maps
         self.filt_order = filt_order if filt_order is not None \
@@ -37,12 +44,16 @@ class fit_stacking_mcmc:
         self._get_model_psf()
 
     def _load_data(self, loaddir,**kwargs):
-        stackdat = stacking(self.inst, self.ifield,
-                            self.m_min, self.m_max,
-                            filt_order=self.filt_order,loaddir=loaddir, 
-                            load_from_file=True, BGsub=False,
-                            subsub=self.subsub, **kwargs).stackdat
-        self.Nsrc = stackdat['Nsrc']
+        if self.allmag:
+            stackdat = stackdat_combine_mags(self.inst, self.ifield, **kwargs)
+            self.Nsrc_arr = stackdat['Nsrc_arr']
+        else:
+            stackdat = stacking(self.inst, self.ifield,
+                                self.m_min, self.m_max,
+                                filt_order=self.filt_order,loaddir=loaddir, 
+                                load_from_file=True, BGsub=False,
+                                subsub=self.subsub, **kwargs).stackdat
+            self.Nsrc = stackdat['Nsrc']
         self.Njk = stackdat['Nsub']
         self.rbins = stackdat['rbins']
         self.rbinedges = stackdat['rbinedges']
@@ -101,12 +112,18 @@ class fit_stacking_mcmc:
         return Covi_svd, Nmode
 
     def _get_model_1h(self):
-        _, mc_avg, mc_std, _ = get_micecat_sim_1h(self.inst, self.im, 
-            Mhcut=1e14, R200cut=0, zcut=0.15, sub=False)
-        _, mc_avg_sub, mc_std_sub, _ = get_micecat_sim_1h(self.inst, self.im,
-            Mhcut=1e14, R200cut=0, zcut=0.15, sub=True, subsub=self.subsub)
-        self.prof1h = mc_avg
-        self.prof1h_sub = mc_avg_sub
+        if self.allmag:
+            prof1h, prof1h_sub = micecat_1h_combine_mags(self.inst, self.ifield,
+             wi_arr=self.Nsrc_arr)
+            self.prof1h = prof1h
+            self.prof1h_sub = prof1h_sub
+        else:
+            _, mc_avg, mc_std, _ = get_micecat_sim_1h(self.inst, self.im, 
+                Mhcut=1e14, R200cut=0, zcut=0.15, sub=False)
+            _, mc_avg_sub, mc_std_sub, _ = get_micecat_sim_1h(self.inst, self.im,
+                Mhcut=1e14, R200cut=0, zcut=0.15, sub=True, subsub=self.subsub)
+            self.prof1h = mc_avg
+            self.prof1h_sub = mc_avg_sub
         return
     
     def _get_model_2h_analytic(self):
@@ -140,13 +157,18 @@ class fit_stacking_mcmc:
         return
 
     def _get_model_2h(self):
+        if self.allmag:
+            prof2h, prof2h_sub = micecat_2h_combine_mags(self.inst, self.ifield,
+             wi_arr=self.Nsrc_arr)
+            self.prof2h = prof2h
+            self.prof2h_sub = prof2h_sub
+        else:
+            rbins, mc_avg, mc_avg_fit, rsubbins, mc_avgsub, mc_avgsub_fit = \
+            micecat_profile_fit(self.inst, self.im, filt_order=self.filt_order,
+             return_full=True, subsub=self.subsub)
 
-        rbins, mc_avg, mc_avg_fit, rsubbins, mc_avgsub, mc_avgsub_fit = \
-        micecat_profile_fit(self.inst, self.im, filt_order=self.filt_order,
-         return_full=True, subsub=self.subsub)
-
-        self.prof2h = mc_avg_fit
-        self.prof2h_sub = mc_avgsub_fit
+            self.prof2h = mc_avg_fit
+            self.prof2h_sub = mc_avgsub_fit
         
         return
      
@@ -449,9 +471,16 @@ class joint_fit_mcmc:
         self.ifield_list = ifield_list
         self.Nfields = len(ifield_list)
         self.field_list = [fieldnamedict[i] for i in ifield_list]
-        self.im = im
-        self.m_min = m_min if m_min is not None else magbindict['m_min'][im]
-        self.m_max = m_max if m_max is not None else magbindict['m_max'][im]
+        if im == 'all':
+            self.im = 'all'
+            self.m_min = 17
+            self.m_max = 20
+            self.allmag = True
+        else:
+            self.im = im
+            self.m_min = m_min if m_min is not None else magbindict['m_min'][im]
+            self.m_max = m_max if m_max is not None else magbindict['m_max'][im]
+            self.allmag = False
         self.filt_order = filt_order if filt_order is not None \
                                         else filt_order_dict[inst]
         self.subsub = subsub
@@ -664,19 +693,20 @@ def get_posterior_interval(samples, ci=68, return_hist=False):
     return param_mid, param_low, param_high
 
 def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,
-    chaindir=None, subsub=False):
+    chaindir=None, subsub=False, savename=None):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
 
-    if ifield in [4,5,6,7,8]:
-        savename = 'mcmc_3par_' + fieldnamedict[ifield] + \
-        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
-    elif ifield is None:
-        savename = 'mcmc_3par_joint' + \
-        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+    if savename is None:
+        if ifield in [4,5,6,7,8]:
+            savename = 'mcmc_3par_' + fieldnamedict[ifield] + \
+            '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+        elif ifield is None:
+            savename = 'mcmc_3par_joint' + \
+            '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
 
-    if subsub:
-        savename = savename[:-4] + '_sub.npy'
+        if subsub:
+            savename = savename[:-4] + '_sub.npy'
 
     if chaindir is None:
         chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'
@@ -703,19 +733,20 @@ def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,
     return fitparamdat
 
 def get_mcmc_fit_params_2par(inst, im, ifield=None,
-    burn_in=150,chaindir=None, subsub=False):
+    burn_in=150,chaindir=None, subsub=False, savename=None):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
 
-    if ifield in [4,5,6,7,8]:
-        savename = 'mcmc_2par_' + fieldnamedict[ifield] + \
-        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
-    elif ifield is None:
-        savename = 'mcmc_2par_joint' + \
-        '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+    if savename is None:
+        if ifield in [4,5,6,7,8]:
+            savename = 'mcmc_2par_' + fieldnamedict[ifield] + \
+            '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
+        elif ifield is None:
+            savename = 'mcmc_2par_joint' + \
+            '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
 
-    if subsub:
-        savename = savename[:-4] + '_sub.npy'
+        if subsub:
+            savename = savename[:-4] + '_sub.npy'
 
     if chaindir is None:
         chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'

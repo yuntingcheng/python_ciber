@@ -1186,3 +1186,60 @@ def run_stacking(inst, ifield, m_min=None, m_max=None,**kwargs):
         for m_min, m_max in zip(magbindict['m_min'], magbindict['m_max']):
             stacking(inst, ifield, m_min, m_max, **kwargs)
         return
+
+def stackdat_combine_mags(inst, ifield, loaddir=None, **kwargs):
+    # combine the stacking from all mag bins
+    
+    stack_class = stacking(inst, ifield, 17, 18, load_from_file=True,
+     BGsub=False, subsub=False,**kwargs)
+    stackdat = stack_class.stackdat
+    stackdat['m_min'], stackdat['m_max'] = 17,20
+    stackdat['Nsrc_arr'] = []
+    stackdat['Nsrc'] = 0
+    for isub in list(stackdat['sub']):
+        stackdat['sub'][isub]['Nsrc'] = 0
+        stackdat['sub'][isub]['profcb'] = 0
+        stackdat['sub'][isub]['profhit'] = 0
+        stackdat['sub'][isub]['profcbsub'] = 0
+        stackdat['sub'][isub]['profhitsub'] = 0
+    stackdat['Nsrc'] = 0
+    stackdat['profcb'] = 0
+    stackdat['profhit'] = 0
+    stackdat['profcbsub'] = 0
+    stackdat['profhitsub'] = 0
+
+    for im,(m_min,m_max) in enumerate(zip(magbindict['m_min'][1:],magbindict['m_max'][1:])):
+        stackdati = stacking(inst, ifield, m_min, m_max, load_from_file=True,
+         BGsub=False, subsub=False, **kwargs).stackdat
+        stackdat['Nsrc'] = stackdat['Nsrc'] + stackdati['Nsrc']
+        stackdat['Nsrc_arr'].append(stackdati['Nsrc'])
+        for isub in list(stackdat['sub']):
+            stackdat['sub'][isub]['Nsrc'] = stackdat['sub'][isub]['Nsrc'] + stackdati['sub'][isub]['Nsrc']
+            stackdat['sub'][isub]['profcb'] = stackdat['sub'][isub]['profcb'] \
+            + stackdati['sub'][isub]['profcb'] * stackdati['sub'][isub]['profhit']
+            stackdat['sub'][isub]['profhit'] = stackdat['sub'][isub]['profhit'] + \
+            stackdati['sub'][isub]['profhit']
+            stackdat['sub'][isub]['profcbsub'] = stackdat['sub'][isub]['profcbsub'] \
+            + stackdati['sub'][isub]['profcbsub'] * stackdati['sub'][isub]['profhitsub']
+            stackdat['sub'][isub]['profhitsub'] = stackdat['sub'][isub]['profhitsub'] + \
+            stackdati['sub'][isub]['profhitsub']
+
+        stackdat['profcb'] = stackdat['profcb'] + \
+        stackdati['profcb'] * stackdati['profhit']
+        stackdat['profhit'] = stackdat['profhit'] + stackdati['profhit']
+        stackdat['profcbsub'] = stackdat['profcbsub'] \
+        + stackdati['profcbsub'] * stackdati['profhitsub']
+        stackdat['profhitsub'] = stackdat['profhitsub'] + stackdati['profhitsub']
+
+    for isub in list(stackdat['sub']):
+        stackdat['sub'][isub]['profcb'] = stackdat['sub'][isub]['profcb'] / \
+        stackdat['sub'][isub]['profhit']
+        stackdat['sub'][isub]['profcbsub'] = stackdat['sub'][isub]['profcbsub'] / \
+        stackdat['sub'][isub]['profhitsub']
+
+    stackdat['profcb'] = stackdat['profcb'] / stackdati['profhit']
+    stackdat['profcbsub'] = stackdat['profcbsub'] / stackdati['profhitsub']
+
+    stack_class._post_process()
+    
+    return stackdat
