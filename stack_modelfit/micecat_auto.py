@@ -690,7 +690,9 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
     return rbins, data_avg, data_std, data_all
 
 
-def micecat_profile_fit(inst, im, sub=True, filt_order=0, return_full=False, subsub=False):
+def micecat_profile_fit(inst, im, sub=True, filt_order=None, return_full=False, subsub=False):
+    filt_order = filt_order if filt_order is not None \
+                                        else filt_order_dict[inst]
     if im==0:
         rbins, mc_avg, _, _, _ = get_micecat_sim_auto(inst, 1,
                                                     filt_order=filt_order,
