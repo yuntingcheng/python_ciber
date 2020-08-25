@@ -71,4 +71,4 @@ def run_1h_power_spec_test(ibatch):
     
         fname = 'micecat_data/PS1h_test_ibatch%d.pkl'%(ibatch)
         with open(fname, "wb") as f:
-        pickle.dump(data , f)
+            pickle.dump(data , f)
