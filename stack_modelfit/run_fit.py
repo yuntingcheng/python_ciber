@@ -60,7 +60,9 @@ class fit_stacking_mcmc:
         self.rsubbins = stackdat['rsubbins']
         self.rsubbinedges = stackdat['rsubbinedges']
         self.profcb = stackdat['profcb']
+        self.profcb_err = np.sqrt(np.diag(stackdat['cov']['profcb']))
         self.profcb_sub = stackdat['profcbsub']
+        self.profcb_sub_err = np.sqrt(np.diag(stackdat['cov']['profcbsub']))
         self.profex = stackdat['ex']['profcb']
         self.profex_sub = stackdat['ex']['profcbsub']
         self.cov = stackdat['excov']['profcb']
@@ -252,7 +254,36 @@ class fit_stacking_mcmc:
             return profgal_sub / profgal[0]
         else:
             return profgal / profgal[0]
-    
+
+    def get_gal_profile_norm(self,**kwargs):
+        # Find the 1st point amplitude of intrinsic gal prof, if galxPSF is 
+        # normalized to 1 at the 1st point
+        radmap = make_radius_map(np.zeros([201,201]), 100, 100)*0.7
+        modeldat = gal_profile_model().Wang19_profile(radmap, self.im, **kwargs)
+        modeldat['I_arr'] = np.pad(modeldat['I_arr'], 1100, 'constant')
+
+        # conv model (pyFFTw)
+        a = pyfftw.empty_aligned((2401,2401), dtype='complex64')
+        fftmod = pyfftw.empty_aligned((2401,2401), dtype='complex64')
+        modfft_obj = pyfftw.FFTW(a,fftmod, axes=(0,1),threads=1, 
+                                 direction='FFTW_FORWARD',flags=('FFTW_MEASURE',))
+        modfft_obj(modeldat['I_arr'])
+        b = pyfftw.empty_aligned((2401,2401), dtype='complex64')
+        modconv_map = pyfftw.empty_aligned((2401,2401), dtype='complex64')
+        convifft_obj = pyfftw.FFTW(b,modconv_map, axes=(0,1),threads=1, 
+                                   direction='FFTW_BACKWARD',flags=('FFTW_MEASURE',))
+        convifft_obj(np.conj(self.fft_psfwin_map)*fftmod)
+        modconv_map = np.real(np.fft.fftshift(modconv_map))
+        modconv_map[modconv_map<0] = 0
+        modconv_map = modconv_map / np.sum(modconv_map) * np.sum(modeldat['I_arr'])
+        
+        profgal = radial_prof(modconv_map, rbinedges=self.rbinedges/0.7,
+                                  return_full=False)
+        profgal0 = radial_prof(modeldat['I_arr'], rbinedges=self.rbinedges/0.7,
+                                  return_full=False)
+
+        return profgal0[0]/profgal[0]
+
     def get_profgal_model_interp(self):
 
         print('Pre-computing model profiles for interpolation...')
@@ -288,7 +319,7 @@ class fit_stacking_mcmc:
 
         else:
             profgal, profgal_sub = self.get_profgal_model(return_all=True,**kwargs)
-        
+
         if 'A1h' in kwargs.keys(): 
             A1h = kwargs['A1h']
         else:
@@ -321,7 +352,9 @@ class fit_stacking_mcmc:
         modelprof['prof2h_sub'] = A2h*self.prof2h_sub
         modelprof['profex'] = profex
         modelprof['profex_sub'] = profex_sub
-          
+        modelprof['normg'] = normg
+        modelprof['norms'] = norms
+
         return modelprof
     
     def get_chi2(self, **kwargs):
@@ -693,7 +726,7 @@ def get_posterior_interval(samples, ci=68, return_hist=False):
     return param_mid, param_low, param_high
 
 def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,
-    chaindir=None, subsub=False, savename=None):
+    chaindir=None, subsub=False, savename=None, return_samples=False):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
 
@@ -730,6 +763,9 @@ def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,
                   'Re2': xe2*R200, 'Re2_low': xe2_low*R200, 'Re2_high': xe2_high*R200,
                   'A1h': A1h, 'A1h_low': A1h_low, 'A1h_high': A1h_high,
                   'A2h': A2h, 'A2h_low': A2h_low, 'A2h_high': A2h_high}
+
+    if return_samples:
+        return fitparamdat, flatsamps
     return fitparamdat
 
 def get_mcmc_fit_params_2par(inst, im, ifield=None,

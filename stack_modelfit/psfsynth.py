@@ -710,27 +710,14 @@ def stack_gaia(inst, ifield, data_maps=None, m_min=12, m_max=14,
 def run_psf_synth_mag_all(inst, ifield, **kwargs):
 
     data_maps = {1: image_reduction(1), 2: image_reduction(2)}
-    filt_order = filt_order_dict[inst]
-    # run_psf_synth_2m_mag(inst, ifield, 4, 9, filt_order=filt_order,
-    #  data_maps=data_maps)
-    # run_psf_synth_2m_mag(inst, ifield, 9, 10, filt_order=filt_order,
-    #     data_maps=data_maps)
-    # run_psf_synth_ps_mag(inst, ifield, 12, 13, filt_order=filt_order,
-    #     data_maps=data_maps)
-    # run_psf_synth_ps_mag(inst, ifield, 13, 14, filt_order=filt_order,
-    #     data_maps=data_maps)
-    # run_psf_synth_ps_mag(inst, ifield, 14, 15, filt_order=filt_order,
-    #     data_maps=data_maps)
-    # run_psf_synth_ps_mag(inst, ifield, 15, 16, filt_order=filt_order,
-    #     data_maps=data_maps)
-    run_psf_synth_ps_mag(inst, ifield, 16, 17, filt_order=filt_order,
+    run_psf_synth_2m_mag(inst, ifield, 4, 9,
+     data_maps=data_maps, **kwargs)
+    run_psf_synth_2m_mag(inst, ifield, 9, 10,
         data_maps=data_maps, **kwargs)
-    run_psf_synth_ps_mag(inst, ifield, 17, 18, filt_order=filt_order,
-        data_maps=data_maps, **kwargs)
-    run_psf_synth_ps_mag(inst, ifield, 18, 19, filt_order=filt_order,
-        data_maps=data_maps, **kwargs)
-    run_psf_synth_ps_mag(inst, ifield, 19, 20, filt_order=filt_order,
-        data_maps=data_maps, **kwargs)  
+
+    for m_min, m_max in zip(np.arange(12,20),np.arange(13,21)):
+        run_psf_synth_ps_mag(inst, ifield, m_min, m_max,
+            data_maps=data_maps, **kwargs)
 
     return
 
@@ -743,3 +730,35 @@ def run_psf_synth_mag_all_gaia(inst, ifield, m_min_arr, m_max_arr):
             filt_order=filt_order)
 
     return
+
+def run_gaia_test_stack(inst,ifield,m_min, m_max, **kwargs):
+    data_maps = {1: image_reduction(1), 2: image_reduction(2)}
+    filt_order = filt_order_dict[inst]
+    savename='psfdata_synth_gaia_%s_%d_%d_g.pkl'\
+    %(fieldnamedict[ifield],m_min, m_max)
+    profdatg = stack_gaia(inst, ifield, data_maps=data_maps,
+     target_filter='astrometric_gof_al',
+                          m_min=m_min, m_max=m_max, filt_order=filt_order,
+                           savename=savename)
+
+    savename='psfdata_synth_gaia_%s_%d_%d_e.pkl'\
+    %(fieldnamedict[ifield],m_min, m_max)
+    profdate = stack_gaia(inst, ifield, data_maps=data_maps,
+     target_filter='astrometric_excess_noise',
+                          m_min=m_min, m_max=m_max, filt_order=filt_order,
+                           savename=savename)
+
+    savename='psfdata_synth_gaia_%s_%d_%d_a.pkl'\
+    %(fieldnamedict[ifield],m_min, m_max)
+    profdatp = stack_gaia(inst, ifield, data_maps=data_maps,
+     target_filter='radec_err',
+                          m_min=m_min, m_max=m_max, filt_order=filt_order,
+                           savename=savename)
+    for parallax_over_error_th in [2,3,5,10]:
+      savename='psfdata_synth_gaia_%s_%d_%d_p%d.pkl'\
+      %(fieldnamedict[ifield],m_min, m_max,parallax_over_error_th)
+      profdatp = stack_gaia(inst, ifield, data_maps=data_maps,
+       target_filter='parallax_over_error',
+                            m_min=m_min, m_max=m_max, filt_order=filt_order,
+                             savename=savename, 
+                             parallax_over_error_th=2)

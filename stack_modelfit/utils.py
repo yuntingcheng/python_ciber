@@ -6,6 +6,7 @@ from scipy.io import loadmat
 import pickle
 from ciber_info import *
 from utils_plotting import *
+from scipy.spatial import cKDTree
 from IPython.display import clear_output
 import astropy.io.fits as fits
 import astropy.wcs as wcs
@@ -186,7 +187,7 @@ class gal_profile_model:
         I_arr = (10**Ie) * np.exp(-bn*((x_arr/xe)**(1/n)-1))
         return I_arr
     
-    def Wang19_params(self, im, extendedness=True):
+    def Wang19_params(self, im, extendedness=False):
         '''
         MNRAS 487, 1580 
         table 3
@@ -207,21 +208,25 @@ class gal_profile_model:
         W19params['R200_unit'] = self.u.arcsec
         W19params['R200_Mpc'] = R200_Mpc_arr[im]
         W19params['R200_Mpc_err'] = R200_Mpc_err[im]
-
         W19params['sersic_params_def'] = '[Ie, n, xe]'
         
-        if extendedness:
-            W19params['extendedness'] = True
+        if not extendedness:
+            W19params['extendedness'] = False
             W19params['sersic1'] = [-8.471,1.5320,0.0056]
             W19params['sersic2'] = [-8.9330,2.6190,0.0165]
+            W19params['sersic1_err'] = [0.0741,0.2115,0.0002]
+            W19params['sersic2_err'] = [0.0423,0.0804,0.0008]
         else:
-            W19params['extendedness'] = False
+            W19params['extendedness'] = True
             W19params['sersic1'] = [-7.3500,0.0101,0.0015]
             W19params['sersic2'] = [-8.7930,1.143,0.0231]
             W19params['sersic3'] = [-9.9220,3.691,0.0001]
+            W19params['sersic1_err'] = [0.0577,0.0707,0.0012]
+            W19params['sersic2_err'] = [0.0153,0.0372,0.0012]
+            W19params['sersic3_err'] = [0.1447,0.1859,0.0019]
         return W19params
         
-    def Wang19_profile(self, r_arr, im, extendedness=True, **kwargs):
+    def Wang19_profile(self, r_arr, im, extendedness=False, **kwargs):
         '''
         Given r_arr (any dimension) in unit arcsec, return the gal profile.
         '''
@@ -254,7 +259,7 @@ class gal_profile_model:
                 params['sersic2'][2] = value / params['R200']
                 
             
-            if not extendedness:
+            if extendedness:
                 if key == 'Ie3':
                     params['sersic3'][0] = value
                 elif key == 'n3':
@@ -266,15 +271,17 @@ class gal_profile_model:
         
         I1_arr = self.sersic(r_arr/params['R200'], params['sersic1'][0],params['sersic1'][1],
                              params['sersic1'][2])
+        
         I2_arr = self.sersic(r_arr/params['R200'], params['sersic2'][0], params['sersic2'][1],
                              params['sersic1'][2] + params['sersic2'][2])
+        
         profdat={}
         profdat['params'] = params
         profdat['I1_arr'] = I1_arr
         profdat['I2_arr'] = I2_arr
         profdat['I_arr'] = I1_arr + I2_arr
         
-        if not extendedness:
+        if extendedness:
             I3_arr = self.sersic(r_arr/params['R200'], params['sersic3'][0], params['sersic3'][1],
                                  params['sersic1'][2] + params['sersic2'][2] + params['sersic3'][2])
             profdat['I3_arr'] = I3_arr
@@ -621,3 +628,25 @@ def catalog_add_xy_from_radec(field, df):
     dfout = df[order].copy()
     
     return dfout
+
+def match_catalog_by_coord(df1, df2, match_dist=0.7, return_full=False):
+    '''
+    Findh the df2 counter part of all the df1 sources that matches within
+    match_dist[arcsec]
+    '''
+    catalog1 = (df1[['ra','dec']].values * np.pi/180).tolist()
+    ps1 = [[item[0], item[1]] for item in catalog1]
+    catalog2 = (df2[['ra','dec']].values * np.pi/180).tolist()
+    ps2 = [[item[0], item[1]] for item in catalog2]
+    kdt = cKDTree(ps2)
+    obj = kdt.query_ball_point(ps1, (match_dist * u.arcsec).to(u.rad).value)
+    Nmatch = np.array([len(obj_i) for obj_i in obj])
+    idxmatch2 = np.array([obj_i[0] for obj_i in obj if len(obj_i)>0])
+    idxmatch1 = np.where(Nmatch>0)[0]
+    
+    match_dict = {'match_dist':match_dist,'match_obj':obj,'Nmatch':Nmatch,
+                 'idxmatch1':idxmatch1, 'idxmatch2':idxmatch2}
+    
+    if return_full:
+        return df1.iloc[idxmatch1], df2.iloc[idxmatch2], match_dict
+    return df1.iloc[idxmatch1], df2.iloc[idxmatch2]

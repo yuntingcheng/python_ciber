@@ -1,5 +1,6 @@
 from ciber_paths import *
 from utils_plotting import *
+from astropy import units as u
 
 fieldnamedict = {4:'elat10',
                  5:'elat30',
@@ -66,3 +67,4 @@ class band_info:
         self.inst = inst
         self.name = name_dict[inst]
         self.wl = wl_dict[inst]
+        self.nu  = (self.wl * u.um.to(u.GHz, equivalencies=u.spectral()))

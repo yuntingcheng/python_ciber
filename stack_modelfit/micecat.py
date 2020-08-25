@@ -44,6 +44,11 @@ def get_micecat_df(icat, add_Rvir=False):
     df.drop(['lsfr','lmstellar', 'ra_gal', 'dec_gal','euclid_nisp_y_true',
              'euclid_nisp_j_true','euclid_nisp_h_true'], axis=1, inplace=True)
     
+    # add abs mag
+    DM_arr = 5 * np.log10((cosmo.luminosity_distance(df['z_cgal']) / (10 * u.pc)).decompose()).value
+    df['M_I'] = df['I'] - DM_arr + (2.5 * np.log10(1+df['z_cgal']))
+    df['M_H'] = df['H'] - DM_arr + (2.5 * np.log10(1+df['z_cgal']))
+    
     if add_Rvir:
         z_arr = np.array(df['z_cgal'])
         Mh_arr = 10**np.array(df['lmhalo'])
