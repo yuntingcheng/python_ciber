@@ -12,7 +12,7 @@ def run_1h_power_spec_test(ibatch):
     for icat in icat_arr:
         print('icat %d'%icat)
         data[icat] = {}
-        df = get_micecat_df(0)
+        df = get_micecat_df(icat)
         dfc = df.loc[df['flag_central']==0]
         dfs = df.copy()
         dfs['Fnu_I'] = 3631 * 10**(-df['I'] / 2.5)
