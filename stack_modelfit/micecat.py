@@ -2,7 +2,7 @@ from srcmap import *
 from stack_ancillary import *
 import bz2
 
-def get_micecat_df(icat, add_Rvir=False):
+def get_micecat_df(icat, add_Rvir=False, return_full=False):
     ira, idec = icat%45, icat//45 
     ra_min, ra_max = ira*2, ira*2+2
     dec_min, dec_max = idec*2, idec*2+2
@@ -41,14 +41,15 @@ def get_micecat_df(icat, add_Rvir=False):
     df['x'] = (df['ra_gal'] - ra_min)*3600 / 7 - 1.5
     df['y'] = (df['dec_gal'] - dec_min)*3600 / 7 - 1.5
 
-    df.drop(['lsfr','lmstellar', 'ra_gal', 'dec_gal','euclid_nisp_y_true',
-             'euclid_nisp_j_true','euclid_nisp_h_true'], axis=1, inplace=True)
-    
+    if not return_full:
+        df.drop(['lsfr','lmstellar', 'ra_gal', 'dec_gal','euclid_nisp_y_true',
+                 'euclid_nisp_j_true','euclid_nisp_h_true'], axis=1, inplace=True)
+        
     # add abs mag
     DM_arr = 5 * np.log10((cosmo.luminosity_distance(df['z_cgal']) / (10 * u.pc)).decompose()).value
     df['M_I'] = df['I'] - DM_arr + (2.5 * np.log10(1+df['z_cgal']))
     df['M_H'] = df['H'] - DM_arr + (2.5 * np.log10(1+df['z_cgal']))
-    
+
     if add_Rvir:
         z_arr = np.array(df['z_cgal'])
         Mh_arr = 10**np.array(df['lmhalo'])

@@ -115,7 +115,7 @@ def run_mask_rad_test(inst, ifield, Ith_arr = [10,3,1,0.3,0.1,0.03,0.01],
     
     return
 
-def MZ14_mask(inst, xs, ys, ms, return_radius=False, verbose=True):    
+def MZ14_mask(inst, xs, ys, ms, m_max_vega = 17,return_radius=False, verbose=True):    
     
     if inst==1:
         ms_vega = np.array(ms) + 2.5*np.log10(1594./3631.)
@@ -126,7 +126,6 @@ def MZ14_mask(inst, xs, ys, ms, return_radius=False, verbose=True):
     beta = 110
     rs = alpha * ms_vega + beta # arcsec
     
-    m_max_vega = 17
     sp = np.where(ms_vega < m_max_vega)
     xs = xs[sp]
     ys = ys[sp]
