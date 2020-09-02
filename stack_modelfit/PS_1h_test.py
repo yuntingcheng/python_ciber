@@ -26,7 +26,7 @@ def run_1h_power_spec_test(ibatch, m_max_vega=17, mag_th_psf = 20):
         
         start_time = time.time()
         for i,idx in enumerate(idx_b):
-            if i%(len(idx_b)//100)==0:
+            if i%(len(idx_b)//10)==0:
                 print('Calculate residual flux of masked sources %d / %d (%.1f %%),t = %.2f min'\
                       %(i, len(idx_b), i/len(idx_b)*100, (time.time()-start_time)/60))
             dfi = df.iloc[idx]
