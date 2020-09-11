@@ -155,6 +155,8 @@ def run_1h_power_spec_test_nopsf(ibatch, m_max_vega=17):
         dfc = dfc.join(dfsum, on='unique_halo_id', how='inner')
         dfc['I'] = -2.5 * np.log10(dfc['Fnu_I_res_sum']/3631)
         dfc['H'] = -2.5 * np.log10(dfc['Fnu_H_res_sum']/3631) 
+        df['I'] = -2.5 * np.log10(df['Fnu_I_res']/3631)
+        df['H'] = -2.5 * np.log10(df['Fnu_H_res']/3631) 
 
         for i,(name,dfi) in enumerate(zip(['full','cen'],[df,dfc])):
             data[icat][name] = {}
@@ -178,11 +180,12 @@ def run_1h_power_spec_test_nopsf(ibatch, m_max_vega=17):
                 data[icat][name][inst]['Clerr'] = Clerr
                 Omega_pix = ((7*u.arcsec)**2).to(u.sr).value
                 data[icat][name][inst]['Clsh'] = np.var(srcmap)*Omega_pix*np.ones_like(Cl)
+                print(name, inst, np.mean(srcmap))
         data['l'] = l 
         fname = 'micecat_data/PS1h_test_ibatch%d_maskth%d_nopsf.pkl'%(ibatch,m_max_vega)
         with open(fname, "wb") as f:
             pickle.dump(data , f)
-        
+
 # def run_1h_power_spec_test(ibatch):
 #     batch_size = 10
 #     icat_arr = np.linspace(0, batch_size-1, batch_size) + ibatch*batch_size
