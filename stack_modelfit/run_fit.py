@@ -403,7 +403,7 @@ class fit_stacking_mcmc:
         
         if save_chain:
             if savedir is None:
-                savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+                savedir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_3par_' + self.field + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
@@ -457,7 +457,7 @@ class fit_stacking_mcmc:
         
         if save_chain:
             if savedir is None:
-                savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+                savedir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_2par_' + self.field + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
@@ -582,7 +582,7 @@ class joint_fit_mcmc:
         
         if save_chain:
             if savedir is None:
-                savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+                savedir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_3par_joint' + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
@@ -629,7 +629,7 @@ class joint_fit_mcmc:
         
         if save_chain:
             if savedir is None:
-                savedir = mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+                savedir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_2par_joint' + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
@@ -667,7 +667,7 @@ class joint_fit_mcmc:
         return chi2tot_debias, pte, dof, chi2tot
 
 def get_mcmc_chains(inst, im, ifield=None, Npar=3, subsub=False, burn_in=0):
-    chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'
+    chaindir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(inst) + '/'
     if ifield in [4,5,6,7,8]:
         savename = 'mcmc_' + str(Npar) + 'par_' + fieldnamedict[ifield] + \
         '_m' + str(magbindict['m_min'][im]) + '_' + str(magbindict['m_max'][im]) + '.npy'
@@ -742,7 +742,7 @@ def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,
             savename = savename[:-4] + '_sub.npy'
 
     if chaindir is None:
-        chaindir = mypaths['alldat'] + 'TM' + str(inst) + '/'
+        chaindir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(inst) + '/'
     samples = np.load(chaindir + savename)
     flatsamps = samples.copy()
 
