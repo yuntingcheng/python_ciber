@@ -403,7 +403,7 @@ class fit_stacking_mcmc:
         
         if save_chain:
             if savedir is None:
-                savedir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+                savedir = './mcmc_data/'+ 'TM' + str(self.inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_3par_' + self.field + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
@@ -457,7 +457,7 @@ class fit_stacking_mcmc:
         
         if save_chain:
             if savedir is None:
-                savedir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+                savedir = './mcmc_data/'+ 'TM' + str(self.inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_2par_' + self.field + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
@@ -582,7 +582,7 @@ class joint_fit_mcmc:
         
         if save_chain:
             if savedir is None:
-                savedir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+                savedir = './mcmc_data/'+ 'TM' + str(self.inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_3par_joint' + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
@@ -629,7 +629,7 @@ class joint_fit_mcmc:
         
         if save_chain:
             if savedir is None:
-                savedir = './mcmc_data/'+ 'TM' + str(inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
+                savedir = './mcmc_data/'+ 'TM' + str(self.inst) + '/'#mypaths['alldat'] + 'TM' + str(self.inst) + '/'
             if savename is None:
                 savename = 'mcmc_2par_joint' + \
                 '_m' + str(self.m_min) + '_' + str(self.m_max) + '.npy'
