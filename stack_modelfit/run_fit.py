@@ -684,7 +684,7 @@ def get_mcmc_chains(inst, im, ifield=None, Npar=3, subsub=False, burn_in=0):
 
 def get_posterior_interval(samples, ci=68, return_hist=False):
     Nsamps = len(samples)
-    N68 = Nsamps * 0.68
+    N68 = Nsamps * ci/100
     hist, binedges = np.histogram(samples,bins=np.linspace(0,np.max(samples),Nsamps//500))
     bins = (binedges[1:] + binedges[:-1]) / 2
     
@@ -726,7 +726,7 @@ def get_posterior_interval(samples, ci=68, return_hist=False):
     return param_mid, param_low, param_high
 
 def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,
-    chaindir=None, subsub=False, savename=None, return_samples=False):
+    chaindir=None, subsub=False, savename=None, return_samples=False, **kwargs):
 
     R200 = gal_profile_model().Wang19_profile(0,im)['params']['R200']
 
@@ -755,9 +755,9 @@ def get_mcmc_fit_params_3par(inst, im, ifield=None,burn_in=150,
     flatsamps = flatsamps[burn_in:,chain_use_idx,:].reshape((-1,3))
 
     # get 68 C.I.
-    xe2, xe2_low, xe2_high = get_posterior_interval(flatsamps[:,0])
-    A1h, A1h_low, A1h_high = get_posterior_interval(flatsamps[:,1])
-    A2h, A2h_low, A2h_high = get_posterior_interval(flatsamps[:,2])
+    xe2, xe2_low, xe2_high = get_posterior_interval(flatsamps[:,0], **kwargs)
+    A1h, A1h_low, A1h_high = get_posterior_interval(flatsamps[:,1], **kwargs)
+    A2h, A2h_low, A2h_high = get_posterior_interval(flatsamps[:,2], **kwargs)
 
     fitparamdat = {'R200': R200, 'xe2': xe2, 'xe2_low': xe2_low, 'xe2_high': xe2_high,
                   'Re2': xe2*R200, 'Re2_low': xe2_low*R200, 'Re2_high': xe2_high*R200,

@@ -371,6 +371,7 @@ def load_processed_images(data_maps,
     'mean_cb': mean intensity in CIBER image after masking with strmask and mask_inst [nW/m2/sr]
     'mean_ps': mean intensity in srcmap image after masking with strmask and mask_inst [nW/m2/sr]
     'cbgradmap': a 2D gradient (1st order polynominal) fit to CIBER image
+    'kelsall': kelsall ZL template [nW/m2/sr]
     
     Input:
     =======
@@ -438,7 +439,14 @@ def load_processed_images(data_maps,
             strmask = data_maps[inst].stackmapdat[ifield]['strmask'].copy()
             _, grad = image_poly_filter(cf*mapi, strmask*mask_inst, degree=1, return_bg=True)
             mapi = grad
-            
+
+        elif name == 'kelsall':
+            datadir = mypaths['ciberdir'] + 'data/'
+            fname = datadir + 'kelsall/TM' + str(inst) + '/' \
+            + fieldnamedict[ifield] + '_band' + str(inst) + '.fits'
+            with fits.open(fname) as hdul:
+                mapi = hdul[0].data
+
         else:
             mapi = data_maps[inst].stackmapdat[ifield][name].copy() 
             

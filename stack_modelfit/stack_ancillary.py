@@ -192,6 +192,8 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
         dfg = pd.read_csv(mypaths['GAIAcatdat'] + fieldnamedict[ifield] + '.csv')
         dfg = dfg[(dfg['parallax']==dfg['parallax']) \
         & (dfg['astrometric_excess_noise']==0)]
+        # dfg = dfg[(dfg['parallax']>2e-4) \
+        # & (dfg['astrometric_excess_noise']==0)]
         if gaia_filter_galcat:
             dfg = dfg[dfg['pgal']!=dfg['pgal']]
         catalogg = (dfg[['ra','dec']].values * np.pi/180).tolist()
