@@ -13,7 +13,8 @@ from micecat_auto import *
 class fit_stacking_mcmc:
     
     def __init__(self, inst, ifield, im, m_min=None, m_max=None, filt_order=None,
-     data_maps=None, loaddir=None, modify_cov=False, subsub=False, **kwargs):
+     data_maps=None, loaddir=None, modify_cov=False, subsub=False, 
+     cov_method='jackknife', **kwargs):
 
         self.inst = inst
         self.ifield = ifield
@@ -34,7 +35,8 @@ class fit_stacking_mcmc:
                                         else filt_order_dict[inst]
         self.modify_cov = modify_cov
         self.subsub = subsub
-
+        self.cov_method = cov_method
+        
         self._fit_data_preprocess(loaddir,**kwargs)
         
     def _fit_data_preprocess(self,loaddir,**kwargs):
@@ -43,7 +45,7 @@ class fit_stacking_mcmc:
         self._get_model_2h()
         self._get_model_psf()
 
-    def _load_data(self, loaddir,**kwargs):
+    def _load_data(self, loaddir, **kwargs):
         if self.allmag:
             stackdat = stackdat_combine_mags(self.inst, self.ifield, **kwargs)
             self.Nsrc_arr = stackdat['Nsrc_arr']
@@ -52,14 +54,18 @@ class fit_stacking_mcmc:
                                 self.m_min, self.m_max,
                                 filt_order=self.filt_order,loaddir=loaddir, 
                                 load_from_file=True, BGsub=False,
-                                subsub=self.subsub, **kwargs).stackdat
+                                subsub=self.subsub, cov_method=self.cov_method,
+                                **kwargs).stackdat
             self.Nsrc = stackdat['Nsrc']
+
         self.Njk = stackdat['Nsub']
         self.rbins = stackdat['rbins']
         self.rbinedges = stackdat['rbinedges']
         self.rsubbins = stackdat['rsubbins']
         self.rsubbinedges = stackdat['rsubbinedges']
         self.profcb = stackdat['profcb']
+        self.profcb_cov = stackdat['cov']['profcb']
+        self.profcb_covsub = stackdat['cov']['profcbsub']
         self.profcb_err = np.sqrt(np.diag(stackdat['cov']['profcb']))
         self.profcb_sub = stackdat['profcbsub']
         self.profcb_sub_err = np.sqrt(np.diag(stackdat['cov']['profcbsub']))
@@ -481,6 +487,8 @@ class fit_stacking_mcmc:
 
         if 'chi2' not in kwargs.keys(): 
             chi2 = self.get_chi2(**kwargs)
+        else:
+            chi2 = kwargs['chi2']
 
         dof = self.dof_data - Npar
 

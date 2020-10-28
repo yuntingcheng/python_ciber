@@ -5,7 +5,7 @@ class stacking:
         savename=None, load_from_file=False, loaddir=None, filt_order=None,
          run_nonuniform_BG=False, getBG=True, BGsub=True, all_src=False,
          z_min=None, z_max=None, Mabs_min=None, Mabs_max=None,
-         subsub=False, uniform_jack=False, savemaps=False):
+         subsub=False, uniform_jack=False, cov_method='jackknife', savemaps=False):
         self.inst = inst
         self.ifield = ifield
         self.field = fieldnamedict[ifield]
@@ -18,6 +18,7 @@ class stacking:
         self.BGsub = BGsub
         self.subsub = subsub
         self.uniform_jack = uniform_jack
+        self.cov_method = cov_method
         self.Mabs_min=Mabs_min
         self.Mabs_max=Mabs_max
         self.z_min=z_min
@@ -74,7 +75,10 @@ class stacking:
         if self.subsub:
             self._get_subsubbins(Nrebin=7)
         self._get_jackknife_profile()
-        self._get_covariance()
+        if self.cov_method == 'jackknife':
+            self._get_covariance()
+        elif self.cov_method == 'bootstrap':
+            self._get_covariance_bootstrap()
         if self.getBG:
             self._get_BG_jackknife_profile()
             self._get_BG_covariance()
@@ -182,6 +186,8 @@ class stacking:
               %(fieldnamedict[ifield], m_min, m_max,isub, srcdat['Nsub'],\
                len(xls), (time.time()-start_time)/60))
 
+            # print(srcdat['sub'][isub]['z' + srctype + '_arr'])##
+
             cbmapstacki, psmapstacki, maskstacki = np.zeros([2*dx+1, 2*dx+1]), \
             np.zeros([2*dx+1, 2*dx+1]), np.zeros([2*dx+1, 2*dx+1])
             for i,(xl,yl,xs,ys,r) in enumerate(zip(xls,yls,xss,yss,rs)):
@@ -210,6 +216,8 @@ class stacking:
                         cbmapi[spi] = 0
                         psmapi[spi] = 0
                         maski[spi] = 0
+                        # print('cbmax',rbinedges[ibin],rbinedges[ibin+1],len(spi[0]))
+
                         spi = np.where((unmaskpix==1) & \
                                        (radmap*10>=rbinedges[ibin]) & \
                                        (radmap*10 < rbinedges[ibin+1]) & \
@@ -217,6 +225,8 @@ class stacking:
                         cbmapi[spi] = 0
                         psmapi[spi] = 0
                         maski[spi] = 0
+                        # print('cbmin',rbinedges[ibin],rbinedges[ibin+1],len(spi[0]))
+
                         spi = np.where((unmaskpix==1) & \
                                        (radmap*10>=rbinedges[ibin]) & \
                                        (radmap*10 < rbinedges[ibin+1]) & \
@@ -224,6 +234,8 @@ class stacking:
                         cbmapi[spi] = 0
                         psmapi[spi] = 0
                         maski[spi] = 0
+                        # print('psmax',rbinedges[ibin],rbinedges[ibin+1],len(spi[0]))
+
                         spi = np.where((unmaskpix==1) & \
                                        (radmap*10>=rbinedges[ibin]) & \
                                        (radmap*10 < rbinedges[ibin+1]) & \
@@ -231,8 +243,8 @@ class stacking:
                         cbmapi[spi] = 0
                         psmapi[spi] = 0
                         maski[spi] = 0
-
-
+                        # print('psmin',rbinedges[ibin],rbinedges[ibin+1],len(spi[0]))
+                        # print('-------------')
                 # unmask source
                 mcb = cbmapi * maski
                 mps = psmapi * maski
@@ -515,7 +527,7 @@ class stacking:
             self.stackdat['jack'][isub]['profhit100'] = profhit100
             
         return
-    
+
     def _normalize_cov(self, cov):
         cov_rho = np.zeros_like(cov)
         for i in range(cov_rho.shape[0]):
@@ -573,6 +585,89 @@ class stacking:
         covps = np.mean(data_ps100**2) - np.mean(data_ps100)**2
         self.stackdat['cov']['profcb100'] = covcb * (Nsub-1)
         self.stackdat['cov']['profps100'] = covps * (Nsub-1)
+
+        return
+
+    def _get_covariance_bootstrap(self, Nboot=1000):
+        self.stackdat['cov'] = {}
+        Nsub = self.stackdat['Nsub']
+        Nbins = len(self.stackdat['rbins'])
+        Nsubbins = len(self.stackdat['rsubbins'])
+        
+        data_cb, data_ps = np.zeros([Nsub, Nbins]), np.zeros([Nsub, Nbins])
+        data_cbsub, data_pssub = np.zeros([Nsub, Nsubbins]), np.zeros([Nsub, Nsubbins])
+        data_cb100, data_ps100 = np.zeros(Nsub), np.zeros(Nsub)
+        for isub in range(Nsub):
+            data_cb[isub,:] = self.stackdat['jack'][isub]['profcb']
+            data_ps[isub,:] = self.stackdat['jack'][isub]['profps']
+            data_cbsub[isub,:] = self.stackdat['jack'][isub]['profcbsub']
+            data_pssub[isub,:] = self.stackdat['jack'][isub]['profpssub']
+            data_cb100[isub] = self.stackdat['jack'][isub]['profcb100']
+            data_ps100[isub] = self.stackdat['jack'][isub]['profps100']
+        mean_cb = np.mean(data_cb, axis=0)
+        mean_ps = np.mean(data_ps, axis=0)
+        mean_cbsub = np.mean(data_cbsub, axis=0)
+        mean_pssub = np.mean(data_pssub, axis=0)
+        mean_cb100 = np.mean(data_cb100)
+        mean_ps100 = np.mean(data_ps100)
+
+        data_cb, data_ps = np.zeros([Nboot, Nbins]), np.zeros([Nboot, Nbins])
+        data_cbsub, data_pssub = np.zeros([Nboot, Nsubbins]), np.zeros([Nboot, Nsubbins])
+        data_cb100, data_ps100 = np.zeros(Nboot), np.zeros(Nboot)
+        for iboot in range(Nboot):
+            idxs = np.random.choice(Nsub, Nsub, replace=True)
+            cbi, psi, hiti = np.zeros(Nbins), np.zeros(Nbins), np.zeros(Nbins)
+            cbsubi, pssubi, hitsubi = np.zeros(Nsubbins), np.zeros(Nsubbins), np.zeros(Nsubbins)
+            cb100i, ps100i, hit100i = 0., 0., 0.
+            for isub in idxs:
+                cbi += self.stackdat['sub'][isub]['profcb']*self.stackdat['sub'][isub]['profhit']
+                psi += self.stackdat['sub'][isub]['profps']*self.stackdat['sub'][isub]['profhit']
+                hiti += self.stackdat['sub'][isub]['profhit']
+                cbsubi += self.stackdat['sub'][isub]['profcbsub']*self.stackdat['sub'][isub]['profhitsub']
+                pssubi += self.stackdat['sub'][isub]['profpssub']*self.stackdat['sub'][isub]['profhitsub']
+                hitsubi += self.stackdat['sub'][isub]['profhitsub']
+                cb100i += self.stackdat['sub'][isub]['profcb100']*self.stackdat['sub'][isub]['profhit100']
+                ps100i += self.stackdat['sub'][isub]['profps100']*self.stackdat['sub'][isub]['profhit100']
+                hit100i += self.stackdat['sub'][isub]['profhit100']
+            hiti[hiti==0] = 1.
+            hitsubi[hitsubi==0] = 1.            
+            data_cb[iboot,:] = cbi / hiti
+            data_ps[iboot,:] = psi / hiti
+            data_cbsub[iboot,:] = cbsubi / hitsubi
+            data_pssub[iboot,:] = pssubi / hitsubi
+            data_cb100[iboot] = cb100i / hit100i
+            data_ps100[iboot] = ps100i / hit100i
+            
+        covcb = np.zeros([Nbins, Nbins])
+        covps = np.zeros([Nbins, Nbins])
+        for i in range(Nbins):
+            for j in range(Nbins):
+                datai, dataj = data_cb[:,i], data_cb[:,j]
+                covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+                datai, dataj = data_ps[:,i], data_ps[:,j]
+                covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+        self.stackdat['cov']['profcb'] = covcb * Nboot/(Nboot-1)
+        self.stackdat['cov']['profps'] = covps * Nboot/(Nboot-1)
+        self.stackdat['cov']['profcb_rho'] = self._normalize_cov(covcb)
+        self.stackdat['cov']['profps_rho'] = self._normalize_cov(covps)
+
+        covcb = np.zeros([Nsubbins, Nsubbins])
+        covps = np.zeros([Nsubbins, Nsubbins])
+        for i in range(Nsubbins):
+            for j in range(Nsubbins):
+                datai, dataj = data_cbsub[:,i], data_cbsub[:,j]
+                covcb[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+                datai, dataj = data_pssub[:,i], data_pssub[:,j]
+                covps[i,j] = np.mean(datai*dataj) - np.mean(datai)*np.mean(dataj)
+        self.stackdat['cov']['profcbsub'] = covcb * Nboot/(Nboot-1)
+        self.stackdat['cov']['profpssub'] = covps * Nboot/(Nboot-1)
+        self.stackdat['cov']['profcbsub_rho'] = self._normalize_cov(covcb)
+        self.stackdat['cov']['profpssub_rho'] = self._normalize_cov(covps)
+
+        covcb = np.mean(data_cb100**2) - np.mean(data_cb100)**2
+        covps = np.mean(data_ps100**2) - np.mean(data_ps100)**2
+        self.stackdat['cov']['profcb100'] = covcb * Nboot/(Nboot-1)
+        self.stackdat['cov']['profps100'] = covps * Nboot/(Nboot-1)
 
         return
     
