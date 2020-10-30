@@ -690,7 +690,8 @@ def get_micecat_sim_auto(inst, im, run_type='2h', sub=False,
     return rbins, data_avg, data_std, data_all
 
 
-def micecat_profile_fit(inst, im, sub=True, filt_order=None, return_full=False, subsub=False):
+def micecat_profile_fit(inst, im, sub=True, filt_order=None, 
+    return_full=False, subsub=False, Nrebin=7):
     filt_order = filt_order if filt_order is not None \
                                         else filt_order_dict[inst]
     if im==0:
@@ -748,7 +749,6 @@ def micecat_profile_fit(inst, im, sub=True, filt_order=None, return_full=False, 
         mc_avgsub_fit[1:-1] = mc_avg_fit[6:-6]
     
     if subsub:
-        Nrebin = 7
         savedir='./micecat_data/all_fields/'
         fname  = 'filter_test_TM1_icat0.pkl'
         with open(savedir + fname,"rb") as f:

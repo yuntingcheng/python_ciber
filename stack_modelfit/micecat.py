@@ -465,7 +465,8 @@ def run_micecat_batch(inst, ibatch, run_type='all', return_data=False, **kwargs)
 
     return
 
-def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False, subsub=False):
+def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0,
+ sub=False, subsub=False, Nrebin=7):
     '''
     Get the MICECAT 1halo sim results.
     '''
@@ -508,7 +509,6 @@ def get_micecat_sim_1h(inst, im, Mhcut=np.inf, R200cut=np.inf, zcut=0, sub=False
     data_std = np.std(data_all, axis=0)
     
     if subsub:
-        Nrebin = 7
         rsubsubbins, data_avg_sub, data_std_sub =\
         np.zeros(len(rbins) - Nrebin+1), np.zeros(len(rbins) - Nrebin+1), np.zeros(len(rbins) - Nrebin+1)
         rsubsubbins[1:] = rbins[Nrebin:]
