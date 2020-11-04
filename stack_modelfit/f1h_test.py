@@ -2,7 +2,7 @@ from micecat import *
 from srcmap import *
 from mask import *
 
-def run_f1h_test(icat=0, Nsamp = 100):
+def run_f1h_test(icat=0, Nsamp = 200):
     make_srcmap_class1 = make_srcmap(1)
     make_srcmap_class2 = make_srcmap(2)
     df = get_micecat_df(icat)
@@ -46,6 +46,7 @@ def run_f1h_test(icat=0, Nsamp = 100):
         print('case #%d, %d cen, %d sats'%(icase, len(df_dict[icase]['df_c']), 
                                            len(df_dict[icase]['df_s'])))
     f1h_dict = {}
+    start_time = time.time()
     for icase in range(5):
         f1h_dict[icase] = {}
         for typename in ['c','s']:
@@ -54,7 +55,6 @@ def run_f1h_test(icat=0, Nsamp = 100):
             f1h_dict[icase]['f1h_H_'+typename] = np.zeros(len(dfm))
             f1h_dict[icase]['f1h_I_masked_'+typename] = np.zeros(len(dfm))
             f1h_dict[icase]['f1h_H_masked_'+typename] = np.zeros(len(dfm))
-            start_time = time.time()
             for i, galid in enumerate(dfm.index[np.random.permutation(len(dfm))]):
                 if i > Nsamp:
                     break
