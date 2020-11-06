@@ -130,7 +130,7 @@ class fit_stacking_mcmc:
                 Mhcut=1e14, R200cut=0, zcut=0.15, sub=False)
             _, mc_avg_sub, mc_std_sub, _ = get_micecat_sim_1h(self.inst, self.im,
                 Mhcut=1e14, R200cut=0, zcut=0.15, sub=True, 
-                subsub=self.subsub, Nrebin=8)#!!!
+                subsub=self.subsub, Nrebin=9)#!!!
             self.prof1h = mc_avg
             self.prof1h_sub = mc_avg_sub
         return
@@ -174,7 +174,7 @@ class fit_stacking_mcmc:
         else:
             rbins, mc_avg, mc_avg_fit, rsubbins, mc_avgsub, mc_avgsub_fit = \
             micecat_profile_fit(self.inst, self.im, filt_order=self.filt_order,
-             return_full=True, subsub=self.subsub, Nrebin=8)#!!!
+             return_full=True, subsub=self.subsub, Nrebin=9)#!!!
 
             self.prof2h = mc_avg_fit
             self.prof2h_sub = mc_avgsub_fit
