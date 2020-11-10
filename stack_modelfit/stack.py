@@ -11,6 +11,7 @@ class stacking:
         self.field = fieldnamedict[ifield]
         self.m_min = m_min
         self.m_max = m_max
+        self.srctype = srctype
         filt_order = filt_order if filt_order is not None \
                                         else filt_order_dict[inst]
         self.filt_order = filt_order
@@ -73,7 +74,8 @@ class stacking:
     
     def _post_process(self):
         if self.subsub:
-            self._get_subsubbins(Nrebin=9)#(Nrebin=7)!!!
+            # self._get_subsubbins(Nrebin=7)
+            self._get_subsubbins(Nrebin=9) # !!!
         self._get_jackknife_profile()
         if self.cov_method == 'jackknife':
             self._get_covariance()
@@ -86,17 +88,19 @@ class stacking:
         self._get_PSF_from_data()
         self._get_PSF_covariance_from_data()
         if self.subsub:
-            self._get_PSF_subsubbins(Nrebin=9)#(Nrebin=7)!!!
+            # self._get_PSF_subsubbins(Nrebin=7)
+            self._get_PSF_subsubbins(Nrebin=9) # !!!
         self._get_excess()
         self._get_ex_covariance()
         
         
-    def stack_PS(self, srctype='g', dx=1200, 
+    def stack_PS(self, dx=1200, 
         sample_type='jack_region', unmask=True, verbose=True,
         cliplim=None, srcdat=None):
 
         inst = self.inst
         ifield = self.ifield
+        srctype = self.srctype
         m_min, m_max = self.m_min, self.m_max
 
         if self.data_maps is None:
