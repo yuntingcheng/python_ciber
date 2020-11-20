@@ -123,6 +123,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
     subz_arr[randidx], subm_arr[randidx], subm0_arr[randidx], subcls_arr[randidx]
     idx_arr = subidx_arr[randidx]
     
+
     # mask clusters
     if mask_clus:
         maskmh = clusters(1, ifield, lnMhrange=(14, np.inf)).cluster_mask()
@@ -152,7 +153,7 @@ def ps_src_select(inst, ifield, m_min, m_max, mask_insts, Nsub=64,
         x2_arr, y2_arr = np.array(subx2_arr), np.array(suby2_arr)
         m_arr, m0_arr, cls_arr = np.array(subm_arr), np.array(subm0_arr), np.array(subcls_arr) 
         idx_arr = np.array(subidx_arr)
-    
+
     if inst == 1:
         x_arr, y_arr = x1_arr, y1_arr
     else:
