@@ -2,8 +2,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 
+class OOMFormatter(matplotlib.ticker.ScalarFormatter):
+    '''
+    Formatting the colorbar tick labels to be in scientific notation.
+    https://stackoverflow.com/questions/43324152/python-matplotlib-colorbar-scientific-notation-base?rq=1
+    
+    cbar = fig.colorbar(plot, format=OOMFormatter(-2, mathText=False))
+
+    '''
+    def __init__(self, order=0, fformat="%1.1f", offset=True, mathText=True):
+        self.oom = order
+        self.fformat = fformat
+        matplotlib.ticker.ScalarFormatter.__init__(self,useOffset=offset,useMathText=mathText)
+    def _set_orderOfMagnitude(self, nothing):
+        self.orderOfMagnitude = self.oom
+    def _set_format(self, vmin, vmax):
+        self.format = self.fformat
+        if self._useMathText:
+            self.format = '$%s$' % matplotlib.ticker._mathdefault(self.format)
+
+
 def imageclip(image, iters=3, vmin=None, vmax=None, ax=None, cbar=True,
-              return_objects=False, figsize=(6,5), **kwargs):
+              return_objects=False, use_OOMformat=False, figsize=(6,5), **kwargs):
     
     if (not vmin is None) and (not vmax is None):
         pass
@@ -40,19 +60,29 @@ def imageclip(image, iters=3, vmin=None, vmax=None, ax=None, cbar=True,
         fig, ax = plt.subplots(1,1, figsize=figsize)
         objs['fig'] = fig
         objs['ax'] = ax
+    
+    if 'cmap' not in kwargs:
+        kwargs['cmap'] = 'jet'
+    if 'origin' not in kwargs:
+        kwargs['origin'] = 'lower'
 
-    p = ax.imshow(image,vmin=vmin, vmax=vmax, cmap='jet', origin='lower', **kwargs)    
+    p = ax.imshow(image,vmin=vmin, vmax=vmax, **kwargs)
     objs['p'] = p
+    if use_OOMformat and 'OOMformat' not in kwargs:
+        OOM_order = int(np.ceil(np.log10(np.max([abs(vmax),abs(vmin)]))))
+        kwargs['OOmformat'] = OOMFormatter(OOM_order, mathText=False)
     if cbar:
-        cbar = plt.colorbar(p,ax=ax)
+        if use_OOMformat:
+            cbar = plt.colorbar(p,ax=ax,format=kwargs['OOmformat'])
+        else:
+            cbar = plt.colorbar(p,ax=ax)
         objs['cbar'] = cbar
         
     if return_objects:
         return objs
     else:
         return
-    
-    
+
 def plot_err_log(x, y, yerr, ax=None, xlog=True, xerr=None, xedges=None, plot_xerr=True, 
                  color='k', capsize=5, markersize=10, figsize=(6,5), alpha=1, label=None):
 
@@ -97,23 +127,3 @@ def plot_err_log(x, y, yerr, ax=None, xlog=True, xerr=None, xedges=None, plot_xe
         ax.set_xscale('log')
     
     return
-
-class OOMFormatter(matplotlib.ticker.ScalarFormatter):
-    '''
-    Formatting the colorbar tick labels to be in scientific notation.
-    https://stackoverflow.com/questions/43324152/python-matplotlib-colorbar-scientific-notation-base?rq=1
-    
-    cbar = fig.colorbar(plot, format=OOMFormatter(-2, mathText=False))
-
-    '''
-    def __init__(self, order=0, fformat="%1.1f", offset=True, mathText=True):
-        self.oom = order
-        self.fformat = fformat
-        matplotlib.ticker.ScalarFormatter.__init__(self,useOffset=offset,useMathText=mathText)
-    def _set_orderOfMagnitude(self, nothing):
-        self.orderOfMagnitude = self.oom
-    def _set_format(self, vmin, vmax):
-        self.format = self.fformat
-        if self._useMathText:
-            self.format = '$%s$' % matplotlib.ticker._mathdefault(self.format)
-
