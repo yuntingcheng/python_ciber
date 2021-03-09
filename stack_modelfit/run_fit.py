@@ -73,7 +73,7 @@ class fit_stacking_mcmc:
         self.profex_sub = stackdat['ex']['profcbsub']
         self.cov = stackdat['excov']['profcb']
         self.covsub = stackdat['excov']['profcbsub']
-        
+
         # https://arxiv.org/pdf/astro-ph/0608064.pdf Eq 17
         n, p = self.Njk, len(self.rbins)
         self.cov_inv_debias = (n - p - 2) / (n - 1)
