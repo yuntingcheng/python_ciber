@@ -57,7 +57,7 @@ def get_micecat_df(icat, add_Rvir=False, return_full=False):
         rvir_arr = ((3 * Mh_arr) / (4 * np.pi * 200 * rhoc_arr))**(1./3)
         DA_arr = np.array(cosmo.comoving_distance(z_arr))
         rvir_ang_arr = (rvir_arr / DA_arr) * u.rad.to(u.arcsec)
-        df['Rv_Mpc'] = rvir_arr
+        df['Rv_Mpc'] = rvir_arr / (1+z_arr) # comoving -> physical
         df['Rv_arcsec'] = rvir_ang_arr
 
     return df
