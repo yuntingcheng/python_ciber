@@ -91,7 +91,7 @@ def query_micecat():
     time.sleep(5)
     while True:
         try:
-            driver.find_element_by_xpath("//button[@ng-click='query.readonly = !query.readonly']").click()
+            driver.find_element_by_xpath("//button[@ng-click='query.readonly = !query.readonly;query.showQueryHelp = true']").click()
             break
         except NoSuchElementException:
             time.sleep(wait_time)

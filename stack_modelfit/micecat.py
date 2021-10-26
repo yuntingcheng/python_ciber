@@ -1,15 +1,25 @@
 from srcmap import *
 from stack_ancillary import *
 import bz2
+from astropy.coordinates import SkyCoord
 
-def get_micecat_df(icat, add_Rvir=False, return_full=False):
+def get_micecat_df(icat=0, add_Rvir=False, return_full=False,
+                   ra_range=None, dec_range=None):
+    
     ira, idec = icat%45, icat//45 
     ra_min, ra_max = ira*2, ira*2+2
     dec_min, dec_max = idec*2, idec*2+2
     
-    print('MICECAT field %d, %d < ra < %d, %d < dec < %d'%(icat,
-                                                           ra_min, ra_max, 
+    if ra_range is not None:
+        ra_min, ra_max = ra_range
+        dec_min, dec_max = dec_range
+        print('MICECAT {} < ra < {}, {} < dec < {}'.format(ra_min, ra_max, 
                                                            dec_min, dec_max))
+    
+    else:
+        print('MICECAT field %d, %d < ra < %d, %d < dec < %d'%(icat,
+                                                               ra_min, ra_max, 
+                                                               dec_min, dec_max))
     
     fname = 'ra%d_%d_dec%d_%d'%(ra_min//10*10, ra_min//10*10+10, 
                                 dec_min//4*4, dec_min//4*4+4)

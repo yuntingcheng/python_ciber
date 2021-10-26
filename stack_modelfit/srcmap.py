@@ -3,13 +3,14 @@ from scipy.signal import fftconvolve
 import pandas as pd
 
 class make_srcmap:
-    def __init__(self, inst, m_min=None, m_max=None, srctype='g',
+    def __init__(self, inst=1, m_min=None, m_max=None, srctype='g',
      catname = 'PanSTARRS', PSmatch=False, ifield = 8, psf_ifield=None,
-      Re2=2, normalize_model=True):
+      Re2=2, normalize_model=True, wl=None):
         self.inst = inst
         self.m_min = -5 if m_min is None else m_min
         self.m_max = 40 if m_max is None else m_max
-        
+        self.wl = band_info(self.inst).wl if wl is None else wl
+
         if catname=='PanSTARRS':
             self.catname = catname
             self.catdir = mypaths['PScatdat']
@@ -183,7 +184,7 @@ class make_srcmap:
         Convert AB mag to I [nW/m2/sr] on CIBER pixel (7'')
         '''
         sr = ((7./3600.0)*(np.pi/180.0))**2
-        wl = band_info(self.inst).wl
+        wl = self.wl
         I = 3631. * 10**(-m / 2.5) * (3 / wl) * 1e6 / (sr*1e9)
         return I
    
