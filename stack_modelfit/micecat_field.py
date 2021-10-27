@@ -14,14 +14,15 @@ from selenium.webdriver.common.keys import Keys
 import bz2
 from astropy.coordinates import SkyCoord
 from ciber_info import *
+from cosmo_tools import *
 from srcmap import *
 from stack_ancillary import *
-
 
 def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
                logM_min=-np.inf, 
                z_min_arr = [0,0.2,0.4,0.6,0.8,1,1.2], 
                z_max_arr = [0.2,0.4,0.6,0.8,1,1.2,1.4],
+               ihl_model = 'NFW',
                verbose=True, savemaps=False):
     
     f_IHL_kwargs = {'logM_min':logM_min, 'f_IHL':1.}
@@ -34,7 +35,7 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
     print('ra = {}, dec = {}'.format(ra_cent, dec_cent))
     
     fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
-    +'micecat_IHL_Cl_data_ra{}_dec{}.pkl'.format(ra_cent, dec_cent)
+    +'micecat_IHL_Cl_data_ra{}_dec{}_{}.pkl'.format(ra_cent, dec_cent, ihl_model)
     
     mcfield = micecat_field(ra_cent, dec_cent,Nx=1024,Ny=1024)
     df = mcfield.get_micecat_df(add_fields=['sdss_r_abs_mag'])
@@ -64,9 +65,15 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
                  & (df.sdss_r_abs_mag <= abs_mag_cut)]
         srcmap_allcen = mcfield.make_map_central(bandname,
                                                  df=dfi, band_mask=bandname, m_th=m_th)
-        ihlmap = mcfield.make_ihlmap_uniform_disk(bandname, mcfield.f_IHL_const,
-                                                  df=dfi, f_IHL_kwargs=f_IHL_kwargs,
-                                                 verbose=verbose)
+
+        if ihl_model == 'uniform_disk':
+            ihlmap = mcfield.make_ihlmap_uniform_disk(bandname, mcfield.f_IHL_const,
+                                                      df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                     verbose=verbose)
+        elif ihl_model == 'NFW':            
+            ihlmap = mcfield.make_ihlmap_NFW(bandname, mcfield.f_IHL_const,
+                                                      df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                     verbose=verbose)
 
         srcmap_all_tot += srcmap_all
         srcmap_cen_tot += srcmap_cen
@@ -422,7 +429,7 @@ class micecat_field:
         Is = dfc.Fnu_IHL.values * (3 / wl) * 1e6 / (sr*1e9)
         ihlmap_large = np.zeros((self.Nx*Nsub + 4*dx, self.Ny*Nsub + 4*dx))
 
-        Rs = dfc.Rv_arcsec.values / (self.pix_size/dx)
+        Rs = dfc.Rv_arcsec.values / (self.pix_size/Nsub)
         xss = np.round(dfc.x.values * Nsub + (Nsub/2 - 0.5) + 2 * dx).astype(np.int32)
         yss = np.round(dfc.y.values * Nsub + (Nsub/2 - 0.5) + 2 * dx).astype(np.int32)
         xx, yy = np.meshgrid(np.arange(ihlmap_large.shape[0]),
@@ -444,7 +451,52 @@ class micecat_field:
                         2*dx//Nsub : 2*dx//Nsub+self.Ny]
 
         return ihlmap
+        
+    def make_ihlmap_NFW(self, bandname, f_IHL_func, df=None, Rvir_lim=1.,
+                        f_IHL_kwargs={}, Nsub=2, verbose=True):
+        if df is None:
+            df = self.get_micecat_df(add_fields=[bandname + '_true'])
+        else:
+            df = df.copy()
 
+        dx = 10 * Nsub
+
+        dfc = self.dfcentral_from_df(bandname, df)
+        dfc['f_IHL'] = f_IHL_func(dfc.lmhalo.values, **f_IHL_kwargs)
+        dfc = dfc[dfc.f_IHL > 0]
+        dfc['Fnu_IHL'] = dfc.Fnu_sum * dfc.f_IHL
+
+        wl = self.filter_wleff(bandname)
+        sr = ((self.pix_size/3600.0)*(np.pi/180.0))**2
+        Is = dfc.Fnu_IHL.values * (3 / wl) * 1e6 / (sr*1e9)
+        ihlmap_large = np.zeros((self.Nx*Nsub + 4*dx, self.Ny*Nsub + 4*dx))
+
+        Rs = dfc.Rv_arcsec.values / (self.pix_size/Nsub)
+        xss = np.round(dfc.x.values * Nsub + (Nsub/2 - 0.5) + 2 * dx).astype(np.int32)
+        yss = np.round(dfc.y.values * Nsub + (Nsub/2 - 0.5) + 2 * dx).astype(np.int32)
+        xx, yy = np.meshgrid(np.arange(ihlmap_large.shape[0]),
+                             np.arange(ihlmap_large.shape[1]), indexing='ij')
+        zs = dfc.z_cgal.values
+        Mhs = 10**dfc.lmhalo.values * cosmo.h
+        
+        NFW = NFW_proile()
+        for i,(xs,ys,I,R,z,Mh) in enumerate(zip(xss, yss, Is, Rs, zs, Mhs)):
+            radmap = (xx - xs)**2 + (yy - ys)**2
+            sp_in = np.where(radmap <= (R*Rvir_lim)**2)
+            if len(sp_in[0]) > 0:
+                ihlmapi = NFW.NFW_2d(np.sqrt(radmap[sp_in])*self.pix_size/Nsub, z, Mh)
+                ihlmap_large[sp_in] += (I * ihlmapi / np.sum(ihlmapi))
+            if len(Is)>20:
+                if verbose and i%(len(Is)//20)==0:
+                    print('run IHL map %d / %d (%.1f %%)'\
+                          %(i, len(Is), i/len(Is)*100))
+
+        ihlmap = self._rebin_map_coarse(ihlmap_large, Nsub)*Nsub**2
+        ihlmap = ihlmap[2*dx//Nsub : 2*dx//Nsub+self.Nx,\
+                        2*dx//Nsub : 2*dx//Nsub+self.Ny]
+
+        return ihlmap
+           
     def filter_wleff(self, name):
         '''
         get effective wavelength [um] for a given filter

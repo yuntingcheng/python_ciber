@@ -338,7 +338,7 @@ class NFW_proile:
             Mh = np.array(Mh)
         
         rhoc = cosmo.critical_density(z).to(u.M_sun / u.Mpc**3).value
-        rvir = ((3 * Mh*cosmo.h) / (4 * np.pi * 200 * rhoc))**(1./3)
+        rvir = ((3 * Mh / cosmo.h) / (4 * np.pi * 200 * rhoc))**(1./3)
         rvir *= cosmo.h
         
         return rvir
@@ -384,8 +384,23 @@ class NFW_proile:
         return r_scaled
     
     def NFW_3d_scaled(self, r):
-        
-        return 1 / (r) / (1 + r)**2
+
+        if isinstance(r, list):
+            r = np.array(r)
+            profile = np.zeros_like(r)
+            profile[r!=0] = 1 / (r[r!=0]) / (1 + r[r!=0])**2
+            return profile
+
+        elif isinstance(r,  np.ndarray):
+            profile = np.zeros_like(r)
+            profile[r!=0] = 1 / (r[r!=0]) / (1 + r[r!=0])**2
+            return profile
+
+        else:
+            if r == 0:
+                return 0
+            return 1 / (r) / (1 + r)**2 
+                        
     
     def NFW_3d(self, r, z, Mh):
         
@@ -413,9 +428,28 @@ class NFW_proile:
         
     def NFW_2d(self, r, z, Mh, r_units='arcsec'):
         
-        r_scaled = self.r_scaled(r, z, Mh, r_units='arcsec')
-        rho_2d = 10**np.polyval(self.rho_2d_poly, np.log10(r_scaled))
-        
-        rho_2d /= np.sum(rho_2d)
-        
-        return rho_2d
+
+        if isinstance(r, list):
+            r = np.array(r)
+            r_scaled = self.r_scaled(r, z, Mh, r_units='arcsec')
+            rho_2d = np.zeros_like(r_scaled)
+            rho_2d[r_scaled!=0] = 10**np.polyval(self.rho_2d_poly,
+                                     np.log10(r_scaled[r_scaled!=0]))
+            rho_2d /= np.sum(rho_2d)
+            
+            return rho_2d
+
+        elif isinstance(r,  np.ndarray):
+            r_scaled = self.r_scaled(r, z, Mh, r_units='arcsec')
+            rho_2d = np.zeros_like(r_scaled)
+            rho_2d[r_scaled!=0] = 10**np.polyval(self.rho_2d_poly,
+                                     np.log10(r_scaled[r_scaled!=0]))
+            rho_2d /= np.sum(rho_2d)
+            
+            return rho_2d
+
+        else:
+            if r == 0:
+                return 0
+            r_scaled = self.r_scaled(r, z, Mh, r_units='arcsec')
+            return 10**np.polyval(self.rho_2d_poly, np.log10(r_scaled))
