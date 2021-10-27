@@ -294,3 +294,128 @@ def get_bias_fast(z, Mh_arr=None):
     b_data = bhalo_data[zidx]
     b_arr = np.interp(np.log(Mh_arr), np.log(Mh_data), b_data)
     return b_arr, Mh_arr
+
+def get_Mstr_fast(z):
+    '''
+    Precomuting Mstr(z) in to a data,
+    file, and do interpolation upon calling
+    Mstr is defined s.t.
+    delta_sc(z) = sigma(Mh=Mstr) 
+    --> nu=1 Eq 57 Cooray & Sheth 2002
+    '''
+    z_data = np.arange(0.01,8,0.01)
+    Mh_arr = np.logspace(2,15,1000)
+    try:
+        Mstr_data = np.load('./Mstr_data.npy',allow_pickle=True)
+    except:
+        print('pre-compute Mstr(z) for interpolation ...')
+        Mstr_data = np.zeros(len(z_data))
+        for i,zz in enumerate(z_data):
+            if (i%20) == 19:
+                print('z=%.1f'%zz)
+            delta_sc = HMFz(zz).delta_sc(zz)
+            sigma_arr = HMFz(zz).sigma(m_arr = Mh_arr)
+            idx = np.argmin(np.abs(delta_sc/sigma_arr - 1))
+            Mstr_data[i] = Mh_arr[idx]
+        np.save('./Mstr_data',Mstr_data) 
+    
+    Mstr = np.exp(np.interp(z, z_data, np.log(Mstr_data)))
+    return Mstr
+
+class NFW_proile:
+    
+    def __init__(self):
+        
+        self.NFW_2d_scaled_calc()
+    
+    def Rvir(self, z, Mh):
+        '''
+        Mh [Msun/h]
+        Rvir [Mpc/h]
+        '''
+        if isinstance(z, list):
+            z = np.array(z)
+            Mh = np.array(Mh)
+        
+        rhoc = cosmo.critical_density(z).to(u.M_sun / u.Mpc**3).value
+        rvir = ((3 * Mh*cosmo.h) / (4 * np.pi * 200 * rhoc))**(1./3)
+        rvir *= cosmo.h
+        
+        return rvir
+    
+    def conc(self, z, Mh):
+        
+        if isinstance(z, list):
+            z = np.array(z)
+            Mh = np.array(Mh)
+            
+        Mstr = get_Mstr_fast(z)
+        
+        conc = (9/(1+z)) * (Mh / Mstr)**-0.13
+        
+        return conc
+    
+    def r_scaled(self, r, z, Mh, r_units='arcsec'):
+
+        if isinstance(z, list):
+            z = np.array(z)
+            Mh = np.array(Mh)
+        
+        if isinstance(r, list):
+            r = np.array(r)
+            
+        R_vir = self.Rvir(z, Mh)
+        conc = self.conc(z, Mh)
+        if r_units == 'arcsec':
+            DA = cosmo.comoving_distance(z).value # [Mpc]
+            r = r * (u.arcsec.to(u.rad)) * DA * cosmo.h
+        if r_units == 'arcmin':
+            DA = cosmo.comoving_distance(z).value # [Mpc]
+            r = r * (u.arcmin.to(u.rad)) * DA * cosmo.h
+        if r_units == 'deg':
+            DA = cosmo.comoving_distance(z).value # [Mpc]
+            r = r * (u.deg.to(u.rad)) * DA * cosmo.h
+        if r_units == 'rad':
+            DA = cosmo.comoving_distance(z).value # [Mpc]
+            r = r * DA * cosmo.h
+            
+        r_scaled = r * conc / R_vir
+        
+        return r_scaled
+    
+    def NFW_3d_scaled(self, r):
+        
+        return 1 / (r) / (1 + r)**2
+    
+    def NFW_3d(self, r, z, Mh):
+        
+        r_scaled = self.r_scaled(r, z, Mh)
+        rho = self.NFW_3d_scaled(r_scaled)
+        
+        return rho
+    
+    def NFW_2d_scaled_calc(self):
+        
+        # populate a 3D quadrant and integrate to 2D
+        # save this somewhere
+        
+        r = np.arange(0.001,10,0.001)
+        xx, yy = np.meshgrid(r, r)
+        rr = np.sqrt(xx**2 + yy**2)
+        rho_map = self.NFW_3d_scaled(rr)
+        
+        self.r_2d = r
+        self.rho_2d = np.sum(rho_map,axis=0)
+        self.rho_2d_poly = np.polyfit(np.log10(self.r_2d),
+                                      np.log10(self.rho_2d), deg=3)
+        
+        return
+        
+    def NFW_2d(self, r, z, Mh, r_units='arcsec'):
+        
+        r_scaled = self.r_scaled(r, z, Mh, r_units='arcsec')
+        rho_2d = 10**np.polyval(self.rho_2d_poly, np.log10(r_scaled))
+        
+        rho_2d /= np.sum(rho_2d)
+        
+        return rho_2d

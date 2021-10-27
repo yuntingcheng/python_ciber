@@ -38,7 +38,13 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
     
     mcfield = micecat_field(ra_cent, dec_cent,Nx=1024,Ny=1024)
     df = mcfield.get_micecat_df(add_fields=['sdss_r_abs_mag'])
-
+    
+    srcmap_all_tot = 0.
+    srcmap_cen_tot = 0.
+    srcmap_sat_tot = 0.
+    srcmap_allcen_tot = 0.
+    ihlmap_tot = 0.
+    Cl_data['tot'] = {'z_min':z_min_arr[0], 'z_max':z_max_arr[-1]}
     for iz, (z_min, z_max) in enumerate(zip(z_min_arr, z_max_arr)):
         
         print('{} < z < {}'.format(z_min, z_max))
@@ -62,11 +68,21 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
                                                   df=dfi, f_IHL_kwargs=f_IHL_kwargs,
                                                  verbose=verbose)
 
+        srcmap_all_tot += srcmap_all
+        srcmap_cen_tot += srcmap_cen
+        srcmap_sat_tot += srcmap_sat
+        srcmap_allcen_tot += srcmap_allcen
+        ihlmap_tot += ihlmap
+
         if savemaps:
             Cl_data[iz]['srcmap_cen'] = srcmap_cen
             Cl_data[iz]['srcmap_sat'] = srcmap_sat
             Cl_data[iz]['srcmap_allcen'] = srcmap_allcen
             Cl_data[iz]['ihlmap'] = ihlmap
+            Cl_data['tot']['srcmap_cen'] = srcmap_cen_tot
+            Cl_data['tot']['srcmap_sat'] = srcmap_sat_tot
+            Cl_data['tot']['srcmap_allcen'] = srcmap_allcen_tot
+            Cl_data['tot']['ihlmap'] = ihlmap_tot
         
         l,Cla, Claerr = get_power_spec(srcmap_all)
         l,Clc, Clcerr = get_power_spec(srcmap_cen)
@@ -114,11 +130,57 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
         Cl_data[iz]['Clhs_shsub'] = Clhs_shsub
         Cl_data[iz]['Clh2_shsub'] = Clh2_shsub
 
+        
+        l,Cla, Claerr = get_power_spec(srcmap_all_tot)
+        l,Clc, Clcerr = get_power_spec(srcmap_cen_tot)
+        l,Cls, Clserr = get_power_spec(srcmap_sat_tot)
+        l,Clcs, Clcserr = get_power_spec(srcmap_cen_tot, srcmap_sat_tot)
+        l,Cl2, Cl2err = get_power_spec(srcmap_allcen_tot)
+
+        l,Clh, Clherr = get_power_spec(ihlmap_tot)
+        l,Clha, Clhaerr = get_power_spec(ihlmap_tot, srcmap_all_tot)
+        l,Clhc, Clhcerr = get_power_spec(ihlmap_tot, srcmap_cen_tot)
+        l,Clhs, Clhserr = get_power_spec(ihlmap_tot, srcmap_sat_tot)
+        l,Clh2, Clh2err = get_power_spec(ihlmap_tot, srcmap_allcen_tot)
+
+        Cla_shsub = Cla-np.mean(Cla[-3:])
+        Clc_shsub = Clc-np.mean(Clc[-3:])
+        Cls_shsub = Cls-np.mean(Cls[-3:])
+        Clcs_shsub = Clcs-np.mean(Clcs[-3:])
+        Cl2_shsub = Cl2-np.mean(Cl2[-3:])
+        Clh_shsub = Clh-np.mean(Clh[-3:])
+        Clha_shsub = Clha-np.mean(Clha[-3:])
+        Clhc_shsub = Clhc-np.mean(Clhc[-3:])
+        Clhs_shsub = Clhs-np.mean(Clhs[-3:])
+        Clh2_shsub = Clh2-np.mean(Clh2[-3:])
+        
+        Cl_data['l'] = l
+        Cl_data['tot']['Cla'] = Cla
+        Cl_data['tot']['Clc'] = Clc
+        Cl_data['tot']['Cls'] = Cls
+        Cl_data['tot']['Clcs'] = Clcs
+        Cl_data['tot']['Cl2'] = Cl2
+        Cl_data['tot']['Clh'] = Clh
+        Cl_data['tot']['Clha'] = Clha
+        Cl_data['tot']['Clhc'] = Clhc
+        Cl_data['tot']['Clhs'] = Clhs
+        Cl_data['tot']['Clh2'] = Clh2
+
+        Cl_data['tot']['Cla_shsub'] = Cla_shsub
+        Cl_data['tot']['Clc_shsub'] = Clc_shsub
+        Cl_data['tot']['Cls_shsub'] = Cls_shsub
+        Cl_data['tot']['Clcs_shsub'] = Clcs_shsub
+        Cl_data['tot']['Cl2_shsub'] = Cl2_shsub
+        Cl_data['tot']['Clh_shsub'] = Clh_shsub
+        Cl_data['tot']['Clha_shsub'] = Clha_shsub
+        Cl_data['tot']['Clhc_shsub'] = Clhc_shsub
+        Cl_data['tot']['Clhs_shsub'] = Clhs_shsub
+        Cl_data['tot']['Clh2_shsub'] = Clh2_shsub
+
     with open(fname, "wb") as f:
         pickle.dump(Cl_data , f)
 
     return Cl_data
-
 
 class micecat_field:
     
