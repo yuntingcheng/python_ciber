@@ -435,6 +435,8 @@ class NFW_proile:
             rho_2d = np.zeros_like(r_scaled)
             rho_2d[r_scaled!=0] = 10**np.polyval(self.rho_2d_poly,
                                      np.log10(r_scaled[r_scaled!=0]))
+            if np.sum(rho_2d) == 0:
+                return rho_2d
             rho_2d /= np.sum(rho_2d)
             
             return rho_2d
@@ -444,6 +446,9 @@ class NFW_proile:
             rho_2d = np.zeros_like(r_scaled)
             rho_2d[r_scaled!=0] = 10**np.polyval(self.rho_2d_poly,
                                      np.log10(r_scaled[r_scaled!=0]))
+
+            if np.sum(rho_2d) == 0:
+                return rho_2d
             rho_2d /= np.sum(rho_2d)
             
             return rho_2d

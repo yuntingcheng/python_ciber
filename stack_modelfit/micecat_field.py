@@ -485,6 +485,8 @@ class micecat_field:
             sp_in = np.where(radmap <= (R*Rvir_lim)**2)
             if len(sp_in[0]) > 0:
                 ihlmapi = NFW.NFW_2d(np.sqrt(radmap[sp_in])*self.pix_size/Nsub, z, Mh)
+                if np.sum(ihlmapi)==0:
+                    ihlmapi[:] = I
                 ihlmap_large[sp_in] += (I * ihlmapi / np.sum(ihlmapi))
             if len(Is)>20:
                 if verbose and i%(len(Is)//20)==0:
