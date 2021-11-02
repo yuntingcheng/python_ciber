@@ -2,8 +2,6 @@
 
 # TODO:
  - bias of cen galaxies? compare P_cen and P_lin on larger scales, need to subtract shot noise for P_cen as well
- - Visuallize the IHL images
- - run more sims to beat down CV
  - Goal: build a function (cen+sat - cen+sat@cen), (cen+sat+IHL - cen+sat@cen), etc. as a function f_IHL, mask_th
 
 ## Oct 08, 2021

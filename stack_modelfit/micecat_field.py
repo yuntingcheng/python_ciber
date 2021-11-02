@@ -35,7 +35,7 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
     print('ra = {}, dec = {}'.format(ra_cent, dec_cent))
     
     fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
-    +'micecat_IHL_Cl_data_ra{}_dec{}_{}.pkl'.format(ra_cent, dec_cent, ihl_model)
+    +'micecat_IHL_Cl_data_ra{}_dec{}_{}_mth{}.pkl'.format(ra_cent, dec_cent, ihl_model, m_th)
     
     mcfield = micecat_field(ra_cent, dec_cent,Nx=1024,Ny=1024)
     df = mcfield.get_micecat_df(add_fields=['sdss_r_abs_mag'])
