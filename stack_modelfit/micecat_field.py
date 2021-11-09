@@ -23,6 +23,7 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
                z_min_arr = [0,0.2,0.4,0.6,0.8,1,1.2], 
                z_max_arr = [0.2,0.4,0.6,0.8,1,1.2,1.4],
                ihl_model = 'NFW',
+               mask_IHL = False,
                verbose=True, savemaps=False):
     
     f_IHL_kwargs = {'logM_min':logM_min, 'f_IHL':1.}
@@ -37,6 +38,11 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
     fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
     +'micecat_IHL_Cl_data_ra{}_dec{}_{}_mth{}.pkl'.format(ra_cent, dec_cent, ihl_model, m_th)
     
+    if mask_IHL:
+        fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+        +'micecat_IHL_Cl_data_ra{}_dec{}_{}_mth{}_maskIHL.pkl'\
+        .format(ra_cent, dec_cent, ihl_model, m_th)
+
     mcfield = micecat_field(ra_cent, dec_cent,Nx=1024,Ny=1024)
     df = mcfield.get_micecat_df(add_fields=['sdss_r_abs_mag'])
     
@@ -66,14 +72,29 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
         srcmap_allcen = mcfield.make_map_central(bandname,
                                                  df=dfi, band_mask=bandname, m_th=m_th)
 
-        if ihl_model == 'uniform_disk':
-            ihlmap = mcfield.make_ihlmap_uniform_disk(bandname, mcfield.f_IHL_const,
-                                                      df=dfi, f_IHL_kwargs=f_IHL_kwargs,
-                                                     verbose=verbose)
-        elif ihl_model == 'NFW':            
-            ihlmap = mcfield.make_ihlmap_NFW(bandname, mcfield.f_IHL_const,
-                                                      df=dfi, f_IHL_kwargs=f_IHL_kwargs,
-                                                     verbose=verbose)
+
+        if mask_IHL:
+            if ihl_model == 'uniform_disk':
+                ihlmap = mcfield.make_ihlmap_uniform_disk(bandname, mcfield.f_IHL_const,
+                                                          df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                          band_mask=bandname, m_th=None,
+                                                         verbose=verbose)
+            elif ihl_model == 'NFW':            
+                ihlmap = mcfield.make_ihlmap_NFW(bandname, mcfield.f_IHL_const,
+                                                          df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                          band_mask=bandname, m_th=None,
+                                                         verbose=verbose)
+        else:
+            if ihl_model == 'uniform_disk':
+                ihlmap = mcfield.make_ihlmap_uniform_disk(bandname, mcfield.f_IHL_const,
+                                                          df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                         verbose=verbose)
+            elif ihl_model == 'NFW':            
+                ihlmap = mcfield.make_ihlmap_NFW(bandname, mcfield.f_IHL_const,
+                                                          df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                         verbose=verbose)
+
+
 
         srcmap_all_tot += srcmap_all
         srcmap_cen_tot += srcmap_cen
@@ -411,7 +432,8 @@ class micecat_field:
 
     def make_ihlmap_uniform_disk(self, bandname, f_IHL_func,
                                  df=None, f_IHL_kwargs={},
-                                Nsub=2, verbose=True):
+                                 band_mask=None, m_th=None,
+                                 Nsub=2, verbose=True):
         if df is None:
             df = self.get_micecat_df(add_fields=[bandname + '_true'])
         else:
@@ -419,7 +441,7 @@ class micecat_field:
 
         dx = 10 * Nsub
 
-        dfc = self.dfcentral_from_df(bandname, df)
+        dfc = self.dfcentral_from_df(bandname, df, band_mask=band_mask, m_th=m_th)
         dfc['f_IHL'] = f_IHL_func(dfc.lmhalo.values, **f_IHL_kwargs)
         dfc = dfc[dfc.f_IHL > 0]
         dfc['Fnu_IHL'] = dfc.Fnu_sum * dfc.f_IHL
@@ -453,6 +475,7 @@ class micecat_field:
         return ihlmap
         
     def make_ihlmap_NFW(self, bandname, f_IHL_func, df=None, Rvir_lim=1.,
+                        band_mask=None, m_th=None,
                         f_IHL_kwargs={}, Nsub=2, verbose=True):
         if df is None:
             df = self.get_micecat_df(add_fields=[bandname + '_true'])
@@ -461,7 +484,7 @@ class micecat_field:
 
         dx = 10 * Nsub
 
-        dfc = self.dfcentral_from_df(bandname, df)
+        dfc = self.dfcentral_from_df(bandname, df, band_mask=band_mask, m_th=m_th)
         dfc['f_IHL'] = f_IHL_func(dfc.lmhalo.values, **f_IHL_kwargs)
         dfc = dfc[dfc.f_IHL > 0]
         dfc['Fnu_IHL'] = dfc.Fnu_sum * dfc.f_IHL
