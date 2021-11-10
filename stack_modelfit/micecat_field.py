@@ -77,12 +77,12 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
             if ihl_model == 'uniform_disk':
                 ihlmap = mcfield.make_ihlmap_uniform_disk(bandname, mcfield.f_IHL_const,
                                                           df=dfi, f_IHL_kwargs=f_IHL_kwargs,
-                                                          band_mask=bandname, m_th=None,
+                                                          band_mask=bandname, m_th=m_th,
                                                          verbose=verbose)
             elif ihl_model == 'NFW':            
                 ihlmap = mcfield.make_ihlmap_NFW(bandname, mcfield.f_IHL_const,
                                                           df=dfi, f_IHL_kwargs=f_IHL_kwargs,
-                                                          band_mask=bandname, m_th=None,
+                                                          band_mask=bandname, m_th=m_th,
                                                          verbose=verbose)
         else:
             if ihl_model == 'uniform_disk':
