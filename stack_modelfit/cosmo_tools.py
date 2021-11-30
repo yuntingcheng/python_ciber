@@ -322,13 +322,15 @@ def get_Mstr_fast(z):
     Mstr = np.exp(np.interp(z, z_data, np.log(Mstr_data)))
     return Mstr
 
-class NFW_proile:
+class halo_proile:
     
-    def __init__(self):
+    def __init__(self, profile_name='NFW'):
         
-        self.NFW_2d_scaled_calc()
+        self.profile_name = profile_name
+        self.profile_2d_scaled_calc()
+        
     
-    def Rvir(self, z, Mh):
+    def get_Rvir(self, z, Mh):
         '''
         Mh [Msun/h]
         Rvir [Mpc/h]
@@ -343,16 +345,15 @@ class NFW_proile:
         
         return rvir
     
-    def conc(self, z, Mh):
-        
+    def get_conc(self, z, Mh):
         if isinstance(z, list):
             z = np.array(z)
             Mh = np.array(Mh)
             
         Mstr = get_Mstr_fast(z)
-        
+
         conc = (9/(1+z)) * (Mh / Mstr)**-0.13
-        
+
         return conc
     
     def r_scaled(self, r, z, Mh, r_units='arcsec'):
@@ -364,8 +365,8 @@ class NFW_proile:
         if isinstance(r, list):
             r = np.array(r)
             
-        R_vir = self.Rvir(z, Mh)
-        conc = self.conc(z, Mh)
+        R_vir = self.get_Rvir(z, Mh)
+        conc = self.get_conc(z, Mh)
         if r_units == 'arcsec':
             DA = cosmo.comoving_distance(z).value # [Mpc]
             r = r * (u.arcsec.to(u.rad)) * DA * cosmo.h
@@ -381,35 +382,56 @@ class NFW_proile:
             
         r_scaled = r * conc / R_vir
         
+        self.conc = conc
+        self.R_vir = R_vir
+        
         return r_scaled
     
-    def NFW_3d_scaled(self, r):
+    def profile_3d_scaled(self, r):
 
         if isinstance(r, list):
             r = np.array(r)
             profile = np.zeros_like(r)
-            profile[r!=0] = 1 / (r[r!=0]) / (1 + r[r!=0])**2
+            if self.profile_name=='NFW':
+                profile[r!=0] = 1 / (r[r!=0]) / (1 + r[r!=0])**2
+            elif self.profile_name=='iso':
+                profile[r!=0] = 1 / (1 + r[r!=0]**2)
+            elif self.profile_name=='exp':
+                profile[r!=0] = np.exp(-r[r!=0])
             return profile
 
         elif isinstance(r,  np.ndarray):
             profile = np.zeros_like(r)
-            profile[r!=0] = 1 / (r[r!=0]) / (1 + r[r!=0])**2
+            if self.profile_name=='NFW':
+                profile[r!=0] = 1 / (r[r!=0]) / (1 + r[r!=0])**2
+            elif self.profile_name=='iso':
+                profile[r!=0] = 1 / (1 + r[r!=0]**2)
+            elif self.profile_name=='exp':
+                profile[r!=0] = np.exp(-r[r!=0])
             return profile
 
         else:
             if r == 0:
                 return 0
-            return 1 / (r) / (1 + r)**2 
+            
+            if self.profile_name=='NFW':
+                profile = 1 / (r) / (1 + r)**2
+            elif self.profile_name=='iso':
+                profile = 1 / (1 + r**2)
+            elif self.profile_name=='exp':
+                profile = np.exp(-r)
+
+            return profile
                         
     
-    def NFW_3d(self, r, z, Mh):
+    def profile_3d(self, r, z, Mh):
         
         r_scaled = self.r_scaled(r, z, Mh)
-        rho = self.NFW_3d_scaled(r_scaled)
+        rho = self.profile_3d_scaled(r_scaled)
         
         return rho
     
-    def NFW_2d_scaled_calc(self):
+    def profile_2d_scaled_calc(self):
         
         # populate a 3D quadrant and integrate to 2D
         # save this somewhere
@@ -417,7 +439,7 @@ class NFW_proile:
         r = np.arange(0.001,10,0.001)
         xx, yy = np.meshgrid(r, r)
         rr = np.sqrt(xx**2 + yy**2)
-        rho_map = self.NFW_3d_scaled(rr)
+        rho_map = self.profile_3d_scaled(rr)
         
         self.r_2d = r
         self.rho_2d = np.sum(rho_map,axis=0)
@@ -426,7 +448,7 @@ class NFW_proile:
         
         return
         
-    def NFW_2d(self, r, z, Mh, r_units='arcsec'):
+    def profile_2d(self, r, z, Mh, r_units='arcsec'):
         
 
         if isinstance(r, list):

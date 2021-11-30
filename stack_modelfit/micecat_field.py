@@ -80,20 +80,37 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
                                                           band_mask=bandname, m_th=m_th,
                                                          verbose=verbose)
             elif ihl_model == 'NFW':            
-                ihlmap = mcfield.make_ihlmap_NFW(bandname, mcfield.f_IHL_const,
+                ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
                                                           df=dfi, f_IHL_kwargs=f_IHL_kwargs,
                                                           band_mask=bandname, m_th=m_th,
-                                                         verbose=verbose)
+                                                         profile_name='NFW', verbose=verbose)
+            elif ihl_model == 'iso':            
+                ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
+                                                          df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                          band_mask=bandname, m_th=m_th,
+                                                         profile_name='iso', verbose=verbose)
+            elif ihl_model == 'exp':            
+                ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
+                                                          df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                          band_mask=bandname, m_th=m_th,
+                                                         profile_name='exp', verbose=verbose)
         else:
             if ihl_model == 'uniform_disk':
                 ihlmap = mcfield.make_ihlmap_uniform_disk(bandname, mcfield.f_IHL_const,
                                                           df=dfi, f_IHL_kwargs=f_IHL_kwargs,
                                                          verbose=verbose)
             elif ihl_model == 'NFW':            
-                ihlmap = mcfield.make_ihlmap_NFW(bandname, mcfield.f_IHL_const,
+                ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
                                                           df=dfi, f_IHL_kwargs=f_IHL_kwargs,
-                                                         verbose=verbose)
-
+                                                         profile_name='NFW', verbose=verbose)
+            elif ihl_model == 'iso':            
+                ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
+                                                          df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                         profile_name='iso', verbose=verbose)
+            elif ihl_model == 'exp':            
+                ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
+                                                          df=dfi, f_IHL_kwargs=f_IHL_kwargs,
+                                                         profile_name='exp', verbose=verbose)
 
 
         srcmap_all_tot += srcmap_all
@@ -210,6 +227,172 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
 
     return Cl_data
 
+def run_IHL_Cl_mkk(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
+               logM_min=-np.inf, PSF_Gaussian_sig_arr=[7,14,35,70],
+                   verbose=True, savemaps=False):
+    
+    f_IHL_kwargs = {'logM_min':logM_min, 'f_IHL':1.}
+    
+    Cl_data = {'abs_mag_cut':abs_mag_cut, 'bandname': bandname, 'm_th':m_th,
+               'ra':ra_cent, 'dec':dec_cent, 'logM_min':f_IHL_kwargs['logM_min'],
+               'PSF_Gaussian_sig_arr':PSF_Gaussian_sig_arr}
+    
+    print('ra = {}, dec = {}'.format(ra_cent, dec_cent))
+    
+    fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+    +'micecat_IHL_Cl_data_ra{}_dec{}_mth{}_mkk.pkl'\
+    .format(ra_cent, dec_cent, m_th)
+
+    mcfield = micecat_field(ra_cent, dec_cent,Nx=1024,Ny=1024)
+    df = mcfield.get_micecat_df(add_fields=['sdss_r_abs_mag'])
+    df = df[df.sdss_r_abs_mag <= abs_mag_cut]
+
+    srcmap_all = mcfield.make_map(bandname, df=df[df[bandname+'_true'] > m_th])
+    srcmap_allcen = mcfield.make_map_central(bandname,df=df,
+                                             band_mask=bandname, m_th=m_th)
+
+    mask = mcfield.make_mask(bandname, df=df, m_th=m_th)[0]
+    mkk = mask_Mkk(mask)
+    mkk.get_Mkk_sim(verbose=verbose,Nsims=2)###
+    
+    srcmap_psfs = np.zeros((len(PSF_Gaussian_sig_arr),
+                            mask.shape[0], mask.shape[1]))
+    for isig,sig in enumerate(PSF_Gaussian_sig_arr):
+        if verbose:
+            print('make srcmap with {} arcsec Gaussian PSF'.format(sig))
+        srcmap_psfs[isig] = mcfield.make_map(bandname, df=df, PSF_func='Gaussian',
+                                             PSF_m_max=m_th, PSF_Gaussian_sig=sig,
+                                             verbose=verbose)
+    
+    ihlmap_NFW = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
+                                              df=df, f_IHL_kwargs=f_IHL_kwargs,
+                                              band_mask=bandname, m_th=m_th,
+                                             profile_name='NFW', verbose=verbose)
+    ihlmap_iso = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
+                                              df=df, f_IHL_kwargs=f_IHL_kwargs,
+                                              band_mask=bandname, m_th=m_th,
+                                             profile_name='iso', verbose=verbose)
+    if savemaps:
+        Cl_data['srcmap_all'] = srcmap_all
+        Cl_data['srcmap_allcen'] = srcmap_allcen
+        Cl_data['mask'] = mask
+        Cl_data['mkk'] = mkk
+        Cl_data['srcmap_psfs'] = srcmap_psfs
+        Cl_data['ihlmap_NFW'] = ihlmap_NFW
+        Cl_data['ihlmap_iso'] = ihlmap_iso
+
+    Cl_data['l'], Cl_data['Cla'], _ = get_power_spec(srcmap_all)
+    Cl_data['Cl2'] = get_power_spec(srcmap_allcen)[1]
+    
+    Nl = len(Cl_data['l'])
+    Cl_data['Clh_NFW_unmasked'] = get_power_spec(ihlmap_NFW)[1]
+    Cl_data['Clh_NFW_masked'] = get_power_spec(ihlmap_NFW, mask=mask)[1]
+    Cl_data['Clh_NFW_mkk'] = mkk.Mkk_correction(Cl_data['Clh_NFW_masked'].copy())
+    Cl_data['Clh_iso_unmasked'] = get_power_spec(ihlmap_iso)[1]
+    Cl_data['Clh_iso_masked'] = get_power_spec(ihlmap_iso, mask=mask)[1]
+    Cl_data['Clh_iso_mkk'] = mkk.Mkk_correction(Cl_data['Clh_iso_masked'].copy())
+    
+    Clpsf_unmasked = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    Clpsf_masked = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    Clpsf_mkk = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    Clph_NFW_unmasked = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    Clph_NFW_masked = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    Clph_NFW_mkk = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    Clph_iso_unmasked = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    Clph_iso_masked = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    Clph_iso_mkk = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
+    for isig,sig in enumerate(PSF_Gaussian_sig_arr):
+        Clpsf_unmasked[isig] = get_power_spec(srcmap_psfs[isig])[1]
+        Clpsf_masked[isig] = get_power_spec(srcmap_psfs[isig], mask=mask)[1]
+        Clpsf_mkk[isig] = mkk.Mkk_correction(Clpsf_masked[isig])
+        
+        Clph_NFW_unmasked[isig] = get_power_spec(srcmap_psfs[isig],ihlmap_NFW)[1]
+        Clph_NFW_masked[isig] = get_power_spec(srcmap_psfs[isig],ihlmap_NFW, mask=mask)[1]
+        Clph_NFW_mkk[isig] = mkk.Mkk_correction(Clph_NFW_masked[isig])
+
+        Clph_iso_unmasked[isig] = get_power_spec(srcmap_psfs[isig],ihlmap_iso)[1]
+        Clph_iso_masked[isig] = get_power_spec(srcmap_psfs[isig],ihlmap_iso, mask=mask)[1]
+        Clph_iso_mkk[isig] = mkk.Mkk_correction(Clph_iso_masked[isig])
+
+    Cl_data['Clpsf_unmasked'] = Clpsf_unmasked
+    Cl_data['Clpsf_masked'] = Clpsf_masked
+    Cl_data['Clpsf_mkk'] = Clpsf_mkk
+    Cl_data['Clph_NFW_unmasked'] = Clph_NFW_unmasked
+    Cl_data['Clph_NFW_masked'] = Clph_NFW_masked
+    Cl_data['Clph_NFW_mkk'] = Clph_NFW_mkk
+    Cl_data['Clph_iso_unmasked'] = Clph_iso_unmasked
+    Cl_data['Clph_iso_masked'] = Clph_iso_masked
+    Cl_data['Clph_iso_mkk'] = Clph_iso_mkk
+
+    with open(fname, "wb") as f:
+        pickle.dump(Cl_data , f)
+
+    return Cl_data
+
+def get_Cl_data(ihl_model='NFW', m_th=20, mask_IHL=True):
+    ra_arr = np.arange(32,59,2)[::2]
+    dec_arr = np.arange(2,29,3)[::2]
+    dec_grid, ra_grid = np.meshgrid(dec_arr, ra_arr)
+
+    Cl_data = {}
+    fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+    +'micecat_IHL_Cl_data_ra{}_dec{}_{}_mth{}.pkl'.format(ra_arr[0], dec_arr[0], ihl_model, m_th)
+    if mask_IHL and m_th>-np.inf:
+        fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+        +'micecat_IHL_Cl_data_ra{}_dec{}_{}_mth{}_maskIHL.pkl'\
+        .format(ra_arr[0], dec_arr[0], ihl_model, m_th)
+        
+    with open(fname, "rb") as f:
+        Cl_datai = pickle.load(f)
+
+    Cl_data['l'] = Cl_datai['l']
+    Cl_data['m_th'] = Cl_datai['m_th']
+    Cl_data['ihl_model'] = ihl_model
+    Cl_data['z_min_arr'], Cl_data['z_max_arr'] = Cl_datai['z_min_arr'], Cl_datai['z_max_arr']
+    z_min_arr, z_max_arr = Cl_datai['z_min_arr'], Cl_datai['z_max_arr']
+
+    for iz, (z_min, z_max) in enumerate(zip(z_min_arr, z_max_arr)):
+        Cl_data[iz] = {'z_min': z_min, 'z_max':z_max}
+        Cl_data[iz]['srcmap_cen'] = Cl_datai[iz]['srcmap_cen']
+        Cl_data[iz]['srcmap_sat'] = Cl_datai[iz]['srcmap_sat']
+        Cl_data[iz]['srcmap_allcen'] = Cl_datai[iz]['srcmap_allcen']
+        Cl_data[iz]['ihlmap'] = Cl_datai[iz]['ihlmap']
+    Cl_data['tot'] = {}
+    Cl_data['tot']['srcmap_cen'] = Cl_datai['tot']['srcmap_cen']
+    Cl_data['tot']['srcmap_sat'] = Cl_datai['tot']['srcmap_sat']
+    Cl_data['tot']['srcmap_allcen'] = Cl_datai['tot']['srcmap_allcen']
+    Cl_data['tot']['ihlmap'] = Cl_datai['tot']['ihlmap']
+
+    Cl_names = ['Cla','Clc','Cls','Clcs','Cl2','Clh','Clha','Clhc','Clhs','Clh2']
+
+    for Cl_name in Cl_names:
+        for iz, (z_min, z_max) in enumerate(zip(z_min_arr, z_max_arr)):
+            Cl_data[iz][Cl_name] = np.zeros((ra_grid.size, len(Cl_data['l'])))
+            Cl_data[iz][Cl_name+'_shsub'] = np.zeros((ra_grid.size, len(Cl_data['l'])))
+        Cl_data['tot'][Cl_name] = np.zeros((ra_grid.size, len(Cl_data['l'])))
+        Cl_data['tot'][Cl_name+'_shsub'] = np.zeros((ra_grid.size, len(Cl_data['l'])))
+
+    for iz, (z_min, z_max) in enumerate(zip(z_min_arr, z_max_arr)):
+        for ifield, (ra_cent, dec_cent) in enumerate(zip(ra_grid.flatten(), dec_grid.flatten())):
+
+            fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+            +'micecat_IHL_Cl_data_ra{}_dec{}_{}_mth{}.pkl'.format(ra_cent, dec_cent, ihl_model, m_th)
+            if mask_IHL and m_th>-np.inf:
+                fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+                +'micecat_IHL_Cl_data_ra{}_dec{}_{}_mth{}_maskIHL.pkl'\
+                .format(ra_cent, dec_cent, ihl_model, m_th)
+            with open(fname, "rb") as f:
+                Cl_datai = pickle.load(f)
+
+            for Cl_name in Cl_names:
+                Cl_data[iz][Cl_name][ifield] = Cl_datai[iz][Cl_name]
+                Cl_data['tot'][Cl_name][ifield] = Cl_datai['tot'][Cl_name]                
+                Cl_data[iz][Cl_name+'_shsub'][ifield] = Cl_datai[iz][Cl_name+'_shsub']
+                Cl_data['tot'][Cl_name+'_shsub'][ifield] = Cl_datai['tot'][Cl_name+'_shsub']
+            
+    return Cl_data
+
+
 class micecat_field:
     
     def __init__(self, ra_cent, dec_cent, pix_size=7, Nx=1024, Ny=1024):
@@ -251,7 +434,10 @@ class micecat_field:
                     + 10**(-df['euclid_nisp_h_true']/2.5))
         Hmag = -2.5*np.log10(Hmag)
         df['ciber_H_true'] = Hmag
-
+        
+        df['ciber_I_vega_true'] = df['ciber_I_true'] + 2.5*np.log10(1594./3631.)
+        df['ciber_H_vega_true'] = df['ciber_I_true'] + 2.5*np.log10(1024./3631.)
+        
         ra1, dec1 = self.coord_transform(df.ra_gal.values, df.dec_gal.values)
         df['ra1'], df['dec1'] = ra1, dec1
 
@@ -297,7 +483,9 @@ class micecat_field:
         return df
 
     def make_map(self, bandname, df=None, 
-        x_arr=None, y_arr=None, m_arr=None):
+        x_arr=None, y_arr=None, m_arr=None, 
+        PSF_func=None, PSF_Nsub=2, verbose=False, PSF_m_max=np.inf,
+        PSF_Rmax_sig=3, PSF_Gaussian_sig=7):
 
         if (x_arr is None) or (y_arr is None) or (m_arr is None):
             if df is None:
@@ -313,13 +501,67 @@ class micecat_field:
         m_arr = m_arr[sp]
         wl = self.filter_wleff(bandname)
         sr = ((self.pix_size/3600.0)*(np.pi/180.0))**2
-        I = 3631. * 10**(-m_arr / 2.5) * (3 / wl) * 1e6 / (sr*1e9)
-        srcmap = np.histogram2d(x_arr, y_arr,
-                                [np.arange(self.Nx+1)-0.5,
-                                np.arange(self.Ny+1)-0.5],
-                                weights=I)[0]
-        return srcmap
+        I_arr = 3631. * 10**(-m_arr / 2.5) * (3 / wl) * 1e6 / (sr*1e9)
 
+        if PSF_func is None:
+            srcmap = np.histogram2d(x_arr, y_arr,
+                                    [np.arange(self.Nx+1)-0.5,
+                                    np.arange(self.Ny+1)-0.5],
+                                    weights=I_arr)[0]
+            return srcmap
+        
+        spb = np.where(m_arr<=PSF_m_max)[0]
+        spf = np.where(m_arr>PSF_m_max)[0]
+        
+        if len(spf)!=0:
+            srcmapf = np.histogram2d(x_arr, y_arr,
+                                    [np.arange(self.Nx+1)-0.5,
+                                    np.arange(self.Ny+1)-0.5],
+                                    weights=I_arr)[0]
+        else:
+            srcmapf = np.zeros((self.Nx,self.Ny))
+        
+        if len(spb)==0:
+            return srcmapf
+        
+        x_arr = x_arr[spb]
+        y_arr = y_arr[spb]
+        m_arr = m_arr[spb]
+        Nsub = PSF_Nsub
+        dx = 10 * Nsub
+        srcmap_large = np.zeros((self.Nx*Nsub + 4*dx, self.Ny*Nsub + 4*dx))
+        
+        if PSF_func == 'Gaussian':
+            Rmax = PSF_Gaussian_sig*PSF_Rmax_sig
+            Rs = np.ones_like(x_arr) * Rmax/(self.pix_size/Nsub)
+        xss = np.round(x_arr * Nsub + (Nsub/2 - 0.5) + 2 * dx).astype(np.int32)
+        yss = np.round(y_arr * Nsub + (Nsub/2 - 0.5) + 2 * dx).astype(np.int32)
+        xx, yy = np.meshgrid(np.arange(srcmap_large.shape[0]),
+                             np.arange(srcmap_large.shape[1]), indexing='ij')
+
+        for i,(xs,ys,I,R) in enumerate(zip(xss, yss, I_arr, Rs)):
+            radmap = (xx - xs)**2 + (yy - ys)**2
+            sp_in = np.where(radmap <= R**2)
+            if len(sp_in[0]) > 0:
+                srcmapi = self._PSF_func_Gaussian(np.sqrt(radmap[sp_in]),0,
+                        PSF_Gaussian_sig/(self.pix_size/Nsub))
+                if np.sum(srcmapi)==0:
+                    srcmapi[:] = I
+                srcmap_large[sp_in] += (I * srcmapi / np.sum(srcmapi))
+            if len(xss)>20:
+                if verbose and i%(len(xss)//20)==0:
+                    print('run src map %d / %d (%.1f %%)'\
+                          %(i, len(xss), i/len(xss)*100))
+
+        srcmapb = self._rebin_map_coarse(srcmap_large, Nsub)*Nsub**2
+        srcmapb = srcmapb[2*dx//Nsub : 2*dx//Nsub+self.Nx,\
+                        2*dx//Nsub : 2*dx//Nsub+self.Ny]
+        
+        return srcmapb + srcmapf
+    
+    def _PSF_func_Gaussian(self, r, mu, sig):
+        g = 1/np.sqrt(2*np.pi*sig**2)*np.exp(-(r-mu)**2/2/sig**2)
+        return g
 
     def make_map_central(self, bandname, df=None, 
                          idx_mask=None, band_mask=None, m_th=None):
@@ -414,7 +656,53 @@ class micecat_field:
         
         return cube
     
+    def get_mask_radius_linear(self, m_arr, m_th=18, alpha=-6.25, 
+                               beta=110-6.25*2.5*np.log10(1594./3631.)):
+        '''
+        r_arr [arcsec]
+        '''
+        m_arr = np.array(m_arr)
+        r_arr = np.zeros_like(m_arr)
+        r_arr[m_arr<=m_th] = alpha * m_arr[m_arr<=m_th] + beta
+        r_arr[r_arr<0] = 0.
+        return r_arr
+    
+    def make_mask(self, bandname, df=None, 
+        x_arr=None, y_arr=None, m_arr=None, 
+        mask_func='linear', verbose=False, **mask_func_kwargs):
+        
+        if (x_arr is None) or (y_arr is None) or (m_arr is None):
+            if df is None:
+                df = self.get_micecat_df(add_fields=[bandname + '_true'])
+        
+        m_arr = df[bandname + '_true'].values if m_arr is None else m_arr
+        x_arr = df.x.values if x_arr is None else x_arr
+        y_arr = df.y.values if y_arr is None else y_arr
 
+        sp = np.where(m_arr!=-999.)[0]
+        x_arr = x_arr[sp]
+        y_arr = y_arr[sp]
+        m_arr = m_arr[sp]
+        
+        if mask_func == 'linear':
+            r_arr = self.get_mask_radius_linear(m_arr, **mask_func_kwargs)
+        x_arr = x_arr[r_arr>0]
+        y_arr = y_arr[r_arr>0]
+        r_arr = r_arr[r_arr>0]
+        mask = np.ones([self.Nx, self.Ny])
+        num = np.zeros([self.Nx, self.Ny])
+        xx, yy = np.meshgrid(np.arange(self.Nx), np.arange(self.Ny), indexing='ij')
+        
+        for i,(x,y,r) in enumerate(zip(x_arr, y_arr, r_arr)):
+            if len(x_arr)>20:
+                if verbose and i%(len(xs)//20)==0:
+                    print('run mask %d / %d (%.1f %%)'\
+                      %(i, len(xs), i/len(xs)*100))
+            radmap = (xx - x)**2 + (yy - y)**2
+            mask[radmap < (r/self.pix_size)**2] = 0
+            num[radmap < (r/self.pix_size)**2] += 1
+        return mask, num
+                
     def _rebin_map_coarse(self, original_map, Nsub):
         m, n = np.array(original_map.shape)//(Nsub, Nsub)
         return original_map.reshape(m, Nsub, n, Nsub).mean((1,3))
@@ -474,9 +762,10 @@ class micecat_field:
 
         return ihlmap
         
-    def make_ihlmap_NFW(self, bandname, f_IHL_func, df=None, Rvir_lim=1.,
+    def make_ihlmap_DMprof(self, bandname, f_IHL_func, df=None, Rvir_lim=1.,
                         band_mask=None, m_th=None,
-                        f_IHL_kwargs={}, Nsub=2, verbose=True):
+                        f_IHL_kwargs={}, Nsub=2,
+                        profile_name='NFW', verbose=True):
         if df is None:
             df = self.get_micecat_df(add_fields=[bandname + '_true'])
         else:
@@ -502,12 +791,12 @@ class micecat_field:
         zs = dfc.z_cgal.values
         Mhs = 10**dfc.lmhalo.values * cosmo.h
         
-        NFW = NFW_proile()
+        DMprofile = halo_proile(profile_name)
         for i,(xs,ys,I,R,z,Mh) in enumerate(zip(xss, yss, Is, Rs, zs, Mhs)):
             radmap = (xx - xs)**2 + (yy - ys)**2
             sp_in = np.where(radmap <= (R*Rvir_lim)**2)
             if len(sp_in[0]) > 0:
-                ihlmapi = NFW.NFW_2d(np.sqrt(radmap[sp_in])*self.pix_size/Nsub, z, Mh)
+                ihlmapi = DMprofile.profile_2d(np.sqrt(radmap[sp_in])*self.pix_size/Nsub, z, Mh)
                 if np.sum(ihlmapi)==0:
                     ihlmapi[:] = I
                 ihlmap_large[sp_in] += (I * ihlmapi / np.sum(ihlmapi))
