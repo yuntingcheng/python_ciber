@@ -227,7 +227,7 @@ def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
 
     return Cl_data
 
-def run_IHL_Cl_mkk(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
+def run_IHL_Cl_mkk(ra_cent, dec_cent, abs_mag_cut=-18, m_th=18, bandname='ciber_I',
                logM_min=-np.inf, PSF_Gaussian_sig_arr=[7,14,35,70],
                    verbose=True, savemaps=False):
     
@@ -253,7 +253,7 @@ def run_IHL_Cl_mkk(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_
 
     mask = mcfield.make_mask(bandname, df=df, m_th=m_th)[0]
     mkk = mask_Mkk(mask)
-    mkk.get_Mkk_sim(verbose=verbose,Nsims=2)###
+    mkk.get_Mkk_sim(verbose=verbose)
     
     srcmap_psfs = np.zeros((len(PSF_Gaussian_sig_arr),
                             mask.shape[0], mask.shape[1]))
