@@ -292,6 +292,14 @@ def run_IHL_Cl_mkk(ra_cent, dec_cent, abs_mag_cut=-18, m_th=18, bandname='ciber_
     Cl_data['Clh_iso_masked'] = get_power_spec(ihlmap_iso, mask=mask)[1]
     Cl_data['Clh_iso_mkk'] = mkk.Mkk_correction(Cl_data['Clh_iso_masked'].copy())
     
+
+    Cl_data['Clha_NFW_unmasked'] = get_power_spec(ihlmap_NFW, srcmap_all)[1]
+    Cl_data['Clha_NFW_masked'] = get_power_spec(ihlmap_NFW, srcmap_all, mask=mask)[1]
+    Cl_data['Clha_NFW_mkk'] = mkk.Mkk_correction(Cl_data['Clha_NFW_masked'].copy())
+    Cl_data['Clha_iso_unmasked'] = get_power_spec(ihlmap_iso, srcmap_all)[1]
+    Cl_data['Clha_iso_masked'] = get_power_spec(ihlmap_iso, srcmap_all, mask=mask)[1]
+    Cl_data['Clha_iso_mkk'] = mkk.Mkk_correction(Cl_data['Clha_iso_masked'].copy())
+
     Clpsf_unmasked = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
     Clpsf_masked = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
     Clpsf_mkk = np.zeros((len(PSF_Gaussian_sig_arr), Nl))
