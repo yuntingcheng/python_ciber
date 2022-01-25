@@ -351,8 +351,6 @@ def run_cross_Cl(zg, delz=0.03, ra_arr=None, dec_arr=None,
         dec_grid, ra_grid = np.meshgrid(dec_arr, ra_arr)
         ra_arr = ra_grid.flatten()
         dec_arr = dec_grid.flatten()
-    ra_arr = ra_arr[:2]####
-    dec_arr = dec_arr[:2]###
     Nfields = len(ra_arr)
 
     dz = delz * (1+zg)
