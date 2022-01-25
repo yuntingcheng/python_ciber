@@ -17,6 +17,7 @@ from ciber_info import *
 from cosmo_tools import *
 from srcmap import *
 from stack_ancillary import *
+from survey_params import *
 
 def run_IHL_Cl(ra_cent, dec_cent, abs_mag_cut=-18, m_th=20, bandname='ciber_I',
                logM_min=-np.inf, 
@@ -336,6 +337,76 @@ def run_IHL_Cl_mkk(ra_cent, dec_cent, abs_mag_cut=-18, m_th=18, bandname='ciber_
         pickle.dump(Cl_data , f)
 
     return Cl_data
+
+def run_cross_Cl(zg, delz=0.03, ra_arr=None, dec_arr=None,
+                 abs_mag_cut=-18, m_th=18, bandname='ciber_I',
+                 logM_min=-np.inf, verbose=True, savemaps=False):
+
+    fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+    +'micecat_cross_Cl_data_zg{}_delz{}_mth{}.pkl'.format(zg, delz, m_th)
+
+    if ra_arr is None:
+        ra_arr = np.arange(32,59,2)[::2]
+        dec_arr = np.arange(2,29,3)[::2]
+        dec_grid, ra_grid = np.meshgrid(dec_arr, ra_arr)
+        ra_arr = ra_grid.flatten()
+        dec_arr = dec_grid.flatten()
+    ra_arr = ra_arr[:2]####
+    dec_arr = dec_arr[:2]###
+    Nfields = len(ra_arr)
+
+    dz = delz * (1+zg)
+    zmin, zmax = zg - dz/2, zg + dz/2
+    
+    f_IHL_kwargs = {'logM_min':logM_min, 'f_IHL':1.}
+
+    Cl_data = {'abs_mag_cut':abs_mag_cut, 'bandname': bandname, 'm_th':m_th,
+               'zg':zg, delz:delz, 'zmin':zmin, 'zmax':zmax,
+               'ra_arr':ra_arr, 'dec_arr':dec_arr, 'logM_min':f_IHL_kwargs['logM_min']}
+    
+    for ifield, (ra_cent, dec_cent) in enumerate(zip(ra_arr, dec_arr)):
+        print('ra = {}, dec = {}'.format(ra_cent, dec_cent))
+
+        mcfield = micecat_field(ra_cent, dec_cent,Nx=1024,Ny=1024)
+        df = mcfield.get_micecat_df(add_fields=['sdss_r_abs_mag'])
+        df = df[df.sdss_r_abs_mag <= abs_mag_cut]
+
+        srcmap = mcfield.make_map(bandname, df=df[df[bandname+'_true'] > m_th])
+
+        halo_ids = np.array(df[(df['z_cgal']>zmin) & (df['z_cgal']<zmax) \
+                               & (df['flag_central']==0)].unique_halo_id)
+        df_halos = df[np.isin(df['unique_halo_id'], halo_ids)]
+        ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
+                                                  df=df_halos, f_IHL_kwargs=f_IHL_kwargs,
+                                                  band_mask=bandname, m_th=m_th,
+                                                 profile_name='NFW', verbose=verbose)
+
+        df_g = df[(df['z_cgal']>zmin) & (df['z_cgal']<zmax) & (df['x']>0.5) & (df['x']<1023.5) \
+                  & (df['y']>0.5) & (df['y']<1023.5)]
+        Ng = int(round(spherex_gal_param(zg).n_z_deg2 * (zmax-zmin) * 4))
+        idx_g = np.argsort(np.array(df_g[bandname+'_true']))[:Ng]
+        df_g = df_g.iloc[idx_g]
+        srcmap_g = np.histogram2d(df_g.x,df_g.y,
+                                  [np.arange(1024+1)-0.5,np.arange(1024+1)-0.5])[0]
+        if ifield == 0:
+            l, _, _ = get_power_spec(srcmap_g)
+            Cl_data['l'] = l
+            Cl_data['Clg'] = np.zeros((Nfields, len(l)))
+            Cl_data['Cla'] = np.zeros((Nfields, len(l)))
+            Cl_data['Clh'] = np.zeros((Nfields, len(l)))
+            Cl_data['Clha'] = np.zeros((Nfields, len(l)))
+            Cl_data['Clga'] = np.zeros((Nfields, len(l)))
+            Cl_data['Clgh'] = np.zeros((Nfields, len(l)))
+
+        Cl_data['Cla'][ifield] = get_power_spec(srcmap)[1]
+        Cl_data['Clh'][ifield] = get_power_spec(ihlmap)[1]
+        Cl_data['Clg'][ifield] = get_power_spec(srcmap_g)[1]
+        Cl_data['Clha'][ifield] = get_power_spec(ihlmap, srcmap)[1]
+        Cl_data['Clga'][ifield] = get_power_spec(srcmap_g, srcmap)[1]
+        Cl_data['Clgh'][ifield] = get_power_spec(srcmap_g, ihlmap)[1]
+        
+    with open(fname, "wb") as f:
+        pickle.dump(Cl_data , f)
 
 def get_Cl_data(ihl_model='NFW', m_th=20, mask_IHL=True):
     ra_arr = np.arange(32,59,2)[::2]
