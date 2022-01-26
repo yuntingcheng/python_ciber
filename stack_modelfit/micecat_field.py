@@ -402,6 +402,9 @@ def run_cross_Cl(zg, delz=0.03, ra_arr=None, dec_arr=None,
         Cl_data['Clha'][ifield] = get_power_spec(ihlmap, srcmap)[1]
         Cl_data['Clga'][ifield] = get_power_spec(srcmap_g, srcmap)[1]
         Cl_data['Clgh'][ifield] = get_power_spec(srcmap_g, ihlmap)[1]
+    
+        with open(fname, "wb") as f:
+            pickle.dump(Cl_data , f)
         
     with open(fname, "wb") as f:
         pickle.dump(Cl_data , f)
