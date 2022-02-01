@@ -340,10 +340,17 @@ def run_IHL_Cl_mkk(ra_cent, dec_cent, abs_mag_cut=-18, m_th=18, bandname='ciber_
 
 def run_cross_Cl(zg, delz=0.03, ra_arr=None, dec_arr=None,
                  abs_mag_cut=-18, m_th=18, bandname='ciber_I',
+                 IHL_model='const', f_IHL_kwargs={},
                  logM_min=-np.inf, verbose=True, savemaps=False):
 
-    fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
-    +'micecat_cross_Cl_data_zg{}_delz{}_mth{}.pkl'.format(zg, delz, m_th)
+    if IHL_model == 'const':
+        f_IHL_kwargs = {'logM_min':logM_min, 'f_IHL':1.}
+        fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+        +'micecat_cross_Cl_data_zg{}_delz{}_mth{}.pkl'.format(zg, delz, m_th)
+    elif IHL_model == 'purcell':
+        alpha = f_IHL_kwargs['alpha']
+        fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+        +'micecat_cross_Cl_data_zg{}_delz{}_mth{}_alpha{}.pkl'.format(zg, delz, m_th, alpha)
 
     if ra_arr is None:
         ra_arr = np.arange(32,59,2)[::2]
@@ -355,8 +362,6 @@ def run_cross_Cl(zg, delz=0.03, ra_arr=None, dec_arr=None,
 
     dz = delz * (1+zg)
     zmin, zmax = zg - dz/2, zg + dz/2
-    
-    f_IHL_kwargs = {'logM_min':logM_min, 'f_IHL':1.}
 
     Cl_data = {'abs_mag_cut':abs_mag_cut, 'bandname': bandname, 'm_th':m_th,
                'zg':zg, delz:delz, 'zmin':zmin, 'zmax':zmax,
@@ -369,16 +374,24 @@ def run_cross_Cl(zg, delz=0.03, ra_arr=None, dec_arr=None,
         df = mcfield.get_micecat_df(add_fields=['sdss_r_abs_mag'])
         df = df[df.sdss_r_abs_mag <= abs_mag_cut]
 
-        srcmap = mcfield.make_map(bandname, df=df[df[bandname+'_true'] > m_th])
+        srcmap = mcfield.make_map(bandname, df=df[(df[bandname+'_true'] > m_th) &\
+                                                  (df['z_cgal']>zmin) & (df['z_cgal']<zmax)])
 
         halo_ids = np.array(df[(df['z_cgal']>zmin) & (df['z_cgal']<zmax) \
                                & (df['flag_central']==0)].unique_halo_id)
         df_halos = df[np.isin(df['unique_halo_id'], halo_ids)]
-        ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
-                                                  df=df_halos, f_IHL_kwargs=f_IHL_kwargs,
-                                                  band_mask=bandname, m_th=m_th,
-                                                 profile_name='NFW', verbose=verbose)
 
+        if IHL_model == 'const':
+            ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
+                                                      df=df_halos, f_IHL_kwargs=f_IHL_kwargs,
+                                                      band_mask=bandname, m_th=m_th,
+                                                     profile_name='NFW', verbose=verbose)
+        elif IHL_model == 'purcell':
+            ihlmap = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_purcell,
+                                                      df=df_halos, f_IHL_kwargs=f_IHL_kwargs,
+                                                      band_mask=bandname, m_th=m_th,
+                                                     profile_name='NFW', verbose=verbose)
+            
         df_g = df[(df['z_cgal']>zmin) & (df['z_cgal']<zmax) & (df['x']>0.5) & (df['x']<1023.5) \
                   & (df['y']>0.5) & (df['y']<1023.5)]
         Ng = int(round(spherex_gal_param(zg).n_z_deg2 * (zmax-zmin) * 4))
@@ -392,14 +405,12 @@ def run_cross_Cl(zg, delz=0.03, ra_arr=None, dec_arr=None,
             Cl_data['Clg'] = np.zeros((Nfields, len(l)))
             Cl_data['Cla'] = np.zeros((Nfields, len(l)))
             Cl_data['Clh'] = np.zeros((Nfields, len(l)))
-            Cl_data['Clha'] = np.zeros((Nfields, len(l)))
             Cl_data['Clga'] = np.zeros((Nfields, len(l)))
             Cl_data['Clgh'] = np.zeros((Nfields, len(l)))
 
         Cl_data['Cla'][ifield] = get_power_spec(srcmap)[1]
         Cl_data['Clh'][ifield] = get_power_spec(ihlmap)[1]
         Cl_data['Clg'][ifield] = get_power_spec(srcmap_g)[1]
-        Cl_data['Clha'][ifield] = get_power_spec(ihlmap, srcmap)[1]
         Cl_data['Clga'][ifield] = get_power_spec(srcmap_g, srcmap)[1]
         Cl_data['Clgh'][ifield] = get_power_spec(srcmap_g, ihlmap)[1]
     
@@ -795,6 +806,18 @@ class micecat_field:
 
         f_IHL_arr = np.ones_like(logMh_arr) * f_IHL
         f_IHL_arr[logMh_arr < logM_min] = 0 
+
+        return f_IHL_arr
+
+    def f_IHL_purcell(self, logMh_arr, alpha=2.5, f_IHL=1, 
+                      logM_min=-np.inf, logM_max=12.5):
+        '''
+        a constant IHL frac for Mh > 10**lnM_min
+        '''
+        Mh_arr = 10**logMh_arr
+        f_IHL_arr = f_IHL * (Mh_arr/1e12)**alpha
+        f_IHL_arr[logMh_arr < logM_min] = 0
+        f_IHL_arr[logMh_arr > logM_max] = f_IHL * (10**logM_max/1e12)**alpha
 
         return f_IHL_arr
 
