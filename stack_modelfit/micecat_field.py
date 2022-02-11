@@ -261,9 +261,12 @@ def run_IHL_Cl_mkk(ra_cent, dec_cent, abs_mag_cut=-18, m_th=18, bandname='ciber_
     for isig,sig in enumerate(PSF_Gaussian_sig_arr):
         if verbose:
             print('make srcmap with {} arcsec Gaussian PSF'.format(sig))
-        srcmap_psfs[isig] = mcfield.make_map(bandname, df=df, PSF_func='Gaussian',
-                                             PSF_m_max=m_th, PSF_Gaussian_sig=sig,
-                                             verbose=verbose)
+        if sig == 0:
+            srcmap_psfs[isig] = srcmap_all
+        else:
+            srcmap_psfs[isig] = mcfield.make_map(bandname, df=df, PSF_func='Gaussian',
+                                                 PSF_m_max=m_th, PSF_Gaussian_sig=sig,
+                                                 verbose=verbose)
     
     ihlmap_NFW = mcfield.make_ihlmap_DMprof(bandname, mcfield.f_IHL_const,
                                               df=df, f_IHL_kwargs=f_IHL_kwargs,
@@ -481,6 +484,68 @@ def get_Cl_data(ihl_model='NFW', m_th=20, mask_IHL=True):
                 Cl_data[iz][Cl_name+'_shsub'][ifield] = Cl_datai[iz][Cl_name+'_shsub']
                 Cl_data['tot'][Cl_name+'_shsub'][ifield] = Cl_datai['tot'][Cl_name+'_shsub']
             
+    return Cl_data
+
+def get_Cl_data_ihlmodel(m_th=20):
+    ra_arr = np.arange(32,59,2)[::2]
+    dec_arr = np.arange(2,29,3)[::2]
+    dec_grid, ra_grid = np.meshgrid(dec_arr, ra_arr)
+
+    Cl_data = {}
+    fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+    +'micecat_IHL_Cl_data_ra{}_dec{}_mth{}_mkk.pkl'\
+    .format(ra_arr[0], dec_arr[0], m_th)
+        
+    with open(fname, "rb") as f:
+        Cl_datai = pickle.load(f)
+
+    Cl_data['l'] = Cl_datai['l']
+    Cl_data['m_th'] = Cl_datai['m_th']
+    Cl_data['PSF_Gaussian_sig_arr'] = Cl_datai['PSF_Gaussian_sig_arr']
+    
+    Cl_data['srcmap_all'] = Cl_datai['srcmap_all']
+    Cl_data['srcmap_allcen'] = Cl_datai['srcmap_allcen']
+    Cl_data['mask'] = Cl_datai['mask']
+    Cl_data['mkk'] = Cl_datai['mkk']
+    Cl_data['ihlmap_NFW'] = Cl_datai['ihlmap_NFW']
+    Cl_data['ihlmap_iso'] = Cl_datai['ihlmap_iso']
+    
+    Nl = len(Cl_data['l'])
+    Nf = ra_grid.size
+    
+    Cl_data['Cla'], Cl_data['Cl2'] = np.zeros((Nf,Nl)), np.zeros((Nf,Nl))
+    Cl_data['Cla_sh'], Cl_data['Cl2_sh'] = np.zeros((Nf,Nl)), np.zeros((Nf,Nl))
+    Cl_data['Clh_NFW'] = np.zeros((Nf,Nl))
+    Cl_data['Clh_iso'] = np.zeros((Nf,Nl))
+    Cl_data['Clha_NFW'] = np.zeros((Nf,Nl))
+    Cl_data['Clha_iso'] = np.zeros((Nf,Nl))
+    Cl_data['Clh_NFW_mkk'] = np.zeros((Nf,Nl))
+    Cl_data['Clh_iso_mkk'] = np.zeros((Nf,Nl))
+    Cl_data['Clha_NFW_mkk'] = np.zeros((Nf,Nl))
+    Cl_data['Clha_iso_mkk'] = np.zeros((Nf,Nl))
+    
+
+    for ifield, (ra_cent, dec_cent) in enumerate(zip(ra_grid.flatten(), dec_grid.flatten())):
+        fname = mypaths['ciberdir']+'python_ciber/stack_modelfit/micecat_IHL_data/'\
+        +'micecat_IHL_Cl_data_ra{}_dec{}_mth{}_mkk.pkl'\
+        .format(ra_cent, dec_cent, m_th)
+        
+        with open(fname, "rb") as f:
+            Cl_datai = pickle.load(f)
+        
+        Cl_data['Cla'][ifield] = Cl_datai['Cla']
+        Cl_data['Cla_sh'][ifield] += np.mean(Cl_datai['Cla'][-3:])
+        Cl_data['Cl2'][ifield] = Cl_datai['Cl2']
+        Cl_data['Cl2_sh'][ifield] += np.mean(Cl_datai['Cl2'][-3:])
+        Cl_data['Clh_NFW'][ifield] = Cl_datai['Clh_NFW_unmasked']
+        Cl_data['Clh_iso'][ifield] = Cl_datai['Clh_iso_unmasked']
+        Cl_data['Clha_NFW'][ifield] = Cl_datai['Clha_NFW_unmasked']
+        Cl_data['Clha_iso'][ifield] = Cl_datai['Clha_iso_unmasked']
+        Cl_data['Clh_NFW_mkk'][ifield] = Cl_datai['Clh_NFW_mkk']
+        Cl_data['Clh_iso_mkk'][ifield] = Cl_datai['Clh_iso_mkk']
+        Cl_data['Clha_NFW_mkk'][ifield] = Cl_datai['Clha_NFW_mkk']
+        Cl_data['Clha_iso_mkk'][ifield] = Cl_datai['Clha_iso_mkk']
+
     return Cl_data
 
 
