@@ -6,12 +6,12 @@ from astropy import units as u
 from astropy import constants as const
 from astropy import cosmology
 import pickle
-from hmf import MassFunction
+# from hmf import MassFunction
 
 
 # cosmo params
 cosmo = cosmology.Planck15
-cosmo.hmf = MassFunction(Mmin = np.log10(1e6), Mmax = np.log10(1e15), cosmo_model=cosmo, hmf_model = 'SMT')
+# cosmo.hmf = MassFunction(Mmin = np.log10(1e6), Mmax = np.log10(1e15), cosmo_model=cosmo, hmf_model = 'SMT')
 
 class HMFz:
     '''

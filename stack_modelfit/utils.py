@@ -164,7 +164,7 @@ def get_virial_radius(z_arr, Mh_arr, units='arcsec'):
     '''
     rhoc_arr = np.array(cosmo.critical_density(z_arr).to(u.M_sun / u.Mpc**3))
     rvir_arr = ((3 * Mh_arr) / (4 * np.pi * 200 * rhoc_arr))**(1./3)
-    if units is 'Mpc':
+    if units == 'Mpc':
         return rvir_arr
     DA_arr = np.array(cosmo.comoving_distance(z_arr))
     rvir_arr = (rvir_arr / DA_arr) * u.rad.to(u.arcsec)
