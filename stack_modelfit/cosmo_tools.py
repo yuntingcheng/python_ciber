@@ -244,6 +244,31 @@ def get_Plin_fast(z, k_arr=None):
     return P_arr, k_arr
 
 
+def get_Pnl_fast(z, k_arr=None):
+    '''
+    Precomuting P(k,z) in to a data, file, and do interpolation upon calling
+    '''
+    k_data = np.logspace(-5,4,1000)
+    z_data = np.arange(0.01,10,0.01)
+    try:
+        Plin_data = np.load('./Pnl_data.npy',allow_pickle=True)
+    except:
+        print('pre-compute Plin for interpolation ...')
+        Plin_data = np.zeros([len(z_data),len(k_data)])
+        for i,zz in enumerate(z_data):
+            if (i%20) == 19:
+                print('z=%.1f'%zz)
+            Plin_data[i] = HMFz(zz).P_nl(k_arr = k_data)[0]
+        np.save('./Pnl_data',Plin_data) 
+    
+    k_arr = k_data if k_arr is None else k_arr
+    zidx = np.argmin(np.abs(z_data-z))
+    P_data = Plin_data[zidx]
+    logP_arr = np.interp(np.log(k_arr), np.log(k_data), np.log(P_data))
+    P_arr = np.exp(logP_arr)
+    return P_arr, k_arr
+
+
 def get_dndlnM_fast(z, Mh_arr=None):
     '''
     Precomuting dndlnM(z, Mh_arr[Msun/h]) in to a data,
