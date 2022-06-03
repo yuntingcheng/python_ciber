@@ -621,7 +621,7 @@ class micecat_field:
     def get_raw_df(self):
         
         fname = mypaths['MCcatdat'] + 'all_fields/' \
-                        + 'micecat_ra%d_dec%d_%.1fx%.1f.csv.bz2'\
+                                    + 'micecat_ra%d_dec%d_%.1fx%.1f.csv.bz2'\
                         %(self.ra_cent,self.dec_cent,self.ra_size, self.dec_size)
 
         if not os.path.exists(fname):
